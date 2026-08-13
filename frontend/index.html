@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SENTRY — Human-Governed Autonomous SOC</title>
+<style>
+  :root{
+    --bg:#0b0f14;
+    --panel:#111826;
+    --panel-2:#0e1420;
+    --border:#1e2937;
+    --text:#dbe4ee;
+    --muted:#7c8ba1;
+    --accent:#4fd1c5;      /* signal teal — "verified / good" */
+    --danger:#ef5b5b;      /* critical/deepfake */
+    --warn:#e3a53c;        /* high/manual */
+    --low:#5b8def;         /* low risk / auto */
+    --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:var(--sans); font-size:14px;
+  }
+  header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 20px; border-bottom:1px solid var(--border);
+    background:linear-gradient(180deg,#0e141d,#0b0f14);
+  }
+  .brand{display:flex; align-items:center; gap:10px;}
+  .brand .dot{width:10px;height:10px;border-radius:50%;background:var(--accent); box-shadow:0 0 10px var(--accent);}
+  .brand h1{font-size:16px; letter-spacing:.08em; margin:0; font-family:var(--mono); font-weight:700;}
+  .brand span{color:var(--muted); font-size:12px;}
+  .chips{display:flex; gap:8px; align-items:center;}
+  .chip{
+    font-family:var(--mono); font-size:11px; color:var(--muted);
+    border:1px solid var(--border); padding:4px 8px; border-radius:4px;
+  }
+  #sim-btn{
+    background:var(--low); color:#04101f; border:none; padding:8px 14px;
+    border-radius:6px; font-weight:600; cursor:pointer; font-size:12.5px;
+  }
+  #sim-btn:hover{filter:brightness(1.1);}
+  #sim-btn:disabled{opacity:.5; cursor:default;}
+
+  .layout{
+    display:grid;
+    grid-template-columns: 300px 1fr 300px;
+    gap:1px; background:var(--border);
+    height:calc(100vh - 57px);
+  }
+  .col{background:var(--panel); overflow-y:auto; padding:14px;}
+  .col h2{
+    font-family:var(--mono); font-size:11px; letter-spacing:.1em; color:var(--muted);
+    text-transform:uppercase; margin:0 0 12px 0;
+  }
+
+  .filters{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px;}
+  .filter-btn{
+    font-size:11px; padding:4px 9px; border-radius:12px; border:1px solid var(--border);
+    background:transparent; color:var(--muted); cursor:pointer; font-family:var(--mono);
+  }
+  .filter-btn.active{background:var(--accent); color:#04141a; border-color:var(--accent); font-weight:700;}
+
+  .alert-item{
+    border:1px solid var(--border); border-radius:8px; padding:10px 12px; margin-bottom:8px;
+    cursor:pointer; background:var(--panel-2); transition:border-color .15s;
+  }
+  .alert-item:hover{border-color:var(--accent);}
+  .alert-item.selected{border-color:var(--accent); box-shadow:0 0 0 1px var(--accent);}
+  .alert-item .title{font-size:13px; font-weight:600; line-height:1.35;}
+  .alert-item .meta{display:flex; gap:6px; margin-top:6px; align-items:center;}
+  .sev{
+    font-family:var(--mono); font-size:10px; padding:2px 6px; border-radius:3px; font-weight:700;
+    text-transform:uppercase; letter-spacing:.04em;
+  }
+  .sev-critical{background:rgba(239,91,91,.18); color:var(--danger);}
+  .sev-high{background:rgba(227,165,60,.18); color:var(--warn);}
+  .sev-medium{background:rgba(91,141,239,.18); color:var(--low);}
+  .sev-low{background:rgba(79,209,197,.15); color:var(--accent);}
+  .status-resolved{color:var(--muted); font-size:10px; font-family:var(--mono);}
+
+  .empty{color:var(--muted); font-size:12.5px; padding:20px 4px; text-align:center;}
+
+  .center-block{border:1px solid var(--border); border-radius:8px; padding:14px; margin-bottom:14px; background:var(--panel-2);}
+  .center-block h3{font-family:var(--mono); font-size:11px; letter-spacing:.08em; color:var(--muted); text-transform:uppercase; margin:0 0 10px 0;}
+  .chain-step{font-size:12.5px; line-height:1.6; padding:6px 0; border-bottom:1px dashed var(--border);}
+  .chain-step:last-child{border-bottom:none; color:var(--accent); font-weight:600;}
+
+  .media-row{display:flex; justify-content:space-between; font-size:12.5px; padding:4px 0; border-bottom:1px solid var(--border);}
+  .media-row:last-child{border-bottom:none;}
+  .verdict-badge{font-family:var(--mono); font-size:10px; padding:2px 7px; border-radius:3px; font-weight:700; text-transform:uppercase;}
+  .verdict-deepfake, .verdict-unsigned{background:rgba(239,91,91,.18); color:var(--danger);}
+  .verdict-authentic{background:rgba(79,209,197,.15); color:var(--accent);}
+  .verdict-suspicious{background:rgba(227,165,60,.18); color:var(--warn);}
+
+  .action-row{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:8px 10px; border:1px solid var(--border); border-radius:6px; margin-bottom:6px;
+    background:var(--panel);
+  }
+  .action-label{font-size:12.5px;}
+  .risk-tag{font-family:var(--mono); font-size:9.5px; padding:1px 5px; border-radius:3px; margin-left:6px;}
+  .risk-low{background:rgba(91,141,239,.18); color:var(--low);}
+  .risk-high{background:rgba(227,165,60,.18); color:var(--warn);}
+  .action-buttons{display:flex; gap:6px;}
+  .btn-approve, .btn-deny{
+    font-family:var(--mono); font-size:10.5px; padding:4px 9px; border-radius:4px; cursor:pointer; border:none; font-weight:700;
+  }
+  .btn-approve{background:var(--accent); color:#04141a;}
+  .btn-deny{background:var(--danger); color:#1a0505;}
+  .mode-tag{font-family:var(--mono); font-size:10px; color:var(--muted); text-transform:uppercase;}
+  .mode-approved{color:var(--accent);}
+  .mode-denied{color:var(--danger);}
+
+  .audit-entry{font-size:11.5px; color:var(--muted); padding:5px 0; border-bottom:1px dashed var(--border); font-family:var(--mono);}
+  .audit-entry:last-child{border-bottom:none;}
+  .audit-entry .ts{color:#4a5568; margin-right:6px;}
+
+  .toast{
+    position:fixed; bottom:20px; right:20px; background:var(--panel-2); border:1px solid var(--accent);
+    color:var(--text); padding:10px 16px; border-radius:6px; font-size:12.5px; box-shadow:0 4px 20px rgba(0,0,0,.4);
+    opacity:0; transform:translateY(10px); transition:all .25s; pointer-events:none; max-width:320px;
+  }
+  .toast.show{opacity:1; transform:translateY(0);}
+
+  ::-webkit-scrollbar{width:8px;}
+  ::-webkit-scrollbar-thumb{background:var(--border); border-radius:4px;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="dot"></div>
+    <h1>SENTRY</h1>
+    <span>Human-Governed Autonomous SOC · Media &amp; Identity Integrity</span>
+  </div>
+  <div class="chips">
+    <span class="chip" id="api-status">connecting…</span>
+    <button id="sim-btn" onclick="simulateAlert()">▶ Simulate incoming alert</button>
+  </div>
+</header>
+
+<div class="layout">
+  <!-- LEFT: Alert stream -->
+  <div class="col">
+    <h2>Alert Stream</h2>
+    <div class="filters" id="filters"></div>
+    <div id="alert-list"><div class="empty">Loading alerts…</div></div>
+  </div>
+
+  <!-- CENTER: Attack chain, media verification, playbook -->
+  <div class="col" id="center-col">
+    <div class="empty">Select an alert to view its attack chain, media verification, and recommended playbook.</div>
+  </div>
+
+  <!-- RIGHT: Signer card + provenance log -->
+  <div class="col" id="right-col">
+    <div class="empty">—</div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API = "http://localhost:8000";
+let alerts = [];
+let selectedId = null;
+let activeFilter = "all";
+
+const FILTERS = [
+  ["all","All"], ["identity","Identity"], ["network","Network"],
+  ["media","Media"], ["endpoint","Endpoint"], ["email","Email"]
+];
+
+function renderFilters(){
+  const el = document.getElementById("filters");
+  el.innerHTML = FILTERS.map(([val,label]) =>
+    `<button class="filter-btn ${val===activeFilter?'active':''}" onclick="setFilter('${val}')">${label}</button>`
+  ).join("");
+}
+function setFilter(val){ activeFilter = val; renderFilters(); renderAlertList(); }
+
+function showToast(msg){
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(showToast._timer);
+  showToast._timer = setTimeout(()=>t.classList.remove("show"), 3200);
+}
+
+async function fetchAlerts(){
+  try{
+    const res = await fetch(`${API}/alerts`);
+    if(!res.ok) throw new Error("bad status");
+    alerts = await res.json();
+    document.getElementById("api-status").textContent = "● live";
+    document.getElementById("api-status").style.color = "var(--accent)";
+    renderAlertList();
+    if(selectedId) renderDetail(alerts.find(a=>a.id===selectedId));
+  }catch(e){
+    document.getElementById("api-status").textContent = "○ backend unreachable — start uvicorn on :8000";
+    document.getElementById("api-status").style.color = "var(--danger)";
+  }
+}
+
+function renderAlertList(){
+  const list = document.getElementById("alert-list");
+  const filtered = activeFilter === "all"
+    ? alerts
+    : alerts.filter(a => a.evidence.some(e => e.source_type === activeFilter));
+
+  if(filtered.length === 0){
+    list.innerHTML = `<div class="empty">No alerts match this filter.</div>`;
+    return;
+  }
+  list.innerHTML = filtered.map(a => `
+    <div class="alert-item ${a.id===selectedId?'selected':''}" onclick="selectAlert('${a.id}')">
+      <div class="title">${a.title}</div>
+      <div class="meta">
+        <span class="sev sev-${a.severity}">${a.severity}</span>
+        ${a.status === 'resolved' ? `<span class="status-resolved">resolved</span>` : ''}
+      </div>
+    </div>
+  `).join("");
+}
+
+function selectAlert(id){
+  selectedId = id;
+  renderAlertList();
+  renderDetail(alerts.find(a=>a.id===id));
+}
+
+function renderDetail(alert){
+  if(!alert) return;
+  // CENTER column: attack chain + media panel + playbook
+  const mediaEvidence = alert.evidence.filter(e => e.source_type === "media");
+  const center = document.getElementById("center-col");
+  center.innerHTML = `
+    <div class="center-block">
+      <h3>Attack Chain</h3>
+      ${alert.attack_chain.map(step => `<div class="chain-step">${escapeHtml(step)}</div>`).join("")}
+    </div>
+
+    ${mediaEvidence.length ? `
+    <div class="center-block">
+      <h3>Media Verification Panel</h3>
+      ${mediaEvidence.map(e => `
+        <div class="media-row">
+          <span>${escapeHtml(e.description)}</span>
+        </div>
+      `).join("")}
+    </div>` : ""}
+
+    <div class="center-block">
+      <h3>Recommended Playbook</h3>
+      ${alert.playbook.length === 0 ? `<div class="empty" style="padding:6px 0;">No actions recommended.</div>` :
+        alert.playbook.map(act => `
+        <div class="action-row">
+          <div class="action-label">
+            ${escapeHtml(act.label)}
+            <span class="risk-tag risk-${act.risk_level}">${act.risk_level}</span>
+          </div>
+          ${act.mode === "manual" ? `
+            <div class="action-buttons">
+              <button class="btn-approve" onclick="decide('${alert.id}','${act.id}','approve')">Approve</button>
+              <button class="btn-deny" onclick="decide('${alert.id}','${act.id}','deny')">Deny</button>
+            </div>` : `<span class="mode-tag mode-${act.mode}">${act.mode}</span>`
+          }
+        </div>
+      `).join("")}
+    </div>
+  `;
+
+  // RIGHT column: signer card + provenance log
+  const signerLine = mediaEvidence.length
+    ? mediaEvidence[0].description
+    : "No media evidence attached to this alert.";
+  const right = document.getElementById("right-col");
+  right.innerHTML = `
+    <h2>Signer / Credential</h2>
+    <div class="center-block" style="margin-bottom:20px;">
+      <div style="font-size:12.5px; line-height:1.6; color:var(--muted);">${escapeHtml(signerLine)}</div>
+    </div>
+    <h2>Provenance Log</h2>
+    <div class="center-block">
+      ${alert.audit_log.slice().reverse().map(entry => `
+        <div class="audit-entry">
+          <span class="ts">${new Date(entry.timestamp).toLocaleTimeString()}</span>${escapeHtml(entry.message)}
+        </div>
+      `).join("")}
+    </div>
+  `;
+}
+
+async function decide(alertId, actionId, kind){
+  try{
+    const res = await fetch(`${API}/alerts/${alertId}/${kind}?action_id=${actionId}`, { method: "POST" });
+    if(!res.ok) throw new Error(await res.text());
+    const updated = await res.json();
+    alerts = alerts.map(a => a.id === updated.id ? updated : a);
+    renderDetail(updated);
+    showToast(kind === "approve" ? "Action approved." : "Action denied.");
+  }catch(e){
+    showToast("Could not reach backend — is uvicorn running on :8000?");
+  }
+}
+
+async function simulateAlert(){
+  const btn = document.getElementById("sim-btn");
+  btn.disabled = true;
+  btn.textContent = "Simulating…";
+  try{
+    const res = await fetch(`${API}/alerts/simulate?scenario=deepfake_wire_fraud`, { method: "POST" });
+    if(!res.ok) throw new Error(await res.text());
+    const alert = await res.json();
+    await fetchAlerts();
+    selectAlert(alert.id);
+    showToast("New correlated alert ingested.");
+  }catch(e){
+    showToast("Simulation failed — is the backend running?");
+  }finally{
+    btn.disabled = false;
+    btn.textContent = "▶ Simulate incoming alert";
+  }
+}
+
+function escapeHtml(str){
+  const d = document.createElement("div");
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+renderFilters();
+fetchAlerts();
+setInterval(fetchAlerts, 4000); // simple poll instead of WebSocket — good enough at demo scale
+</script>
+</body>
+</html>
