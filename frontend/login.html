@@ -56,7 +56,7 @@
       background-size: 64px 64px;
       z-index: 10;
       pointer-events: none;
-      opacity: 0.32;
+      opacity: 0.28;
     }
 
     /* Reveal Layer - z-index: 30 */
@@ -65,7 +65,7 @@
       inset: 0;
       width: 100vw;
       height: 100vh;
-      background: center/cover no-repeat url(assets/matrix-reveal.png);
+      background: center/cover no-repeat url(/assets/matrix-reveal.png);
       z-index: 30;
       pointer-events: none;
 
@@ -484,6 +484,10 @@
               placeholder="••••••••"
               autocomplete="current-password"
             >
+            <div id="error-message" style="display: none; color: #ff4d4d; font-size: 0.8rem; margin-top: 6px; font-weight: 500; display: flex; align-items: center; gap: 6px;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+              <span>Invalid credentials</span>
+            </div>
           </div>
 
           <!-- Submit Action -->
@@ -638,9 +642,16 @@
       e.preventDefault();
       
       const emailVal = document.getElementById('email').value;
-      console.log("Form submitted: authenticating SENTRY organization keys...", { email: emailVal });
+      const passwordVal = document.getElementById('password').value;
+      const errorMsg = document.getElementById('error-message');
+      
+      // Clear previous error styles
+      errorMsg.style.display = 'none';
+      document.getElementById('email').style.borderColor = '';
+      document.getElementById('password').style.borderColor = '';
 
       submitBtn.disabled = true;
+      const originalBtnContent = submitBtn.innerHTML;
       submitBtn.innerHTML = `
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="animation: spin 1s linear infinite;">
           <line x1="12" y1="2" x2="12" y2="6"></line>
@@ -652,7 +663,7 @@
           <line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line>
           <line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line>
         </svg>
-        <span>Authorizing Key...</span>
+        <span>Checking Key...</span>
       `;
       submitBtn.style.opacity = '0.8';
       submitBtn.style.boxShadow = '0 0 35px rgba(0, 255, 148, 0.5)';
@@ -666,20 +677,46 @@
       }
 
       setTimeout(() => {
-        submitBtn.innerHTML = `
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="20 6 9 17 4 12"></polyline>
-          </svg>
-          <span>Identity Verified</span>
-        `;
-        submitBtn.style.backgroundColor = '#10b981';
-        submitBtn.style.color = '#ffffff';
-        submitBtn.style.boxShadow = '0 0 30px rgba(16, 185, 129, 0.4)';
-        
-        setTimeout(() => {
-          window.location.href = 'landing.html';
-        }, 800);
-      }, 1600);
+        if (emailVal === 'admin@sentry.io' && passwordVal === 'sentry123') {
+          submitBtn.innerHTML = `
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            <span>Identity Verified</span>
+          `;
+          submitBtn.style.backgroundColor = '#10b981';
+          submitBtn.style.color = '#ffffff';
+          submitBtn.style.boxShadow = '0 0 30px rgba(16, 185, 129, 0.4)';
+          
+          setTimeout(() => {
+            window.location.href = '/dashboard';
+          }, 800);
+        } else {
+          // Display error and reset form buttons
+          errorMsg.style.display = 'flex';
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = originalBtnContent;
+          submitBtn.style.opacity = '';
+          submitBtn.style.boxShadow = '';
+          
+          // Give inputs a red border indicating invalid inputs
+          const emailInput = document.getElementById('email');
+          const passwordInput = document.getElementById('password');
+          emailInput.style.borderColor = '#ff4d4d';
+          passwordInput.style.borderColor = '#ff4d4d';
+          
+          // Clear error border styles on re-focus
+          const resetBorders = () => {
+            emailInput.style.borderColor = '';
+            passwordInput.style.borderColor = '';
+            errorMsg.style.display = 'none';
+            emailInput.removeEventListener('focus', resetBorders);
+            passwordInput.removeEventListener('focus', resetBorders);
+          };
+          emailInput.addEventListener('focus', resetBorders);
+          passwordInput.addEventListener('focus', resetBorders);
+        }
+      }, 1000);
     });
   </script>
 </body>

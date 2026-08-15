@@ -56,6 +56,8 @@ _PROJECT_ROOT = pathlib.Path(__file__).resolve().parent.parent
 _FRONTEND_DIR = _PROJECT_ROOT / "frontend"
 # Mount frontend directory at /static so assets can be fetched from /static/...
 app.mount("/static", StaticFiles(directory=str(_FRONTEND_DIR)), name="static")
+_ASSETS_DIR = _FRONTEND_DIR / "assets"
+app.mount("/assets", StaticFiles(directory=str(_ASSETS_DIR)), name="assets")
 
 @app.get("/", include_in_schema=False)
 def _serve_frontend_index():
@@ -71,6 +73,14 @@ def _serve_login_page():
     if login_path.exists():
         return FileResponse(str(login_path))
     return {"detail": "Login page not found"}
+
+
+@app.get('/dashboard', include_in_schema=False)
+def _serve_dashboard_page():
+    dashboard_path = _FRONTEND_DIR / 'dashboard.html'
+    if dashboard_path.exists():
+        return FileResponse(str(dashboard_path))
+    return {"detail": "Dashboard page not found"}
 
 
 from fastapi import Form

@@ -1,424 +1,1161 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SENTRY — Human-Governed Autonomous SOC</title>
-<style>
-  :root{
-    --bg:#0A0A0A;
-    --panel:rgba(255, 255, 255, 0.02);
-    --panel-2:rgba(255, 255, 255, 0.03);
-    --border:rgba(0, 255, 148, 0.12);
-    --text:#ffffff;
-    --muted:#94a3b8;
-    --accent:#00FF94;      /* neon green */
-    --danger:#ef5b5b;      /* critical stays red-on-dark */
-    --warn:#f59e0b;        /* high stays amber */
-    --low:#10b981;         /* low risk / auto green */
-    --muted-green-gray:#5c786c;
-    --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
-    --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  }
-  *{box-sizing:border-box;}
-  body{
-    margin:0; background:var(--bg); color:var(--text);
-    font-family:var(--sans); font-size:14px;
-    background-image: 
-      radial-gradient(circle at 50% 50%, rgba(0, 255, 148, 0.02) 0%, transparent 50%),
-      linear-gradient(rgba(0, 255, 148, 0.01) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(0, 255, 148, 0.01) 1px, transparent 1px);
-    background-size: 100% 100%, 40px 40px, 40px 40px;
-    min-height: 100vh;
-  }
-  header{
-    display:flex; align-items:center; justify-content:space-between;
-    padding:14px 20px; border-bottom:1px solid var(--border);
-    background:rgba(10, 10, 10, 0.8);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    z-index: 10;
-  }
-  .brand{display:flex; align-items:center; gap:10px;}
-  .brand .dot{
-    width:8px; height:8px; border-radius:50%;
-    background:var(--accent);
-    box-shadow: 0 0 10px var(--accent), 0 0 20px var(--accent);
-    animation: beacon-pulse 2s infinite ease-in-out;
-  }
-  @keyframes beacon-pulse {
-    0%, 100% { transform: scale(1); opacity: 0.6; }
-    50% { transform: scale(1.2); opacity: 1; }
-  }
-  .brand h1{font-size:16px; letter-spacing:.12em; margin:0; font-family:var(--mono); font-weight:700; color:#ffffff;}
-  .brand span{color:var(--muted-green-gray); font-size:12px; font-weight:500;}
-  .chips{display:flex; gap:8px; align-items:center;}
-  .chip{
-    font-family:var(--mono); font-size:10px; color:var(--muted-green-gray);
-    border:1px solid var(--border); padding:4px 10px; border-radius:4px;
-    background:rgba(0, 255, 148, 0.02);
-    font-weight: 500;
-  }
-  #sim-btn{
-    background:rgba(0, 255, 148, 0.05); color:var(--accent); border:1px solid var(--border);
-    padding:8px 16px; border-radius:6px; font-weight:600; cursor:pointer; font-size:12px;
-    transition:all 0.3s ease; backdrop-filter:blur(8px);
-  }
-  #sim-btn:hover{
-    background:var(--accent); color:var(--bg);
-    box-shadow:0 0 15px rgba(0, 255, 148, 0.3);
-  }
-  #sim-btn:disabled{opacity:.4; cursor:default; background:rgba(255,255,255,0.02); color:var(--muted); box-shadow:none;}
-
-  .layout{
-    display:grid;
-    grid-template-columns: 300px 1fr 300px;
-    gap:1px; background:var(--border);
-    height:calc(100vh - 57px);
-  }
-  .col{
-    background:rgba(10, 10, 10, 0.6);
-    backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px);
-    overflow-y:auto; padding:18px;
-  }
-  .col h2{
-    font-family:var(--sans); font-size:11px; letter-spacing:.15em; color:var(--accent);
-    text-transform:uppercase; font-variant:small-caps; margin:0 0 16px 0; font-weight:700;
-  }
-
-  .filters{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:16px;}
-  .filter-btn{
-    font-size:11px; padding:5px 12px; border-radius:12px; border:1px solid rgba(0, 255, 148, 0.15);
-    background:rgba(255, 255, 255, 0.02); color:var(--muted); cursor:pointer; font-family:var(--mono);
-    transition:all 0.2s ease; backdrop-filter:blur(8px);
-  }
-  .filter-btn:hover{
-    border-color:var(--accent); color:var(--text); background:rgba(0, 255, 148, 0.05);
-  }
-  .filter-btn.active{
-    background:var(--accent); color:#050505; border-color:var(--accent); font-weight:700;
-    box-shadow:0 0 10px rgba(0, 255, 148, 0.25);
-  }
-
-  .alert-item{
-    border:1px solid rgba(255, 255, 255, 0.06); border-radius:8px; padding:12px 14px; margin-bottom:10px;
-    cursor:pointer; background:rgba(255, 255, 255, 0.03); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
-    transition:all 0.3s cubic-bezier(0.16, 1, 0.3, 1); position:relative; overflow:hidden;
-    animation:slide-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  }
-  @keyframes slide-in {
-    from { opacity:0; transform:translateY(12px); }
-    to { opacity:1; transform:translateY(0); }
-  }
-  .alert-item:hover{
-    border-color:rgba(0, 255, 148, 0.3); background:rgba(0, 255, 148, 0.02);
-    transform:translateY(-2px); box-shadow:0 6px 20px rgba(0, 255, 148, 0.05);
-  }
-  .alert-item.selected{
-    border-color:var(--accent); box-shadow:0 0 15px rgba(0, 255, 148, 0.15), inset 0 0 8px rgba(0, 255, 148, 0.03);
-    background:rgba(0, 255, 148, 0.03);
-  }
-  .alert-item .title{font-size:13px; font-weight:600; line-height:1.4; color:#ffffff;}
-  .alert-item .meta{display:flex; gap:8px; margin-top:8px; align-items:center;}
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SENTRY | Autonomous SOC Platform</title>
   
-  .sev{
-    font-family:var(--mono); font-size:9.5px; padding:2px 7px; border-radius:4px; font-weight:700;
-    text-transform:uppercase; letter-spacing:.06em;
-  }
-  .sev-critical{background:rgba(239,91,91,.12); color:var(--danger); border:1px solid rgba(239,91,91,.25); animation:pulse-critical 2s infinite ease-in-out;}
-  @keyframes pulse-critical {
-    0%, 100% { box-shadow: 0 0 4px rgba(239,91,91,0.2); }
-    50% { box-shadow: 0 0 10px rgba(239,91,91,0.5); }
-  }
-  .sev-high{background:rgba(245,158,11,.12); color:var(--warn); border:1px solid rgba(245,158,11,.25);}
-  .sev-medium, .sev-low{background:rgba(0,255,148,.08); color:var(--accent); border:1px solid rgba(0,255,148,.2);}
-  .status-resolved{color:var(--muted); font-size:10px; font-family:var(--mono);}
+  <!-- SEO Meta Tags -->
+  <meta name="description" content="SENTRY is a human-governed autonomous SOC platform. Correlate signals, auto-contain low-risk threats, and route high-impact security decisions instantly.">
+  <meta name="keywords" content="cybersecurity, SOC, autonomous security, threat detection, incident response, SIEM, SOAR">
+  <meta name="robots" content="index, follow">
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  
+  <style>
+    /* -------------------------------------------------------------
+       DESIGN SYSTEM & VARIABLES
+       ------------------------------------------------------------- */
+    :root {
+      --bg-base: #05070a;
+      --bg-darker: #020305;
+      --accent-color: #00FF94;
+      --accent-glow: rgba(0, 255, 148, 0.15);
+      --accent-border: rgba(0, 255, 148, 0.2);
+      --border-subtle: rgba(255, 255, 255, 0.05);
+      --border-green-subtle: rgba(0, 255, 148, 0.1);
+      --cyan-gradient: #00E5FF;
+      --text-primary: #f8fafc;
+      --text-secondary: #94a3b8;
+      --text-muted: #475569;
+      --glass-bg: rgba(255, 255, 255, 0.03);
+      --glass-bg-hover: rgba(0, 255, 148, 0.05);
+      --glass-blur: blur(16px);
+      
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-mono: 'Fira Code', 'Courier New', Courier, monospace;
+      --font-display: 'Space Grotesk', sans-serif;
+    }
 
-  .empty{color:var(--muted); font-size:12.5px; padding:20px 4px; text-align:center;}
+    /* -------------------------------------------------------------
+       BASE STYLES
+       ------------------------------------------------------------- */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      scroll-behavior: smooth;
+    }
 
-  .center-block{
-    border:1px solid rgba(0, 255, 148, 0.12); border-radius:12px; padding:16px; margin-bottom:16px;
-    background:rgba(255, 255, 255, 0.02); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
-    box-shadow:0 8px 32px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.03);
-  }
-  .center-block.media-verification-panel {
-    border-color:rgba(0, 255, 148, 0.3);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 0 0 15px rgba(0, 255, 148, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.05);
-    background:rgba(0, 255, 148, 0.02);
-  }
-  .center-block h3{
-    font-family:var(--sans); font-size:11px; letter-spacing:.15em; color:var(--accent);
-    text-transform:uppercase; font-variant:small-caps; margin:0 0 12px 0; font-weight:700;
-  }
-  .chain-step{
-    font-size:12.5px; line-height:1.6; padding:8px 0; border-bottom:1px dashed rgba(0, 255, 148, 0.15);
-    color:var(--muted);
-  }
-  .chain-step:last-child{
-    border-bottom:none; color:var(--accent); font-weight:600; background:rgba(0, 255, 148, 0.04);
-    padding:8px 12px; border-radius:6px; margin-top:4px; border:1px solid rgba(0, 255, 148, 0.15);
-    box-shadow:0 0 10px rgba(0, 255, 148, 0.05);
-  }
+    body {
+      background-color: var(--bg-base);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      min-height: 100vh;
+      overflow-x: hidden;
+      position: relative;
+      line-height: 1.5;
+    }
 
-  .media-row{display:flex; justify-content:space-between; font-size:12.5px; padding:8px 0; border-bottom:1px solid rgba(0, 255, 148, 0.1); color:var(--text);}
-  .media-row:last-child{border-bottom:none;}
-  .verdict-badge{font-family:var(--mono); font-size:10px; padding:2px 7px; border-radius:4px; font-weight:700; text-transform:uppercase;}
-  .verdict-deepfake, .verdict-unsigned{background:rgba(239,91,91,.12); color:var(--danger); border:1px solid rgba(239,91,91,.2);}
-  .verdict-authentic{background:rgba(0,255,148,.08); color:var(--accent); border:1px solid rgba(0,255,148,.2);}
-  .verdict-suspicious{background:rgba(245,158,11,.12); color:var(--warn); border:1px solid rgba(245,158,11,.2);}
+    /* Selection Color */
+    ::selection {
+      background-color: rgba(0, 255, 148, 0.2);
+      color: var(--accent-color);
+    }
 
-  .action-row{
-    display:flex; align-items:center; justify-content:space-between;
-    padding:10px 14px; border:1px solid rgba(255, 255, 255, 0.06); border-radius:8px; margin-bottom:8px;
-    background:rgba(255, 255, 255, 0.015); backdrop-filter:blur(8px);
-    transition:all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-  }
-  .action-row:hover{
-    border-color:rgba(0, 255, 148, 0.25); background:rgba(0, 255, 148, 0.02);
-    transform:translateY(-1px); box-shadow:0 4px 12px rgba(0, 255, 148, 0.05);
-  }
-  .action-label{font-size:12.5px; color:#ffffff; font-weight:500;}
-  .risk-tag{font-family:var(--mono); font-size:9px; padding:2px 6px; border-radius:4px; margin-left:8px; font-weight:700; text-transform:uppercase;}
-  .risk-low{background:rgba(0,255,148,.08); color:var(--accent); border:1px solid rgba(0,255,148,.15);}
-  .risk-high{background:rgba(239,91,91,.08); color:var(--danger); border:1px solid rgba(239,91,91,.15);}
-  .action-buttons{display:flex; gap:6px;}
-  .btn-approve, .btn-deny{
-    font-family:var(--mono); font-size:10.5px; padding:6px 12px; border-radius:4px; cursor:pointer; border:none; font-weight:700; transition:all 0.2s ease;
-  }
-  .btn-approve{background:var(--accent); color:#050505; box-shadow:0 0 10px rgba(0, 255, 148, 0.2);}
-  .btn-approve:hover{background:#00e685; box-shadow:0 0 15px rgba(0, 255, 148, 0.4);}
-  .btn-deny{background:rgba(239,91,91,.15); color:#ff8080; border:1px solid rgba(239,91,91,.3);}
-  .btn-deny:hover{background:var(--danger); color:#050505; box-shadow:0 0 15px rgba(239, 91, 91, 0.4); border-color:var(--danger);}
-  .mode-tag{font-family:var(--mono); font-size:10px; color:var(--muted); text-transform:uppercase; transition:all 0.4s ease; font-weight:700;}
-  .mode-approved{color:var(--accent); text-shadow:0 0 8px rgba(0, 255, 148, 0.3);}
-  .mode-denied{color:var(--danger); text-shadow:0 0 8px rgba(239, 91, 91, 0.3);}
+    /* Scrollbars */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: var(--bg-darker);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(0, 255, 148, 0.3);
+    }
 
-  .audit-entry{font-size:11.5px; color:var(--muted); padding:8px 0; border-bottom:1px dashed rgba(255, 255, 255, 0.05); font-family:var(--mono);}
-  .audit-entry:last-child{border-bottom:none;}
-  .audit-entry .ts{color:var(--muted-green-gray); margin-right:8px; font-weight:500;}
+    /* -------------------------------------------------------------
+       AMBIENT CYBER EFFECTS (Grid, Scanlines, Glows)
+       ------------------------------------------------------------- */
+    .ambient-grid {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image: 
+        linear-gradient(var(--border-green-subtle) 1px, transparent 1px),
+        linear-gradient(90deg, var(--border-green-subtle) 1px, transparent 1px);
+      background-size: 60px 60px;
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.15;
+    }
 
-  .toast{
-    position:fixed; bottom:20px; right:20px; background:rgba(10, 10, 10, 0.9); border:1px solid var(--accent);
-    color:var(--text); padding:12px 20px; border-radius:8px; font-size:12.5px; box-shadow:0 8px 30px rgba(0,0,0,.5), 0 0 15px rgba(0, 255, 148, 0.1);
-    opacity:0; transform:translateY(10px); transition:all .3s cubic-bezier(0.16, 1, 0.3, 1); pointer-events:none; max-width:320px; z-index:100;
-    backdrop-filter:blur(8px);
-  }
-  .toast.show{opacity:1; transform:translateY(0);}
+    .ambient-glow-orb {
+      position: absolute;
+      width: 600px;
+      height: 600px;
+      border-radius: 50%;
+      pointer-events: none;
+      filter: blur(140px);
+      z-index: 0;
+      opacity: 0.08;
+      mix-blend-mode: screen;
+    }
 
-  ::-webkit-scrollbar{width:6px;}
-  ::-webkit-scrollbar-track{background:transparent;}
-  ::-webkit-scrollbar-thumb{background:rgba(0, 255, 148, 0.12); border-radius:4px;}
-  ::-webkit-scrollbar-thumb:hover{background:rgba(0, 255, 148, 0.3);}
-</style>
+    .orb-1 {
+      top: -10%;
+      left: 10%;
+      background: var(--accent-color);
+      animation: float-orb-1 25s infinite alternate ease-in-out;
+    }
+
+    .orb-2 {
+      top: 40%;
+      right: 5%;
+      background: var(--cyan-gradient);
+      animation: float-orb-2 30s infinite alternate ease-in-out;
+    }
+
+    .scan-bar {
+      position: fixed;
+      top: -20vh;
+      left: 0;
+      width: 100%;
+      height: 15px;
+      background: linear-gradient(
+        to bottom,
+        transparent,
+        rgba(0, 255, 148, 0.04),
+        transparent
+      );
+      z-index: 1;
+      pointer-events: none;
+      animation: sweep-scan 12s linear infinite;
+    }
+
+    .interactive-glow-layer {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 1;
+      background: radial-gradient(
+        600px circle at var(--mouse-x, 50%) var(--mouse-y, 50%), 
+        rgba(0, 255, 148, 0.04), 
+        transparent 45%
+      );
+    }
+
+    /* -------------------------------------------------------------
+       NAVIGATION BAR
+       ------------------------------------------------------------- */
+    header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      z-index: 100;
+      backdrop-filter: var(--glass-blur);
+      -webkit-backdrop-filter: var(--glass-blur);
+      background: rgba(5, 7, 10, 0.75);
+      border-bottom: 1px solid var(--border-subtle);
+      transition: border-color 0.3s ease;
+    }
+
+    header.scrolled {
+      border-bottom-color: rgba(0, 255, 148, 0.15);
+      background: rgba(2, 3, 5, 0.85);
+    }
+
+    .nav-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 16px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      color: var(--text-primary);
+      transition: transform 0.2s ease;
+    }
+
+    .logo:hover {
+      transform: scale(1.02);
+    }
+
+    .logo-icon {
+      filter: drop-shadow(0 0 8px rgba(0, 255, 148, 0.5));
+    }
+
+    .logo-text {
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 1.25rem;
+      letter-spacing: 0.12em;
+      color: #ffffff;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 36px;
+    }
+
+    .nav-link {
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 0.95rem;
+      font-weight: 500;
+      transition: all 0.2s ease;
+      position: relative;
+      padding: 4px 0;
+    }
+
+    .nav-link:hover {
+      color: var(--text-primary);
+      text-shadow: 0 0 10px rgba(0, 255, 148, 0.3);
+    }
+
+    .nav-link::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 0;
+      height: 1.5px;
+      background: var(--accent-color);
+      transition: width 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .nav-link:hover::after {
+      width: 100%;
+    }
+
+    .nav-btn {
+      background: rgba(0, 255, 148, 0.04);
+      color: var(--accent-color);
+      border: 1px solid var(--accent-border);
+      padding: 10px 22px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      backdrop-filter: var(--glass-blur);
+    }
+
+    .nav-btn:hover {
+      background: var(--accent-color);
+      color: var(--bg-darker);
+      box-shadow: 0 0 20px rgba(0, 255, 148, 0.4);
+      transform: translateY(-1px);
+    }
+
+    .hamburger {
+      display: none;
+      background: none;
+      border: none;
+      color: var(--text-primary);
+      cursor: pointer;
+      padding: 4px;
+      z-index: 101;
+    }
+
+    /* -------------------------------------------------------------
+       HERO SECTION
+       ------------------------------------------------------------- */
+    .hero {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 150px 24px 80px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      position: relative;
+      z-index: 2;
+    }
+
+    /* Glass Badge */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(0, 255, 148, 0.03);
+      border: 1px solid rgba(0, 255, 148, 0.15);
+      color: var(--accent-color);
+      padding: 8px 18px;
+      border-radius: 9999px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 28px;
+      backdrop-filter: var(--glass-blur);
+      -webkit-backdrop-filter: var(--glass-blur);
+      box-shadow: 0 0 15px rgba(0, 255, 148, 0.02);
+      transition: border-color 0.3s, background 0.3s;
+    }
+
+    .badge:hover {
+      border-color: rgba(0, 255, 148, 0.4);
+      background: rgba(0, 255, 148, 0.06);
+    }
+
+    .badge-icon {
+      animation: pulse-op 1.5s infinite ease-in-out;
+    }
+
+    /* Headline */
+    .headline {
+      font-family: var(--font-display);
+      font-size: clamp(2.3rem, 5.2vw, 4.2rem);
+      font-weight: 700;
+      line-height: 1.15;
+      letter-spacing: -0.02em;
+      max-width: 920px;
+      margin-bottom: 24px;
+      color: #ffffff;
+    }
+
+    .headline span.gradient {
+      background: linear-gradient(135deg, var(--accent-color) 0%, var(--cyan-gradient) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 2px 10px rgba(0, 255, 148, 0.15));
+    }
+
+    /* Subtext */
+    .subtext {
+      font-size: clamp(1rem, 1.8vw, 1.18rem);
+      color: var(--text-secondary);
+      max-width: 760px;
+      margin-bottom: 40px;
+      line-height: 1.6;
+    }
+
+    /* CTA Buttons */
+    .cta-group {
+      display: flex;
+      gap: 18px;
+      margin-bottom: 56px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      padding: 15px 32px;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      letter-spacing: 0.01em;
+    }
+
+    .btn-primary {
+      background: var(--accent-color);
+      color: var(--bg-darker);
+      border: 1px solid var(--accent-color);
+      box-shadow: 0 0 25px rgba(0, 255, 148, 0.2);
+    }
+
+    .btn-primary:hover {
+      background: #00e685;
+      border-color: #00e685;
+      box-shadow: 0 0 35px rgba(0, 255, 148, 0.45);
+      transform: translateY(-2px);
+    }
+
+    .btn-secondary {
+      background: var(--glass-bg);
+      color: #ffffff;
+      border: 1px solid var(--border-subtle);
+      backdrop-filter: var(--glass-blur);
+      -webkit-backdrop-filter: var(--glass-blur);
+    }
+
+    .btn-secondary:hover {
+      background: var(--glass-bg-hover);
+      border-color: var(--accent-border);
+      color: var(--accent-color);
+      box-shadow: 0 0 20px rgba(0, 255, 148, 0.15);
+      transform: translateY(-2px);
+    }
+
+    /* Features Row */
+    .features-row {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 64px;
+      max-width: 1050px;
+      width: 100%;
+    }
+
+    .feature-tag {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: var(--glass-bg);
+      border: 1px solid var(--border-subtle);
+      padding: 10px 20px;
+      border-radius: 9999px;
+      font-size: 0.88rem;
+      font-weight: 500;
+      color: #e2e8f0;
+      backdrop-filter: var(--glass-blur);
+      -webkit-backdrop-filter: var(--glass-blur);
+      transition: all 0.3s ease;
+    }
+
+    .feature-tag:hover {
+      border-color: rgba(0, 255, 148, 0.35);
+      background: rgba(0, 255, 148, 0.03);
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(0, 255, 148, 0.05);
+    }
+
+    .feature-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--accent-color);
+      filter: drop-shadow(0 0 4px rgba(0, 255, 148, 0.4));
+    }
+
+    /* -------------------------------------------------------------
+       HIGH-FIDELITY CYBER CONSOLE WIDGET
+       ------------------------------------------------------------- */
+    .console-wrapper {
+      width: 100%;
+      max-width: 900px;
+      margin: 0 auto;
+      background: rgba(6, 8, 12, 0.65);
+      border: 1px solid var(--border-green-subtle);
+      border-radius: 12px;
+      backdrop-filter: var(--glass-blur);
+      -webkit-backdrop-filter: var(--glass-blur);
+      overflow: hidden;
+      box-shadow: 
+        0 30px 70px rgba(0, 0, 0, 0.7), 
+        inset 0 1px 0 rgba(255, 255, 255, 0.05),
+        0 0 30px rgba(0, 255, 148, 0.02);
+      text-align: left;
+      position: relative;
+      transition: border-color 0.5s ease;
+    }
+
+    .console-wrapper:hover {
+      border-color: rgba(0, 255, 148, 0.25);
+    }
+
+    /* Console Top Header */
+    .console-header {
+      background: rgba(0, 255, 148, 0.04);
+      border-bottom: 1px solid var(--border-green-subtle);
+      padding: 14px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .console-controls {
+      display: flex;
+      gap: 6px;
+    }
+
+    .console-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+    .dot-red { background-color: #ef4444; opacity: 0.8; }
+    .dot-yellow { background-color: #f59e0b; opacity: 0.8; }
+    .dot-green { background-color: #10b981; opacity: 0.8; }
+
+    .console-title {
+      font-family: var(--font-display);
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--accent-color);
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+    }
+
+    .console-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.72rem;
+      color: var(--text-secondary);
+      font-weight: 600;
+      letter-spacing: 0.05em;
+    }
+
+    .status-pulse {
+      width: 8px;
+      height: 8px;
+      background-color: var(--accent-color);
+      border-radius: 50%;
+      animation: radar-pulse 1.8s infinite;
+    }
+
+    /* Console Content Split Layout */
+    .console-body {
+      display: grid;
+      grid-template-columns: 1.6fr 1fr;
+      height: 330px;
+    }
+
+    /* Left panel: Log terminal stream */
+    .console-terminal {
+      background: rgba(2, 3, 5, 0.85);
+      border-right: 1px solid var(--border-green-subtle);
+      padding: 20px;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .log-line {
+      display: flex;
+      gap: 12px;
+      line-height: 1.4;
+      animation: log-fade 0.3s ease-out forwards;
+    }
+
+    .log-time {
+      color: var(--text-muted);
+      flex-shrink: 0;
+    }
+
+    .log-incoming { color: var(--text-primary); }
+    .log-analysis { color: #f59e0b; }
+    .log-contained { color: var(--accent-color); font-weight: 600; text-shadow: 0 0 10px rgba(0, 255, 148, 0.15); }
+    .log-notify { color: #3b82f6; }
+
+    /* Right panel: Visualization & KPI */
+    .console-panel {
+      padding: 20px 24px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(10, 15, 26, 0.25);
+    }
+
+    .radar-container {
+      width: 150px;
+      height: 150px;
+      position: relative;
+      margin: 8px 0;
+    }
+
+    .radar-svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    .radar-sweep {
+      transform-origin: 100px 100px;
+      animation: radar-spin 5s linear infinite;
+    }
+
+    .radar-dot {
+      transform-origin: center;
+      animation: pulse-dot-key 2.5s ease-in-out infinite;
+    }
+    .dot-1 { animation-delay: 0.5s; }
+    .dot-2 { animation-delay: 1.5s; }
+    .dot-3 { animation-delay: 0.1s; }
+
+    /* KPI Grid inside Console */
+    .stats-grid {
+      width: 100%;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .stat-card {
+      background: rgba(255, 255, 255, 0.015);
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      border-radius: 8px;
+      padding: 10px 14px;
+      transition: all 0.3s ease;
+    }
+
+    .stat-card:hover {
+      background: rgba(255, 255, 255, 0.03);
+      border-color: rgba(0, 255, 148, 0.15);
+    }
+
+    .stat-label {
+      font-size: 0.65rem;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 4px;
+    }
+
+    .stat-value {
+      font-family: var(--font-display);
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: #ffffff;
+    }
+
+    .stat-value.glow-text {
+      color: var(--accent-color);
+      text-shadow: 0 0 10px rgba(0, 255, 148, 0.35);
+    }
+
+    /* -------------------------------------------------------------
+       ANIMATION DEFINITIONS & ENTRANCE DELAYS
+       ------------------------------------------------------------- */
+    /* Fade Up Entry */
+    @keyframes fade-up {
+      from {
+        opacity: 0;
+        transform: translateY(24px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .animate-fade-up {
+      opacity: 0;
+      animation: fade-up 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    .delay-1 { animation-delay: 150ms; }
+    .delay-2 { animation-delay: 280ms; }
+    .delay-3 { animation-delay: 400ms; }
+    .delay-4 { animation-delay: 520ms; }
+    .delay-5 { animation-delay: 650ms; }
+    .delay-6 { animation-delay: 780ms; }
+
+    /* Floating Orbs */
+    @keyframes float-orb-1 {
+      0% { transform: translate(0, 0) scale(1); }
+      100% { transform: translate(120px, 80px) scale(1.15); }
+    }
+
+    @keyframes float-orb-2 {
+      0% { transform: translate(0, 0) scale(1.1); }
+      100% { transform: translate(-100px, -70px) scale(0.9); }
+    }
+
+    /* Scanning laser sweep bar */
+    @keyframes sweep-scan {
+      0% { top: -15vh; }
+      100% { top: 115vh; }
+    }
+
+    /* Pulse operations badge icon */
+    @keyframes pulse-op {
+      0%, 100% { opacity: 0.6; transform: scale(1); }
+      50% { opacity: 1; transform: scale(1.08); }
+    }
+
+    /* Radar sweep spin */
+    @keyframes radar-spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    /* Radar pulse ring */
+    @keyframes radar-pulse {
+      0% {
+        transform: scale(0.85);
+        box-shadow: 0 0 0 0 rgba(0, 255, 148, 0.5);
+      }
+      70% {
+        transform: scale(1.2);
+        box-shadow: 0 0 0 8px rgba(0, 255, 148, 0);
+      }
+      100% {
+        transform: scale(0.85);
+        box-shadow: 0 0 0 0 rgba(0, 255, 148, 0);
+      }
+    }
+
+    /* Radar threat point pulsing */
+    @keyframes pulse-dot-key {
+      0%, 100% { opacity: 0.2; transform: scale(0.8); }
+      50% { opacity: 1; transform: scale(1.3); }
+    }
+
+    /* Log entry animation */
+    @keyframes log-fade {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* -------------------------------------------------------------
+       RESPONSIVE DESIGN & MOBILE DRAWER
+       ------------------------------------------------------------- */
+    @media (max-width: 900px) {
+      .console-body {
+        grid-template-columns: 1fr;
+        height: auto;
+      }
+      .console-terminal {
+        border-right: none;
+        border-bottom: 1px solid var(--border-green-subtle);
+        height: 220px;
+      }
+      .console-panel {
+        padding: 24px;
+        gap: 20px;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .nav-links {
+        display: none; /* hidden by default, toggled via JS */
+      }
+      
+      .hamburger {
+        display: block;
+      }
+
+      .mobile-menu-open .nav-links {
+        display: flex;
+        flex-direction: column;
+        position: fixed;
+        top: 65px;
+        left: 0;
+        width: 100%;
+        background: rgba(3, 5, 8, 0.96);
+        border-bottom: 1px solid var(--border-green-subtle);
+        padding: 30px 24px;
+        gap: 24px;
+        z-index: 99;
+        backdrop-filter: blur(24px);
+        -webkit-backdrop-filter: blur(24px);
+        animation: menu-slide 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      }
+
+      @keyframes menu-slide {
+        from { opacity: 0; transform: translateY(-10px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+
+      .nav-links .nav-btn {
+        width: 100%;
+        text-align: center;
+        margin-top: 10px;
+      }
+
+      .hero {
+        padding: 120px 20px 60px;
+      }
+    }
+  </style>
 </head>
 <body>
 
-<header>
-  <div class="brand">
-    <div class="dot"></div>
-    <h1>SENTRY</h1>
-    <span>Human-Governed Autonomous SOC · Media &amp; Identity Integrity</span>
-  </div>
-  <div class="chips">
-    <span class="chip" id="api-status">connecting…</span>
-  <a href="/login" class="chip" style="text-decoration:none;">Login</a>
-  <button id="sim-btn" onclick="simulateAlert()">▶ Simulate incoming alert</button>
-  </div>
-</header>
+  <!-- Ambient Backdrop Elements -->
+  <div class="ambient-grid"></div>
+  <div class="ambient-glow-orb orb-1"></div>
+  <div class="ambient-glow-orb orb-2"></div>
+  <div class="scan-bar"></div>
+  <div class="interactive-glow-layer"></div>
 
-<div class="layout">
-  <!-- LEFT: Alert stream -->
-  <div class="col">
-    <h2>Alert Stream</h2>
-    <div class="filters" id="filters"></div>
-    <div id="alert-list"><div class="empty">Loading alerts…</div></div>
-  </div>
+  <!-- Header Navigation -->
+  <header id="site-header">
+    <div class="nav-container">
+      <a href="#" class="logo">
+        <svg class="logo-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#00FF94" stroke-width="2">
+          <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5" />
+          <circle cx="12" cy="12" r="3.5" fill="#00FF94" fill-opacity="0.25" stroke="#00FF94" stroke-width="1.5" />
+          <path d="M12 2v20" stroke-opacity="0.25" />
+          <path d="M2 12h20" stroke-opacity="0.25" />
+        </svg>
+        <span class="logo-text">SENTRY</span>
+      </a>
 
-  <!-- CENTER: Attack chain, media verification, playbook -->
-  <div class="col" id="center-col">
-    <div class="empty">Select an alert to view its attack chain, media verification, and recommended playbook.</div>
-  </div>
+      <nav class="nav-links" id="nav-menu">
+        <a href="#" class="nav-link">Home</a>
+        <a href="#features" class="nav-link">Features</a>
+        <a href="/login" class="nav-btn">Login</a>
+      </nav>
 
-  <!-- RIGHT: Signer card + provenance log -->
-  <div class="col" id="right-col">
-    <div class="empty">—</div>
-  </div>
-</div>
+      <button class="hamburger" id="menu-toggle" aria-label="Toggle Navigation Menu">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="3" y1="12" x2="21" y2="12" id="line1"></line>
+          <line x1="3" y1="6" x2="21" y2="6" id="line2"></line>
+          <line x1="3" y1="18" x2="21" y2="18" id="line3"></line>
+        </svg>
+      </button>
+    </div>
+  </header>
 
-<div class="toast" id="toast"></div>
+  <!-- Hero Content Area -->
+  <main class="hero">
+    <!-- Autonomous SOC Pill/Badge -->
+    <div class="badge animate-fade-up delay-1">
+      <span class="pulse-dot"></span>
+      <span class="badge-icon">⚡</span>
+      <span>Human-Governed Autonomous SOC</span>
+    </div>
 
-<script>
-const API = "/api";
-let alerts = [];
-let selectedId = null;
-let activeFilter = "all";
+    <!-- Main Headline -->
+    <h1 class="headline animate-fade-up delay-2">
+      Detect Threats <br>
+      <span class="gradient">Before They Become Incidents.</span>
+    </h1>
 
-const FILTERS = [
-  ["all","All"], ["identity","Identity"], ["network","Network"],
-  ["media","Media"], ["endpoint","Endpoint"], ["email","Email"]
-];
+    <!-- Core Pitch Subtext -->
+    <p class="subtext animate-fade-up delay-3">
+      SENTRY correlates signals across email, identity, endpoint, and network into one unified incident. 
+      It auto-contains low-risk threats instantly, while routing high-impact operational decisions 
+      directly to human analysts for quick, final approval.
+    </p>
 
-function renderFilters(){
-  const el = document.getElementById("filters");
-  el.innerHTML = FILTERS.map(([val,label]) =>
-    `<button class="filter-btn ${val===activeFilter?'active':''}" onclick="setFilter('${val}')">${label}</button>`
-  ).join("");
-}
-function setFilter(val){ activeFilter = val; renderFilters(); renderAlertList(); }
+    <!-- Call to Actions -->
+    <div class="cta-group animate-fade-up delay-4">
+      <a href="/login" class="btn btn-primary">
+        Enter Dashboard
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+          <polyline points="12 5 19 12 12 19"></polyline>
+        </svg>
+      </a>
+      <a href="#features" class="btn btn-secondary">
+        Learn More
+      </a>
+    </div>
 
-function showToast(msg){
-  const t = document.getElementById("toast");
-  t.textContent = msg;
-  t.classList.add("show");
-  clearTimeout(showToast._timer);
-  showToast._timer = setTimeout(()=>t.classList.remove("show"), 3200);
-}
-
-async function fetchAlerts(){
-  try{
-    const res = await fetch(`${API}/alerts`);
-    if(!res.ok) throw new Error("bad status");
-    alerts = await res.json();
-    document.getElementById("api-status").textContent = "● live";
-    document.getElementById("api-status").style.color = "var(--accent)";
-    renderAlertList();
-    if(selectedId) renderDetail(alerts.find(a=>a.id===selectedId));
-  }catch(e){
-    document.getElementById("api-status").textContent = "○ backend unreachable — start uvicorn on :8000";
-    document.getElementById("api-status").style.color = "var(--danger)";
-  }
-}
-
-function renderAlertList(){
-  const list = document.getElementById("alert-list");
-  const filtered = activeFilter === "all"
-    ? alerts
-    : alerts.filter(a => a.evidence.some(e => e.source_type === activeFilter));
-
-  if(filtered.length === 0){
-    list.innerHTML = `<div class="empty">No alerts match this filter.</div>`;
-    return;
-  }
-  list.innerHTML = filtered.map(a => `
-    <div class="alert-item ${a.id===selectedId?'selected':''}" onclick="selectAlert('${a.id}')">
-      <div class="title">${a.title}</div>
-      <div class="meta">
-        <span class="sev sev-${a.severity}">${a.severity}</span>
-        ${a.status === 'resolved' ? `<span class="status-resolved">resolved</span>` : ''}
+    <!-- Core Features Row -->
+    <div class="features-row animate-fade-up delay-5" id="features">
+      <div class="feature-tag">
+        <span class="feature-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+        </span>
+        <span>Real-Time Correlation</span>
+      </div>
+      <div class="feature-tag">
+        <span class="feature-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+        </span>
+        <span>Human-in-the-Loop Approval</span>
+      </div>
+      <div class="feature-tag">
+        <span class="feature-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+        </span>
+        <span>Auto-Contain Low-Risk Threats</span>
+      </div>
+      <div class="feature-tag">
+        <span class="feature-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+        </span>
+        <span>Full Audit Trail</span>
       </div>
     </div>
-  `).join("");
-}
 
-function selectAlert(id){
-  selectedId = id;
-  renderAlertList();
-  renderDetail(alerts.find(a=>a.id===id));
-}
-
-function renderDetail(alert){
-  if(!alert) return;
-  // CENTER column: attack chain + media panel + playbook
-  const mediaEvidence = alert.evidence.filter(e => e.source_type === "media");
-  const center = document.getElementById("center-col");
-  center.innerHTML = `
-    <div class="center-block">
-      <h3>Attack Chain</h3>
-      ${alert.attack_chain.map(step => `<div class="chain-step">${escapeHtml(step)}</div>`).join("")}
-    </div>
-
-    ${mediaEvidence.length ? `
-    <div class="center-block media-verification-panel">
-      <h3>Media Verification Panel</h3>
-      ${mediaEvidence.map(e => `
-        <div class="media-row">
-          <span>${escapeHtml(e.description)}</span>
+    <!-- Cybersecurity Console/Dashboard Widget -->
+    <div class="console-wrapper animate-fade-up delay-6">
+      <div class="console-header">
+        <div class="console-controls">
+          <span class="console-dot dot-red"></span>
+          <span class="console-dot dot-yellow"></span>
+          <span class="console-dot dot-green"></span>
         </div>
-      `).join("")}
-    </div>` : ""}
+        <div class="console-title">SENTRY COGNITIVE ENGINE v1.2</div>
+        <div class="console-status">
+          <span class="status-pulse"></span>
+          <span>SYSTEM SECURED</span>
+        </div>
+      </div>
+      
+      <div class="console-body">
+        <!-- Live scrolling logs -->
+        <div class="console-terminal" id="log-stream">
+          <!-- Populated dynamically via JS -->
+        </div>
 
-    <div class="center-block">
-      <h3>Recommended Playbook</h3>
-      ${alert.playbook.length === 0 ? `<div class="empty" style="padding:6px 0;">No actions recommended.</div>` :
-        alert.playbook.map(act => `
-        <div class="action-row">
-          <div class="action-label">
-            ${escapeHtml(act.label)}
-            <span class="risk-tag risk-${act.risk_level}">${act.risk_level}</span>
+        <!-- Animated radar visualizer & stats -->
+        <div class="console-panel">
+          <div class="radar-container">
+            <svg class="radar-svg" viewBox="0 0 200 200">
+              <!-- Grid Circles -->
+              <circle cx="100" cy="100" r="90" fill="none" stroke="rgba(0, 255, 148, 0.15)" stroke-width="1"></circle>
+              <circle cx="100" cy="100" r="60" fill="none" stroke="rgba(0, 255, 148, 0.1)" stroke-width="1" stroke-dasharray="4 4"></circle>
+              <circle cx="100" cy="100" r="30" fill="none" stroke="rgba(0, 255, 148, 0.08)" stroke-width="1"></circle>
+              
+              <!-- Grid Axes -->
+              <line x1="100" y1="10" x2="100" y2="190" stroke="rgba(0, 255, 148, 0.08)" stroke-width="1"></line>
+              <line x1="10" y1="100" x2="190" y2="100" stroke="rgba(0, 255, 148, 0.08)" stroke-width="1"></line>
+              
+              <!-- Sweep Line -->
+              <line x1="100" y1="100" x2="100" y2="10" class="radar-sweep" stroke="url(#radarGradient)" stroke-width="2"></line>
+              
+              <!-- Simulated threats dots -->
+              <circle cx="65" cy="75" r="3" fill="#00FF94" class="radar-dot dot-1"></circle>
+              <circle cx="145" cy="115" r="4.5" fill="#ef4444" class="radar-dot dot-2"></circle>
+              <circle cx="115" cy="50" r="2.5" fill="#00FF94" class="radar-dot dot-3"></circle>
+
+              <defs>
+                <linearGradient id="radarGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#00FF94" stop-opacity="1"></stop>
+                  <stop offset="100%" stop-color="#00FF94" stop-opacity="0"></stop>
+                </linearGradient>
+              </defs>
+            </svg>
           </div>
-          ${act.mode === "manual" ? `
-            <div class="action-buttons">
-              <button class="btn-approve" onclick="decide('${alert.id}','${act.id}','approve')">Approve</button>
-              <button class="btn-deny" onclick="decide('${alert.id}','${act.id}','deny')">Deny</button>
-            </div>` : `<span class="mode-tag mode-${act.mode}">${act.mode}</span>`
-          }
+
+          <!-- Real-Time Metrics -->
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-label">Events Correlated</div>
+              <div class="stat-value" id="events-correlated">4,821/s</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Containment Rate</div>
+              <div class="stat-value glow-text">99.4%</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Anomalies Checked</div>
+              <div class="stat-value" id="anomalies-checked">142,892</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Mean Response Time</div>
+              <div class="stat-value">0.12s</div>
+            </div>
+          </div>
         </div>
-      `).join("")}
+      </div>
     </div>
-  `;
+  </main>
 
-  // RIGHT column: signer card + provenance log
-  const signerLine = mediaEvidence.length
-    ? mediaEvidence[0].description
-    : "No media evidence attached to this alert.";
-  const right = document.getElementById("right-col");
-  right.innerHTML = `
-    <h2>Signer / Credential</h2>
-    <div class="center-block" style="margin-bottom:20px;">
-      <div style="font-size:12.5px; line-height:1.6; color:var(--muted);">${escapeHtml(signerLine)}</div>
-    </div>
-    <h2>Provenance Log</h2>
-    <div class="center-block">
-      ${alert.audit_log.slice().reverse().map(entry => `
-        <div class="audit-entry">
-          <span class="ts">${new Date(entry.timestamp).toLocaleTimeString()}</span>${escapeHtml(entry.message)}
-        </div>
-      `).join("")}
-    </div>
-  `;
-}
+  <!-- -------------------------------------------------------------
+       INTERACTIVE FUNCTIONALITY SCRIPTS
+       ------------------------------------------------------------- -->
+  <script>
+    // 1. Mouse Glow Interaction
+    const glowEl = document.querySelector('.interactive-glow-layer');
+    document.addEventListener('mousemove', (e) => {
+      if (glowEl) {
+        glowEl.style.setProperty('--mouse-x', `${e.clientX}px`);
+        glowEl.style.setProperty('--mouse-y', `${e.clientY}px`);
+      }
+    });
 
-async function decide(alertId, actionId, kind){
-  try{
-    const res = await fetch(`${API}/alerts/${alertId}/${kind}?action_id=${actionId}`, { method: "POST" });
-    if(!res.ok) throw new Error(await res.text());
-    const updated = await res.json();
-    alerts = alerts.map(a => a.id === updated.id ? updated : a);
-    renderDetail(updated);
-    showToast(kind === "approve" ? "Action approved." : "Action denied.");
-  }catch(e){
-    showToast("Could not reach backend — is uvicorn running on :8000?");
-  }
-}
+    // 2. Navigation Scroll Effect
+    const header = document.getElementById('site-header');
+    window.addEventListener('scroll', () => {
+      if (window.scrollY > 30) {
+        header.classList.add('scrolled');
+      } else {
+        header.classList.remove('scrolled');
+      }
+    });
 
-async function simulateAlert(){
-  const btn = document.getElementById("sim-btn");
-  btn.disabled = true;
-  btn.textContent = "Simulating…";
-  try{
-    const res = await fetch(`${API}/alerts/simulate?scenario=deepfake_wire_fraud`, { method: "POST" });
-    if(!res.ok) throw new Error(await res.text());
-    const alert = await res.json();
-    await fetchAlerts();
-    selectAlert(alert.id);
-    showToast("New correlated alert ingested.");
-  }catch(e){
-    showToast("Simulation failed — is the backend running?");
-  }finally{
-    btn.disabled = false;
-    btn.textContent = "▶ Simulate incoming alert";
-  }
-}
+    // 3. Mobile Hamburger Menu Toggle
+    const menuToggle = document.getElementById('menu-toggle');
+    const navMenu = document.getElementById('nav-menu');
+    const hamburgerLines = {
+      line1: document.getElementById('line1'),
+      line2: document.getElementById('line2'),
+      line3: document.getElementById('line3')
+    };
 
-function escapeHtml(str){
-  const d = document.createElement("div");
-  d.textContent = str;
-  return d.innerHTML;
-}
+    menuToggle.addEventListener('click', () => {
+      document.body.classList.toggle('mobile-menu-open');
+      
+      // Animate hamburger to 'X' and back
+      const isOpen = document.body.classList.contains('mobile-menu-open');
+      if (isOpen) {
+        hamburgerLines.line1.setAttribute('x1', '18');
+        hamburgerLines.line1.setAttribute('y1', '6');
+        hamburgerLines.line1.setAttribute('x2', '6');
+        hamburgerLines.line1.setAttribute('y2', '18');
+        
+        hamburgerLines.line2.setAttribute('stroke-opacity', '0');
+        
+        hamburgerLines.line3.setAttribute('x1', '6');
+        hamburgerLines.line3.setAttribute('y1', '6');
+        hamburgerLines.line3.setAttribute('x2', '18');
+        hamburgerLines.line3.setAttribute('y2', '18');
+      } else {
+        hamburgerLines.line1.setAttribute('x1', '3');
+        hamburgerLines.line1.setAttribute('y1', '12');
+        hamburgerLines.line1.setAttribute('x2', '21');
+        hamburgerLines.line1.setAttribute('y2', '12');
+        
+        hamburgerLines.line2.setAttribute('stroke-opacity', '1');
+        
+        hamburgerLines.line3.setAttribute('x1', '3');
+        hamburgerLines.line3.setAttribute('y1', '18');
+        hamburgerLines.line3.setAttribute('x2', '21');
+        hamburgerLines.line3.setAttribute('y2', '18');
+      }
+    });
 
-renderFilters();
-fetchAlerts();
-setInterval(fetchAlerts, 4000); // simple poll instead of WebSocket — good enough at demo scale
-</script>
+    // Close menu when clicking nav link
+    const navLinks = document.querySelectorAll('.nav-link, .nav-btn');
+    navLinks.forEach(link => {
+      link.addEventListener('click', () => {
+        if (document.body.classList.contains('mobile-menu-open')) {
+          menuToggle.click();
+        }
+      });
+    });
+
+    // 4. Live Simulated Threat Feed scrolling text inside Console
+    const mockLogs = [
+      { text: "INCOMING: Connection attempt from 198.51.100.42 on Port 22 [SSH]", type: "incoming" },
+      { text: "ANALYSIS: Brute-force heuristic triggered (4 attempts in 2s)", type: "analysis" },
+      { text: "CONTAINED: Target IP quarantined from internal network", type: "contained" },
+      { text: "INCOMING: O365 Login request from atypical location (Beijing)", type: "incoming" },
+      { text: "VERIFY: Routing authentication challenge to human supervisor", type: "notify" },
+      { text: "INCOMING: Executable drop detected in directory /tmp/sysd-proc", type: "incoming" },
+      { text: "ANALYSIS: Sandbox matches file signature to known Ransomware", type: "analysis" },
+      { text: "CONTAINED: Endpoint process terminated, file quarantined", type: "contained" },
+      { text: "INCOMING: High volume DNS egress querying active .onion domains", type: "incoming" },
+      { text: "ANALYSIS: Sentry AI models query correlation with C2 command", type: "analysis" },
+      { text: "CONTAINED: DNS request sinkholed; endpoint quarantined", type: "contained" },
+      { text: "NOTIFY: Generated full cryptographic audit trail for incident #14022", type: "notify" }
+    ];
+
+    const terminal = document.getElementById('log-stream');
+    let logPointer = 0;
+
+    function addLogToConsole() {
+      if (!terminal) return;
+
+      const log = mockLogs[logPointer % mockLogs.length];
+      const line = document.createElement('div');
+      line.className = 'log-line';
+
+      const timeString = new Date().toLocaleTimeString('en-US', { 
+        hour12: false, 
+        hour: '2-digit', 
+        minute: '2-digit', 
+        second: '2-digit' 
+      });
+
+      let typeClass = 'log-incoming';
+      if (log.type === 'analysis') typeClass = 'log-analysis';
+      if (log.type === 'contained') typeClass = 'log-contained';
+      if (log.type === 'notify') typeClass = 'log-notify';
+
+      line.innerHTML = `
+        <span class="log-time">[${timeString}]</span>
+        <span class="${typeClass}">${log.text}</span>
+      `;
+
+      terminal.appendChild(line);
+      terminal.scrollTop = terminal.scrollHeight;
+
+      // Keep screen size clean (truncate older logs)
+      while (terminal.childElementCount > 8) {
+        terminal.removeChild(terminal.firstElementChild);
+      }
+
+      logPointer++;
+      
+      // Staggered log generations
+      const nextTime = Math.random() * 2000 + 1500; // 1.5s - 3.5s
+      setTimeout(addLogToConsole, nextTime);
+    }
+
+    // Initialize with a few starter logs
+    function initializeTerminal() {
+      for (let i = 0; i < 4; i++) {
+        const log = mockLogs[i];
+        const line = document.createElement('div');
+        line.className = 'log-line';
+        
+        const timestamp = new Date(Date.now() - (4 - i) * 5000);
+        const timeString = timestamp.toLocaleTimeString('en-US', { 
+          hour12: false, 
+          hour: '2-digit', 
+          minute: '2-digit', 
+          second: '2-digit' 
+        });
+
+        let typeClass = 'log-incoming';
+        if (log.type === 'analysis') typeClass = 'log-analysis';
+        if (log.type === 'contained') typeClass = 'log-contained';
+        if (log.type === 'notify') typeClass = 'log-notify';
+
+        line.innerHTML = `
+          <span class="log-time">[${timeString}]</span>
+          <span class="${typeClass}">${log.text}</span>
+        `;
+        terminal.appendChild(line);
+      }
+      logPointer = 4;
+      terminal.scrollTop = terminal.scrollHeight;
+      
+      // Start dynamic sequence
+      setTimeout(addLogToConsole, 2000);
+    }
+
+    initializeTerminal();
+
+    // 5. Dynamic Stats Counter updates
+    let anomalyCount = 142892;
+    let eventsCorrelated = 4821;
+    
+    const anomalyEl = document.getElementById('anomalies-checked');
+    const eventsEl = document.getElementById('events-correlated');
+
+    setInterval(() => {
+      if (anomalyEl) {
+        anomalyCount += Math.floor(Math.random() * 4) + 1;
+        anomalyEl.textContent = anomalyCount.toLocaleString();
+      }
+    }, 2800);
+
+    setInterval(() => {
+      if (eventsEl) {
+        const fluctuation = Math.floor(Math.random() * 120) - 60;
+        eventsCorrelated = Math.max(4000, Math.min(6000, eventsCorrelated + fluctuation));
+        eventsEl.textContent = eventsCorrelated.toLocaleString() + "/s";
+      }
+    }, 1500);
+
+  </script>
 </body>
 </html>

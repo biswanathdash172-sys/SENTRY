@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SENTRY — Human-Governed Autonomous SOC</title>
+<!-- Lucide Icons CDN -->
+<script src="https://cdn.jsdelivr.net/npm/lucide@0.396.0/dist/umd/lucide.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
+
+  /* ---------------------------------------------------------------
+     DESIGN SYSTEM
+  --------------------------------------------------------------- */
+  :root {
+    --bg: #0A0A0A;
+    --panel: rgba(255,255,255,0.025);
+    --panel-2: rgba(255,255,255,0.04);
+    --border: rgba(0,255,148,0.12);
+    --border-subtle: rgba(255,255,255,0.06);
+    --text: #ffffff;
+    --muted: #94a3b8;
+    --muted-green: #4d7a63;
+    --accent: #00FF94;
+    --danger: #ef5b5b;
+    --warn: #f59e0b;
+    --low: #10b981;
+    --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --display: "Space Grotesk", var(--sans);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    min-height: 100vh;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  /* ---------------------------------------------------------------
+     AMBIENT BACKGROUND ORBS
+  --------------------------------------------------------------- */
+  .ambient-bg {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden;
+  }
+  .orb {
+    position: absolute; border-radius: 50%;
+    filter: blur(120px); opacity: 0.04; mix-blend-mode: screen;
+  }
+  .orb-1 {
+    width: 600px; height: 600px; background: #00FF94;
+    top: -15%; left: -10%;
+    animation: drift1 30s ease-in-out infinite alternate;
+  }
+  .orb-2 {
+    width: 500px; height: 500px; background: #00e5ff;
+    bottom: 0; right: -5%;
+    animation: drift2 25s ease-in-out infinite alternate;
+  }
+  .orb-3 {
+    width: 350px; height: 350px; background: #00FF94;
+    top: 50%; left: 45%;
+    animation: drift3 35s ease-in-out infinite alternate;
+  }
+  @keyframes drift1 { 0%{transform:translate(0,0)} 100%{transform:translate(80px,60px)} }
+  @keyframes drift2 { 0%{transform:translate(0,0)} 100%{transform:translate(-60px,-80px)} }
+  @keyframes drift3 { 0%{transform:translate(0,0)} 100%{transform:translate(40px,-50px)} }
+
+  /* faint dot grid */
+  body::before {
+    content: '';
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background-image:
+      radial-gradient(circle, rgba(0,255,148,0.07) 1px, transparent 1px);
+    background-size: 32px 32px;
+    opacity: 0.5;
+  }
+
+  /* ---------------------------------------------------------------
+     HEADER
+  --------------------------------------------------------------- */
+  header {
+    position: sticky; top: 0; z-index: 50;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 24px;
+    background: rgba(8,8,8,0.85);
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+  }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand-icon {
+    width: 32px; height: 32px; position: relative; flex-shrink: 0;
+  }
+  .brand-icon svg { filter: drop-shadow(0 0 8px rgba(0,255,148,0.6)); }
+  .brand-text h1 {
+    font-family: var(--display); font-size: 17px; font-weight: 700;
+    letter-spacing: 0.12em; color: #fff; margin: 0; line-height: 1;
+  }
+  .brand-text span {
+    font-size: 11px; color: var(--muted-green); font-weight: 500;
+    letter-spacing: 0.02em;
+  }
+  .header-right { display: flex; gap: 10px; align-items: center; }
+  .chip {
+    font-family: var(--mono); font-size: 10px; color: var(--muted-green);
+    border: 1px solid var(--border); padding: 5px 12px; border-radius: 6px;
+    background: rgba(0,255,148,0.02); font-weight: 500;
+  }
+  #sim-btn {
+    display: flex; align-items: center; gap: 7px;
+    background: rgba(0,255,148,0.06); color: var(--accent);
+    border: 1px solid var(--border); padding: 8px 18px; border-radius: 8px;
+    font-weight: 600; cursor: pointer; font-size: 12px; font-family: var(--sans);
+    transition: all 0.25s ease;
+  }
+  #sim-btn:hover {
+    background: var(--accent); color: #050505;
+    box-shadow: 0 0 20px rgba(0,255,148,0.35);
+  }
+  #sim-btn:disabled { opacity: 0.35; cursor: default; background: rgba(255,255,255,0.02); color: var(--muted); box-shadow: none; }
+
+  /* ---------------------------------------------------------------
+     STATS BAR
+  --------------------------------------------------------------- */
+  .stats-bar {
+    position: relative; z-index: 10;
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 16px; padding: 16px 24px;
+    border-bottom: 1px solid var(--border-subtle);
+    background: rgba(8,8,8,0.5);
+  }
+  .stat-card {
+    background: var(--panel); border: 1px solid var(--border-subtle);
+    border-radius: 14px; padding: 16px 20px;
+    display: flex; align-items: center; justify-content: space-between;
+    backdrop-filter: blur(12px); transition: border-color 0.25s;
+  }
+  .stat-card:hover { border-color: var(--border); }
+  .stat-info { display: flex; flex-direction: column; gap: 4px; }
+  .stat-label {
+    font-size: 10px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.1em; color: var(--muted);
+  }
+  .stat-value {
+    font-family: var(--display); font-size: 34px; font-weight: 700; line-height: 1;
+    color: #fff;
+  }
+  .stat-value.danger-glow { color: var(--danger); text-shadow: 0 0 20px rgba(239,91,91,0.4); }
+  .stat-value.green-glow  { color: var(--accent);  text-shadow: 0 0 20px rgba(0,255,148,0.35); }
+  .stat-value.amber-glow  { color: var(--warn);    text-shadow: 0 0 20px rgba(245,158,11,0.35); }
+  .stat-icon {
+    width: 42px; height: 42px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .stat-icon.ic-blue    { background: rgba(96,165,250,0.1); color: #60a5fa; }
+  .stat-icon.ic-red     { background: rgba(239,91,91,0.1);  color: var(--danger); }
+  .stat-icon.ic-green   { background: rgba(0,255,148,0.08); color: var(--accent); }
+  .stat-icon.ic-amber   { background: rgba(245,158,11,0.1); color: var(--warn); }
+
+  /* ---------------------------------------------------------------
+     MAIN 3-COLUMN LAYOUT
+  --------------------------------------------------------------- */
+  .layout {
+    display: grid;
+    grid-template-columns: 320px 1fr 310px;
+    gap: 0;
+    height: calc(100vh - 57px - 90px); /* header + statsbar */
+    position: relative; z-index: 10;
+  }
+  .col {
+    overflow-y: auto; padding: 20px;
+    border-right: 1px solid var(--border-subtle);
+    background: rgba(8,8,8,0.4);
+  }
+  .col:last-child { border-right: none; }
+  .col-header {
+    display: flex; align-items: center; gap: 8px;
+    margin-bottom: 18px;
+  }
+  .col-header h2 {
+    font-family: var(--sans); font-size: 11px; letter-spacing: 0.14em;
+    color: var(--accent); text-transform: uppercase; font-weight: 700;
+    margin: 0;
+  }
+  .col-header-icon { color: var(--accent); opacity: 0.7; }
+
+  /* ---------------------------------------------------------------
+     FILTERS (PILL CHIPS)
+  --------------------------------------------------------------- */
+  .filters { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 18px; }
+  .filter-btn {
+    font-size: 11px; padding: 5px 14px; border-radius: 20px;
+    border: 1px solid rgba(0,255,148,0.15);
+    background: rgba(255,255,255,0.02); color: var(--muted);
+    cursor: pointer; font-family: var(--mono);
+    transition: all 0.2s ease; backdrop-filter: blur(8px);
+    display: flex; align-items: center; gap: 5px;
+  }
+  .filter-btn:hover { border-color: var(--accent); color: var(--text); background: rgba(0,255,148,0.05); }
+  .filter-btn.active {
+    background: var(--accent); color: #050505; border-color: var(--accent); font-weight: 700;
+    box-shadow: 0 0 12px rgba(0,255,148,0.3);
+  }
+
+  /* ---------------------------------------------------------------
+     ALERT CARDS
+  --------------------------------------------------------------- */
+  .alert-item {
+    border-radius: 16px; padding: 16px; margin-bottom: 12px;
+    cursor: pointer;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.07);
+    backdrop-filter: blur(10px);
+    transition: all 0.28s cubic-bezier(0.16,1,0.3,1);
+    position: relative; overflow: hidden;
+    animation: slide-in 0.4s cubic-bezier(0.16,1,0.3,1) both;
+  }
+  @keyframes slide-in {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  /* colored left-edge glow bar */
+  .alert-item::before {
+    content: ''; position: absolute;
+    left: 0; top: 10%; bottom: 10%; width: 3px; border-radius: 2px;
+    transition: opacity 0.2s;
+  }
+  .alert-item.sev-critical::before { background: var(--danger); box-shadow: 0 0 10px var(--danger); }
+  .alert-item.sev-high::before     { background: var(--warn);   box-shadow: 0 0 10px var(--warn); }
+  .alert-item.sev-medium::before,
+  .alert-item.sev-low::before      { background: var(--accent); box-shadow: 0 0 10px var(--accent); }
+
+  .alert-item:hover {
+    transform: translateY(-3px);
+    border-color: rgba(0,255,148,0.3);
+    box-shadow: 0 8px 28px rgba(0,255,148,0.06);
+  }
+  .alert-item.selected {
+    border-color: var(--accent);
+    background: rgba(0,255,148,0.04);
+    box-shadow: 0 0 20px rgba(0,255,148,0.12), inset 0 0 12px rgba(0,255,148,0.03);
+  }
+  .alert-top {
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;
+    margin-bottom: 10px;
+  }
+  .alert-source-icon {
+    width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07);
+  }
+  .alert-title { font-size: 13px; font-weight: 600; line-height: 1.4; color: #fff; flex: 1; }
+  .alert-meta { display: flex; align-items: center; gap: 8px; }
+  .sev {
+    font-family: var(--mono); font-size: 9.5px; padding: 3px 9px;
+    border-radius: 20px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+  }
+  .sev-critical { background: rgba(239,91,91,.1); color: var(--danger); border: 1px solid rgba(239,91,91,.3); animation: pulse-crit 2s infinite; }
+  @keyframes pulse-crit { 0%,100%{box-shadow:0 0 4px rgba(239,91,91,.2)} 50%{box-shadow:0 0 12px rgba(239,91,91,.6)} }
+  .sev-high     { background: rgba(245,158,11,.1); color: var(--warn);   border: 1px solid rgba(245,158,11,.3); }
+  .sev-medium,
+  .sev-low      { background: rgba(0,255,148,.07); color: var(--accent); border: 1px solid rgba(0,255,148,.25); }
+  .status-resolved { color: var(--muted); font-size: 10px; font-family: var(--mono); }
+
+  .empty { color: var(--muted); font-size: 12.5px; padding: 40px 8px; text-align: center; line-height: 1.6; }
+
+  /* ---------------------------------------------------------------
+     CENTER COLUMN — SHARED BLOCK
+  --------------------------------------------------------------- */
+  .center-block {
+    border: 1px solid var(--border); border-radius: 16px; padding: 20px;
+    margin-bottom: 20px;
+    background: rgba(255,255,255,0.02);
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.03);
+  }
+  .center-block h3 {
+    font-size: 10px; font-weight: 700; letter-spacing: 0.16em;
+    color: var(--accent); text-transform: uppercase;
+    margin: 0 0 16px; display: flex; align-items: center; gap: 6px;
+  }
+
+  /* ---------------------------------------------------------------
+     ATTACK CHAIN TIMELINE
+  --------------------------------------------------------------- */
+  .chain-timeline { display: flex; flex-direction: column; gap: 0; position: relative; }
+  .chain-timeline::before {
+    content: ''; position: absolute; left: 15px; top: 12px; bottom: 12px;
+    width: 2px; background: linear-gradient(to bottom, var(--accent), transparent);
+    opacity: 0.25;
+  }
+  .chain-step {
+    display: flex; gap: 14px; align-items: flex-start;
+    padding: 0 0 14px 0; position: relative;
+  }
+  .chain-step:last-child { padding-bottom: 0; }
+  .chain-dot {
+    flex-shrink: 0; width: 30px; height: 30px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--mono); font-size: 10px; font-weight: 700;
+    position: relative; z-index: 1;
+  }
+  .chain-step:not(:last-child) .chain-dot {
+    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+    color: var(--muted);
+  }
+  .chain-step:last-child .chain-dot {
+    background: rgba(0,255,148,0.12); border: 1px solid rgba(0,255,148,0.4);
+    color: var(--accent); box-shadow: 0 0 14px rgba(0,255,148,0.25);
+  }
+  .chain-content {
+    flex: 1; font-size: 12.5px; line-height: 1.55;
+    padding: 6px 12px; border-radius: 8px;
+  }
+  .chain-step:not(:last-child) .chain-content {
+    color: var(--muted); background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.05);
+  }
+  .chain-step:last-child .chain-content {
+    color: var(--accent); font-weight: 600;
+    background: rgba(0,255,148,0.04); border: 1px solid rgba(0,255,148,0.2);
+    box-shadow: 0 0 12px rgba(0,255,148,0.06);
+  }
+
+  /* ---------------------------------------------------------------
+     MEDIA VERIFICATION PANEL
+  --------------------------------------------------------------- */
+  .media-panel-block {
+    border-color: rgba(0,255,148,0.3);
+    box-shadow: 0 0 30px rgba(0,255,148,0.07), 0 8px 32px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.04);
+    background: rgba(0,255,148,0.02);
+  }
+  .media-evidence-list { display: flex; flex-direction: column; gap: 12px; }
+  .media-evidence-item {
+    display: flex; gap: 14px; align-items: flex-start;
+    padding: 14px; border-radius: 12px;
+    background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05);
+  }
+  .media-verdict-icon {
+    width: 42px; height: 42px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+  .media-verdict-icon.deepfake  { background: rgba(239,91,91,.12); border: 2px solid rgba(239,91,91,.35); color: var(--danger); }
+  .media-verdict-icon.authentic { background: rgba(0,255,148,.08); border: 2px solid rgba(0,255,148,.35); color: var(--accent); }
+  .media-verdict-icon.suspicious{ background: rgba(245,158,11,.10); border: 2px solid rgba(245,158,11,.3); color: var(--warn); }
+  .media-verdict-icon.default   { background: rgba(255,255,255,.04); border: 2px solid rgba(255,255,255,.1); color: var(--muted); }
+  .media-text { flex: 1; }
+  .media-desc { font-size: 12.5px; color: var(--text); line-height: 1.5; margin-bottom: 6px; }
+  .media-row { display: flex; justify-content: space-between; align-items: center; }
+  .media-row:last-child { border-bottom: none; }
+  .verdict-badge {
+    font-family: var(--mono); font-size: 9.5px; padding: 3px 9px;
+    border-radius: 20px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+  }
+  .verdict-deepfake,.verdict-unsigned { background: rgba(239,91,91,.1); color: var(--danger); border: 1px solid rgba(239,91,91,.25); }
+  .verdict-authentic  { background: rgba(0,255,148,.08); color: var(--accent); border: 1px solid rgba(0,255,148,.25); }
+  .verdict-suspicious { background: rgba(245,158,11,.1); color: var(--warn); border: 1px solid rgba(245,158,11,.25); }
+
+  /* ---------------------------------------------------------------
+     PLAYBOOK ACTION CARDS
+  --------------------------------------------------------------- */
+  .action-row {
+    display: flex; align-items: center; gap: 14px;
+    padding: 14px; border: 1px solid rgba(255,255,255,0.06); border-radius: 12px;
+    margin-bottom: 10px; background: rgba(255,255,255,0.015); backdrop-filter: blur(8px);
+    transition: all 0.25s cubic-bezier(0.16,1,0.3,1);
+  }
+  .action-row:hover {
+    border-color: rgba(0,255,148,0.25); background: rgba(0,255,148,0.02);
+    transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0,255,148,0.05);
+  }
+  .action-icon {
+    width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07);
+    color: var(--muted);
+  }
+  .action-body { flex: 1; min-width: 0; }
+  .action-label { font-size: 12.5px; color: #fff; font-weight: 500; line-height: 1.3; }
+  .risk-tag {
+    display: inline-block; font-family: var(--mono); font-size: 9px;
+    padding: 2px 7px; border-radius: 20px; font-weight: 700; text-transform: uppercase;
+    margin-top: 4px; letter-spacing: 0.04em;
+  }
+  .risk-low  { background: rgba(0,255,148,.08);  color: var(--accent); border: 1px solid rgba(0,255,148,.2); }
+  .risk-high { background: rgba(239,91,91,.08);  color: var(--danger); border: 1px solid rgba(239,91,91,.2); }
+  .action-buttons { display: flex; gap: 7px; flex-shrink: 0; }
+  .btn-approve, .btn-deny {
+    display: flex; align-items: center; gap: 5px;
+    font-family: var(--sans); font-size: 11px; padding: 7px 14px; border-radius: 20px;
+    cursor: pointer; border: none; font-weight: 700; transition: all 0.22s ease;
+    white-space: nowrap;
+  }
+  .btn-approve { background: var(--accent); color: #050505; box-shadow: 0 0 12px rgba(0,255,148,0.2); }
+  .btn-approve:hover { background: #00e685; box-shadow: 0 0 20px rgba(0,255,148,0.45); transform: scale(1.04); }
+  .btn-deny { background: rgba(239,91,91,.12); color: #ff8080; border: 1px solid rgba(239,91,91,.3); }
+  .btn-deny:hover { background: var(--danger); color: #050505; box-shadow: 0 0 20px rgba(239,91,91,0.4); transform: scale(1.04); }
+  .mode-tag { font-family: var(--mono); font-size: 10px; color: var(--muted); text-transform: uppercase; transition: all 0.4s; font-weight: 700; }
+  .mode-approved { color: var(--accent); text-shadow: 0 0 8px rgba(0,255,148,0.3); }
+  .mode-denied   { color: var(--danger); text-shadow: 0 0 8px rgba(239,91,91,0.3); }
+
+  /* ---------------------------------------------------------------
+     RIGHT COLUMN — SIGNER + AUDIT TIMELINE
+  --------------------------------------------------------------- */
+  .signer-card {
+    background: rgba(255,255,255,0.02); border: 1px solid var(--border);
+    border-radius: 16px; padding: 18px; margin-bottom: 20px;
+    backdrop-filter: blur(12px);
+  }
+  .signer-header {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 12px;
+  }
+  .signer-avatar {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: rgba(0,255,148,0.08); border: 1px solid rgba(0,255,148,0.2);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--accent); font-size: 14px;
+  }
+  .signer-label { font-size: 11px; color: var(--muted); font-weight: 500; }
+  .signer-text { font-size: 12.5px; color: var(--text); line-height: 1.6; }
+
+  /* Audit timeline */
+  .audit-timeline { display: flex; flex-direction: column; position: relative; }
+  .audit-line {
+    position: absolute; left: 12px; top: 8px; bottom: 8px;
+    width: 2px; background: linear-gradient(to bottom, rgba(0,255,148,0.3), transparent);
+    border-radius: 1px;
+  }
+  .audit-entry {
+    display: flex; gap: 14px; align-items: flex-start;
+    padding: 0 0 18px 0; position: relative;
+  }
+  .audit-entry:last-child { padding-bottom: 0; }
+  .audit-dot {
+    flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%; z-index: 1;
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.12);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 8.5px; font-weight: 700; color: var(--muted-green);
+    font-family: var(--mono); text-transform: uppercase;
+  }
+  .audit-body { flex: 1; }
+  .audit-msg { font-size: 12px; color: var(--text); line-height: 1.45; margin-bottom: 3px; font-family: var(--mono); }
+  .audit-ts { font-size: 10px; color: var(--muted-green); font-family: var(--mono); }
+
+  /* ---------------------------------------------------------------
+     TOAST
+  --------------------------------------------------------------- */
+  .toast {
+    position: fixed; bottom: 24px; right: 24px; z-index: 200;
+    background: rgba(10,10,10,0.92); border: 1px solid var(--accent);
+    color: var(--text); padding: 14px 22px; border-radius: 12px; font-size: 12.5px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.6), 0 0 20px rgba(0,255,148,0.1);
+    opacity: 0; transform: translateY(12px); transition: all 0.3s cubic-bezier(0.16,1,0.3,1);
+    pointer-events: none; max-width: 320px;
+    backdrop-filter: blur(12px); display: flex; align-items: center; gap: 8px;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+
+  /* ---------------------------------------------------------------
+     SCROLLBARS
+  --------------------------------------------------------------- */
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(0,255,148,0.1); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(0,255,148,0.25); }
+</style>
+</head>
+<body>
+
+<!-- Ambient background -->
+<div class="ambient-bg">
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+</div>
+
+<!-- ── HEADER ───────────────────────────────────────────────── -->
+<header>
+  <div class="brand">
+    <div class="brand-icon">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#00FF94" stroke-width="2">
+        <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/>
+        <circle cx="12" cy="12" r="3.5" fill="#00FF94" fill-opacity="0.2" stroke="#00FF94" stroke-width="1.5"/>
+        <path d="M12 2v20" stroke-opacity="0.2"/>
+        <path d="M2 12h20" stroke-opacity="0.2"/>
+      </svg>
+    </div>
+    <div class="brand-text">
+      <h1>SENTRY</h1>
+      <span>Human-Governed Autonomous SOC · Media &amp; Identity Integrity</span>
+    </div>
+  </div>
+  <div class="header-right">
+    <span class="chip" id="api-status">connecting…</span>
+    <button id="sim-btn" onclick="simulateAlert()">
+      <i data-lucide="play-circle" style="width:14px;height:14px"></i>
+      Simulate incoming alert
+    </button>
+  </div>
+</header>
+
+<!-- ── STATS BAR ─────────────────────────────────────────────── -->
+<div class="stats-bar">
+  <div class="stat-card">
+    <div class="stat-info">
+      <div class="stat-label">Active Alerts</div>
+      <div class="stat-value" id="stat-active">—</div>
+    </div>
+    <div class="stat-icon ic-blue">
+      <i data-lucide="shield-alert" style="width:20px;height:20px"></i>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-info">
+      <div class="stat-label">Critical</div>
+      <div class="stat-value danger-glow" id="stat-critical">—</div>
+    </div>
+    <div class="stat-icon ic-red">
+      <i data-lucide="zap" style="width:20px;height:20px"></i>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-info">
+      <div class="stat-label">Auto-Resolved Today</div>
+      <div class="stat-value green-glow" id="stat-resolved">—</div>
+    </div>
+    <div class="stat-icon ic-green">
+      <i data-lucide="check-circle-2" style="width:20px;height:20px"></i>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-info">
+      <div class="stat-label">Pending Approval</div>
+      <div class="stat-value amber-glow" id="stat-pending">—</div>
+    </div>
+    <div class="stat-icon ic-amber">
+      <i data-lucide="clock" style="width:20px;height:20px"></i>
+    </div>
+  </div>
+</div>
+
+<!-- ── 3-COLUMN LAYOUT ───────────────────────────────────────── -->
+<div class="layout">
+
+  <!-- LEFT: Alert stream -->
+  <div class="col">
+    <div class="col-header">
+      <i data-lucide="activity" class="col-header-icon" style="width:14px;height:14px"></i>
+      <h2>Alert Stream</h2>
+    </div>
+    <div class="filters" id="filters"></div>
+    <div id="alert-list"><div class="empty">Loading alerts…</div></div>
+  </div>
+
+  <!-- CENTER: Attack chain, media verification, playbook -->
+  <div class="col" id="center-col">
+    <div class="empty" style="padding-top:80px;">
+      <i data-lucide="search" style="width:32px;height:32px;margin-bottom:12px;opacity:0.3;display:block;margin-left:auto;margin-right:auto"></i>
+      Select an alert to view its attack chain, media verification, and recommended playbook.
+    </div>
+  </div>
+
+  <!-- RIGHT: Signer card + provenance log -->
+  <div class="col" id="right-col">
+    <div class="empty">—</div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API = "";
+let alerts = [];
+let selectedId = null;
+let activeFilter = "all";
+
+const FILTERS = [
+  ["all","All"], ["identity","Identity"], ["network","Network"],
+  ["media","Media"], ["endpoint","Endpoint"], ["email","Email"]
+];
+
+/* Source-type → Lucide icon name */
+const SOURCE_ICONS = {
+  email:    "mail",
+  network:  "network",
+  identity: "user-check",
+  endpoint: "monitor",
+  media:    "film",
+  default:  "alert-circle"
+};
+
+/* Action label → Lucide icon name */
+function actionIcon(label) {
+  const l = (label||"").toLowerCase();
+  if (l.includes("suspend") || l.includes("disable")) return "user-x";
+  if (l.includes("quarantine") || l.includes("isolate")) return "shield";
+  if (l.includes("block") || l.includes("domain"))       return "ban";
+  if (l.includes("reset") || l.includes("password"))     return "key";
+  if (l.includes("revoke") || l.includes("token"))       return "lock";
+  if (l.includes("notify") || l.includes("alert"))       return "bell";
+  if (l.includes("log") || l.includes("audit"))          return "file-text";
+  return "terminal";
+}
+
+/* Relative timestamp */
+function relativeTime(isoStr) {
+  const diff = Math.floor((Date.now() - new Date(isoStr)) / 1000);
+  if (diff < 60) return `${diff}s ago`;
+  if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff/3600)}h ago`;
+  return `${Math.floor(diff/86400)}d ago`;
+}
+
+/* Initials from message text */
+function initials(msg) {
+  const words = (msg||"").split(" ").filter(Boolean);
+  return (words[0]?.[0]||"?") + (words[1]?.[0]||"");
+}
+
+/* Verdict icon type for media */
+function verdictType(desc) {
+  const d = (desc||"").toLowerCase();
+  if (d.includes("deepfake") || d.includes("fake") || d.includes("synthetic")) return "deepfake";
+  if (d.includes("authentic") || d.includes("verified") || d.includes("genuine")) return "authentic";
+  if (d.includes("suspicious") || d.includes("anomal")) return "suspicious";
+  return "default";
+}
+function verdictEmoji(type) {
+  if (type === "deepfake")  return "✕";
+  if (type === "authentic") return "✓";
+  if (type === "suspicious") return "⚠";
+  return "?";
+}
+
+function renderFilters(){
+  const el = document.getElementById("filters");
+  el.innerHTML = FILTERS.map(([val,label]) =>
+    `<button class="filter-btn ${val===activeFilter?'active':''}" onclick="setFilter('${val}')">${label}</button>`
+  ).join("");
+  lucide.createIcons();
+}
+function setFilter(val){ activeFilter = val; renderFilters(); renderAlertList(); }
+
+function showToast(msg){
+  const t = document.getElementById("toast");
+  t.innerHTML = `<i data-lucide="check-circle-2" style="width:14px;height:14px;flex-shrink:0"></i> ${msg}`;
+  t.classList.add("show");
+  lucide.createIcons();
+  clearTimeout(showToast._timer);
+  showToast._timer = setTimeout(()=>t.classList.remove("show"), 3200);
+}
+
+/* Update stats bar */
+function updateStats() {
+  const active   = alerts.filter(a => a.status !== "resolved").length;
+  const critical = alerts.filter(a => a.severity === "critical" && a.status !== "resolved").length;
+  const resolved = alerts.filter(a => a.status === "resolved").length;
+  const pending  = alerts.filter(a => a.playbook && a.playbook.some(p => p.mode === "manual")).length;
+  document.getElementById("stat-active").textContent   = active;
+  document.getElementById("stat-critical").textContent = critical;
+  document.getElementById("stat-resolved").textContent = resolved;
+  document.getElementById("stat-pending").textContent  = pending;
+}
+
+async function fetchAlerts(){
+  try{
+    const res = await fetch(`${API}/alerts`);
+    if(!res.ok) throw new Error("bad status");
+    alerts = await res.json();
+    document.getElementById("api-status").textContent = "● live";
+    document.getElementById("api-status").style.color = "var(--accent)";
+    updateStats();
+    renderAlertList();
+    if(selectedId) renderDetail(alerts.find(a=>a.id===selectedId));
+  }catch(e){
+    document.getElementById("api-status").textContent = "○ backend unreachable — start uvicorn on :8000";
+    document.getElementById("api-status").style.color = "var(--danger)";
+  }
+}
+
+function renderAlertList(){
+  const list = document.getElementById("alert-list");
+  const filtered = activeFilter === "all"
+    ? alerts
+    : alerts.filter(a => a.evidence.some(e => e.source_type === activeFilter));
+
+  if(filtered.length === 0){
+    list.innerHTML = `<div class="empty">No alerts match this filter.</div>`;
+    return;
+  }
+
+  list.innerHTML = filtered.map(a => {
+    const sourceType = a.evidence?.[0]?.source_type || "default";
+    const icon = SOURCE_ICONS[sourceType] || SOURCE_ICONS.default;
+    return `
+    <div class="alert-item sev-${a.severity} ${a.id===selectedId?'selected':''}" onclick="selectAlert('${a.id}')">
+      <div class="alert-top">
+        <div class="alert-source-icon">
+          <i data-lucide="${icon}" style="width:14px;height:14px;color:var(--muted)"></i>
+        </div>
+        <div class="alert-title">${a.title}</div>
+        <span class="sev sev-${a.severity}">${a.severity}</span>
+      </div>
+      <div class="alert-meta">
+        ${a.status === 'resolved' ? `<span class="status-resolved">✓ resolved</span>` : ''}
+        <span style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-left:auto;">${sourceType}</span>
+      </div>
+    </div>`;
+  }).join("");
+  lucide.createIcons();
+}
+
+function selectAlert(id){
+  selectedId = id;
+  renderAlertList();
+  renderDetail(alerts.find(a=>a.id===id));
+}
+
+function renderDetail(alert){
+  if(!alert) return;
+  // CENTER column: attack chain + media panel + playbook
+  const mediaEvidence = alert.evidence.filter(e => e.source_type === "media");
+  const center = document.getElementById("center-col");
+
+  /* Attack chain as timeline */
+  const chainHtml = alert.attack_chain.map((step, i) => `
+    <div class="chain-step">
+      <div class="chain-dot">${i + 1}</div>
+      <div class="chain-content">${escapeHtml(step)}</div>
+    </div>
+  `).join("");
+
+  /* Media verification items */
+  const mediaHtml = mediaEvidence.length ? `
+    <div class="center-block media-panel-block">
+      <h3>
+        <i data-lucide="film" style="width:12px;height:12px"></i>
+        Media Verification Panel
+      </h3>
+      <div class="media-evidence-list">
+        ${mediaEvidence.map(e => {
+          const vt = verdictType(e.description);
+          return `
+          <div class="media-evidence-item">
+            <div class="media-verdict-icon ${vt}">${verdictEmoji(vt)}</div>
+            <div class="media-text">
+              <div class="media-desc">${escapeHtml(e.description)}</div>
+              <div class="media-row">
+                <span class="verdict-badge verdict-${vt === 'deepfake' ? 'deepfake' : vt === 'authentic' ? 'authentic' : 'suspicious'}">${vt}</span>
+              </div>
+            </div>
+          </div>`;
+        }).join("")}
+      </div>
+    </div>` : "";
+
+  /* Playbook rows */
+  const playbookHtml = alert.playbook.length === 0
+    ? `<div class="empty" style="padding:10px 0;">No actions recommended.</div>`
+    : alert.playbook.map(act => {
+        const aicon = actionIcon(act.label);
+        return `
+        <div class="action-row">
+          <div class="action-icon">
+            <i data-lucide="${aicon}" style="width:16px;height:16px"></i>
+          </div>
+          <div class="action-body">
+            <div class="action-label">${escapeHtml(act.label)}</div>
+            <span class="risk-tag risk-${act.risk_level}">${act.risk_level} risk</span>
+          </div>
+          ${act.mode === "manual" ? `
+            <div class="action-buttons">
+              <button class="btn-approve" onclick="decide('${alert.id}','${act.id}','approve')">
+                <i data-lucide="check" style="width:11px;height:11px"></i> Approve
+              </button>
+              <button class="btn-deny" onclick="decide('${alert.id}','${act.id}','deny')">
+                <i data-lucide="x" style="width:11px;height:11px"></i> Deny
+              </button>
+            </div>` : `<span class="mode-tag mode-${act.mode}">${act.mode}</span>`
+          }
+        </div>`;
+      }).join("");
+
+  center.innerHTML = `
+    <div class="center-block">
+      <h3>
+        <i data-lucide="git-branch" style="width:12px;height:12px"></i>
+        Attack Chain
+      </h3>
+      <div class="chain-timeline">${chainHtml}</div>
+    </div>
+
+    ${mediaHtml}
+
+    <div class="center-block">
+      <h3>
+        <i data-lucide="book-open" style="width:12px;height:12px"></i>
+        Recommended Playbook
+      </h3>
+      ${playbookHtml}
+    </div>
+  `;
+  lucide.createIcons();
+
+  // RIGHT column: signer card + provenance log
+  const signerLine = mediaEvidence.length
+    ? mediaEvidence[0].description
+    : "No media evidence attached to this alert.";
+  const right = document.getElementById("right-col");
+
+  const auditHtml = alert.audit_log.slice().reverse().map(entry => {
+    const inits = initials(entry.message).toUpperCase().slice(0,2);
+    return `
+    <div class="audit-entry">
+      <div class="audit-dot">${inits}</div>
+      <div class="audit-body">
+        <div class="audit-msg">${escapeHtml(entry.message)}</div>
+        <div class="audit-ts">${relativeTime(entry.timestamp)} · ${new Date(entry.timestamp).toLocaleTimeString()}</div>
+      </div>
+    </div>`;
+  }).join("");
+
+  right.innerHTML = `
+    <div class="col-header">
+      <i data-lucide="fingerprint" class="col-header-icon" style="width:14px;height:14px"></i>
+      <h2>Signer / Credential</h2>
+    </div>
+    <div class="signer-card" style="margin-bottom:22px;">
+      <div class="signer-header">
+        <div class="signer-avatar">
+          <i data-lucide="key" style="width:16px;height:16px"></i>
+        </div>
+        <span class="signer-label">Associated credential / media source</span>
+      </div>
+      <div class="signer-text">${escapeHtml(signerLine)}</div>
+    </div>
+    <div class="col-header">
+      <i data-lucide="scroll-text" class="col-header-icon" style="width:14px;height:14px"></i>
+      <h2>Provenance Log</h2>
+    </div>
+    <div style="position:relative;padding-left:4px;">
+      <div class="audit-line"></div>
+      <div class="audit-timeline" style="padding-left:0;">${auditHtml}</div>
+    </div>
+  `;
+  lucide.createIcons();
+}
+
+async function decide(alertId, actionId, kind){
+  try{
+    const res = await fetch(`${API}/alerts/${alertId}/${kind}?action_id=${actionId}`, { method: "POST" });
+    if(!res.ok) throw new Error(await res.text());
+    const updated = await res.json();
+    alerts = alerts.map(a => a.id === updated.id ? updated : a);
+    renderDetail(updated);
+    showToast(kind === "approve" ? "Action approved." : "Action denied.");
+  }catch(e){
+    showToast("Could not reach backend — is uvicorn running on :8000?");
+  }
+}
+
+async function simulateAlert(){
+  const btn = document.getElementById("sim-btn");
+  btn.disabled = true;
+  btn.textContent = "Simulating…";
+  try{
+    const res = await fetch(`${API}/alerts/simulate?scenario=deepfake_wire_fraud`, { method: "POST" });
+    if(!res.ok) throw new Error(await res.text());
+    const alert = await res.json();
+    await fetchAlerts();
+    selectAlert(alert.id);
+    showToast("New correlated alert ingested.");
+  }catch(e){
+    showToast("Simulation failed — is the backend running?");
+  }finally{
+    btn.disabled = false;
+    btn.innerHTML = '<i data-lucide="play-circle" style="width:14px;height:14px"></i> Simulate incoming alert';
+    lucide.createIcons();
+  }
+}
+
+function escapeHtml(str){
+  const d = document.createElement("div");
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+renderFilters();
+fetchAlerts();
+setInterval(fetchAlerts, 4000); // simple poll instead of WebSocket — good enough at demo scale
+</script>
+</body>
+</html>
