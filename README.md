@@ -51,3 +51,22 @@ The architecture relies on the concept that the **Media Integrity Agent is a plu
    │      DATABASE        │
    │   PostgreSQL          │
    └────────────────────┘
+
+   ## Running locally (demo mode)
+
+   This repository defaults to a judge-safe in-memory store for the demo. The backend will run without any external database when the environment variable DATABASE_URL is not set, or when DEMO_MODE is set to "true". In this mode alerts are kept in-process (ephemeral) and are re-seeded on every restart — this is intentional for easy demos and repeatability.
+
+   If you want to force demo mode explicitly:
+
+   - On Windows PowerShell:
+
+     $env:DEMO_MODE = "true"
+     uvicorn main:app --reload --port 8000 --app-dir backend
+
+   - On Unix/macOS:
+
+     export DEMO_MODE=true
+     uvicorn main:app --reload --port 8000 --app-dir backend
+
+   To enable a persistent DB, set DATABASE_URL to a PostgreSQL connection string and ensure the driver (psycopg2-binary) is available. If DATABASE_URL is unreachable or misconfigured, the app will log a warning and continue using the in-memory STORE (it never fails to boot).
+

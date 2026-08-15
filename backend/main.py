@@ -27,8 +27,12 @@ http://localhost:8000 by default).
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from datetime import datetime
 from typing import List
+import pathlib
+import os
 
 from models import (
     Alert, Evidence, AuditEntry, MediaVerifyRequest, MediaVerifyResult,
@@ -46,6 +50,20 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Serve the static frontend from the project's frontend/ directory. Mounts are always registered; when files are missing a helpful JSON is returned.
+_PROJECT_ROOT = pathlib.Path(__file__).resolve().parent.parent
+_FRONTEND_DIR = _PROJECT_ROOT / "frontend"
+# Mount frontend directory at /static so assets can be fetched from /static/...
+app.mount("/static", StaticFiles(directory=str(_FRONTEND_DIR)), name="static")
+
+@app.get("/", include_in_schema=False)
+def _serve_frontend_index():
+    index_path = _FRONTEND_DIR / "index.html"
+    if index_path.exists():
+        return FileResponse(str(index_path))
+    return {"detail": "Frontend index.html not found; API is available under /docs"}
+
 
 # ---------------------------------------------------------------------------
 # Storage bootstrap (Biswanath, Priority 2 - Postgres swap-in). Strict
