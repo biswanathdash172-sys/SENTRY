@@ -36,8 +36,9 @@ from models import (
 )
 from services import correlation_engine, playbook_engine, media_integrity_service
 from demo_data import seed_alerts
+from db import database as db
 
-app = FastAPI(title="SENTRY API", version="0.2.0-demo")
+app = FastAPI(title="SENTRY API", version="0.3.0-demo")
 
 app.add_middleware(
     CORSMiddleware,
@@ -47,9 +48,31 @@ app.add_middleware(
 )
 
 # ---------------------------------------------------------------------------
-# In-memory "database". Seeded on boot so the dashboard is never empty.
+# Storage bootstrap (Biswanath, Priority 2 - Postgres swap-in). Strict
+# drop-in: db.init_db() NEVER raises, so the app boots identically whether
+# or not a real Postgres DATABASE_URL is configured or reachable.
+#
+#   - DB reachable AND has existing alerts  -> load them (state survives a
+#     restart, proving the system is real, per ROADMAP.md Day 4).
+#   - DB reachable but empty (first boot)    -> seed demo data, persist it
+#     immediately so it's there on the next restart too.
+#   - DB unreachable / DEMO_MODE=true        -> exactly the old behavior:
+#     pure in-memory STORE, seeded fresh every boot. Never fails.
+#
+# STORE (the in-memory dict) remains the single source of truth for every
+# request in this process. The DB is a best-effort mirror written on every
+# mutation, never a blocking dependency of any route.
 # ---------------------------------------------------------------------------
-STORE: dict[str, Alert] = seed_alerts()
+db.init_db()
+
+if db.db_available():
+    STORE: dict[str, Alert] = db.load_all_alerts()
+    if not STORE:
+        STORE = seed_alerts()
+        for seeded_alert in STORE.values():
+            db.save_alert(seeded_alert)
+else:
+    STORE: dict[str, Alert] = seed_alerts()
 
 
 def _get_alert_or_404(alert_id: str) -> Alert:
@@ -91,6 +114,7 @@ def approve_action(alert_id: str, action_id: str, decision: ActionDecision | Non
     action.mode = "approved"
     who = (decision.approved_by if decision else None) or "analyst_demo_user"
     alert.audit_log.append(AuditEntry(message=f"Action '{action.label}' APPROVED by {who}."))
+    db.save_alert(alert)  # best-effort persist, never blocks/raises
     return alert
 
 
@@ -103,6 +127,7 @@ def deny_action(alert_id: str, action_id: str, decision: ActionDecision | None =
     action.mode = "denied"
     who = (decision.approved_by if decision else None) or "analyst_demo_user"
     alert.audit_log.append(AuditEntry(message=f"Action '{action.label}' DENIED by {who}."))
+    db.save_alert(alert)  # best-effort persist, never blocks/raises
     return alert
 
 
@@ -111,6 +136,7 @@ def resolve_alert(alert_id: str):
     alert = _get_alert_or_404(alert_id)
     alert.status = "resolved"
     alert.audit_log.append(AuditEntry(message="Alert manually marked resolved by analyst."))
+    db.save_alert(alert)  # best-effort persist, never blocks/raises
     return alert
 
 
@@ -162,7 +188,10 @@ def _ingest(source_type: str, req: IngestRequest, default_title: str) -> Alert:
             ],
         )
         STORE[alert.id] = alert
+        db.save_alert(alert)  # best-effort persist, never blocks/raises
         return alert
+    except HTTPException:
+        raise
     except Exception as exc:
         # Fail-safe: never let an ingestion route 500 the whole demo.
         raise HTTPException(status_code=400, detail=f"Could not ingest {source_type} evidence: {exc}")
@@ -240,4 +269,5 @@ def simulate_alert(scenario: str = "deepfake_wire_fraud"):
         audit_log=[AuditEntry(message=f"Simulated alert created from {len(evidence)} evidence source(s).")],
     )
     STORE[alert.id] = alert
+    db.save_alert(alert)  # best-effort persist, never blocks/raises
     return alert
