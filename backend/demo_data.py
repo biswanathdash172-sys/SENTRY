@@ -2,10 +2,7 @@
 demo_data.py
 ------------
 Seeds the in-memory store with a few alerts, including the flagship
-"deepfake CFO wire-fraud" scenario from ARCHITECTURE.md §7 / EXPLANATION.md
-§2, already fully correlated. This guarantees the dashboard has rich,
-presentable content the instant the backend boots — no dependency on a
-live simulate click to have something to show the judges.
+"deepfake CFO wire-fraud" scenario, already fully correlated.
 """
 
 from datetime import datetime, timedelta
