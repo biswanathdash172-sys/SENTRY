@@ -1,0 +1,66 @@
+{
+  "_comment": "Predefined playbook actions per ARCHITECTURE.md §4. Mirrors backend/services/playbook_engine.py's ACTION_RISK_TABLE exactly, kept as data here (not code) so a non-engineer teammate could review/tune it during Judge Simulation prep without touching Python.",
+
+  "actions": [
+    {
+      "label": "Quarantine suspicious email",
+      "risk_level": "low",
+      "triggered_by_source": "email",
+      "description": "Moves the message out of the recipient's inbox into a quarantine folder. Fully reversible, no data loss — safe to auto-execute."
+    },
+    {
+      "label": "Block sender domain",
+      "risk_level": "low",
+      "triggered_by_source": "email",
+      "description": "Adds the sender's domain to an org-wide blocklist for a cooldown period. Reversible by an admin at any time — safe to auto-execute."
+    },
+    {
+      "label": "Isolate endpoint from network",
+      "risk_level": "low",
+      "triggered_by_source": "endpoint",
+      "description": "Cuts network access for a single flagged device while leaving it otherwise operational. Reversible in seconds — safe to auto-execute."
+    },
+    {
+      "label": "Flag media as unverified",
+      "risk_level": "low",
+      "triggered_by_source": "media",
+      "description": "Adds a visible 'unverified' banner/tag to the content wherever it's referenced. Purely informational, no destructive effect — safe to auto-execute."
+    },
+    {
+      "label": "Notify security team",
+      "risk_level": "low",
+      "triggered_by_source": "any",
+      "description": "Sends an internal notification to the analyst team. No external effect at all — always safe to auto-execute."
+    },
+    {
+      "label": "Suspend user account",
+      "risk_level": "high",
+      "triggered_by_source": "identity",
+      "description": "Locks a real employee out of their account. High business-disruption risk if the alert is a false positive — ALWAYS requires human approval."
+    },
+    {
+      "label": "Freeze pending wire transfer",
+      "risk_level": "high",
+      "triggered_by_source": "media",
+      "description": "Halts a real financial transaction. Directly affects money movement and vendor/employee trust if wrong — ALWAYS requires human approval."
+    },
+    {
+      "label": "Revoke signing credential",
+      "risk_level": "high",
+      "triggered_by_source": "media",
+      "description": "Permanently invalidates a signing credential (see revocation_registry.py). Hard to reverse quickly — ALWAYS requires human approval."
+    },
+    {
+      "label": "Force password reset (all sessions)",
+      "risk_level": "high",
+      "triggered_by_source": "identity",
+      "description": "Logs the user out everywhere and forces a new password. Major disruption if the login anomaly turns out to be legitimate travel — ALWAYS requires human approval."
+    },
+    {
+      "label": "Escalate to legal/compliance",
+      "risk_level": "high",
+      "triggered_by_source": "any",
+      "description": "Formally opens a legal/compliance review. Has real organizational and reputational consequences — ALWAYS requires human approval."
+    }
+  ]
+}
