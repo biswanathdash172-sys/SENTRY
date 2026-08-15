@@ -23,18 +23,8 @@ if str(_BACKEND_DIR) not in sys.path:
 spec.loader.exec_module(_backend_mod)
 backend_app = getattr(_backend_mod, "app")
 
-# Create the root FastAPI app that will serve the frontend and delegate API
-# requests to the backend app mounted under /api.
-app = FastAPI()
-app.mount("/api", backend_app)
-
-# Serve the static index.html at the root path
-_FRONTEND_INDEX = _THIS_DIR / "frontend" / "index.html"
-
-@app.get("/", include_in_schema=False)
-def _serve_index():
-    if _FRONTEND_INDEX.exists():
-        return FileResponse(str(_FRONTEND_INDEX))
-    return {"message": "Frontend not found; API is available under /api"}
+# Use the backend app directly so running `uvicorn main:app` from the
+# repository root behaves the same as running the backend from its folder.
+app = backend_app
 
 __all__ = ["app"]

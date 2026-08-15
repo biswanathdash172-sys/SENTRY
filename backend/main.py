@@ -65,6 +65,23 @@ def _serve_frontend_index():
     return {"detail": "Frontend index.html not found; API is available under /docs"}
 
 
+@app.get('/login', include_in_schema=False)
+def _serve_login_page():
+    login_path = _FRONTEND_DIR / 'login.html'
+    if login_path.exists():
+        return FileResponse(str(login_path))
+    return {"detail": "Login page not found"}
+
+
+from fastapi import Form
+
+@app.post('/login')
+def _login(username: str = Form(...), password: str = Form(...)):
+    # Demo-only: accept any credentials and return a demo token
+    token = f"demo-token-{username}"
+    return {"status": "ok", "user": username, "token": token}
+
+
 # ---------------------------------------------------------------------------
 # Storage bootstrap (Biswanath, Priority 2 - Postgres swap-in). Strict
 # drop-in: db.init_db() NEVER raises, so the app boots identically whether
