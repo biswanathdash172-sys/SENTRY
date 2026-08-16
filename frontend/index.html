@@ -13,31 +13,37 @@
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Poppins:wght@500;600;700;800&display=swap" rel="stylesheet">
   
+  <!-- Lucide Icons CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.396.0/dist/umd/lucide.min.js"></script>
+
   <style>
     /* -------------------------------------------------------------
        DESIGN SYSTEM & VARIABLES
        ------------------------------------------------------------- */
     :root {
-      --bg-base: #05070a;
-      --bg-darker: #020305;
-      --accent-color: #00FF94;
-      --accent-glow: rgba(0, 255, 148, 0.15);
-      --accent-border: rgba(0, 255, 148, 0.2);
-      --border-subtle: rgba(255, 255, 255, 0.05);
-      --border-green-subtle: rgba(0, 255, 148, 0.1);
-      --cyan-gradient: #00E5FF;
-      --text-primary: #f8fafc;
-      --text-secondary: #94a3b8;
-      --text-muted: #475569;
-      --glass-bg: rgba(255, 255, 255, 0.03);
-      --glass-bg-hover: rgba(0, 255, 148, 0.05);
+      --bg-base: #0A0E27;
+      --bg-panel: #10142E;
+      --bg-card: #10142E;
+      --accent-gradient: linear-gradient(135deg, #3B5BFF 0%, #22D3EE 100%);
+      --accent-blue: #3B5BFF;
+      --accent-cyan: #22D3EE;
+      --accent-glow: rgba(59, 91, 255, 0.25);
+      --accent-border: rgba(59, 91, 255, 0.3);
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      
+      --text-primary: #FFFFFF;
+      --text-secondary: #94A3B8;
+      --text-muted: #64748B;
+
+      --card-shadow: 0 10px 40px rgba(59, 91, 255, 0.1);
+      --card-hover-shadow: 0 20px 50px rgba(34, 211, 238, 0.2);
       --glass-blur: blur(16px);
       
-      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      --font-mono: 'Fira Code', 'Courier New', Courier, monospace;
-      --font-display: 'Space Grotesk', sans-serif;
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-display: 'Plus Jakarta Sans', 'Poppins', sans-serif;
+      --font-mono: 'Fira Code', monospace;
     }
 
     /* -------------------------------------------------------------
@@ -51,19 +57,18 @@
     }
 
     body {
-      background-color: var(--bg-base);
+      background: var(--bg-base);
       color: var(--text-primary);
       font-family: var(--font-sans);
       min-height: 100vh;
       overflow-x: hidden;
       position: relative;
-      line-height: 1.5;
+      line-height: 1.6;
     }
 
-    /* Selection Color */
     ::selection {
-      background-color: rgba(0, 255, 148, 0.2);
-      color: var(--accent-color);
+      background-color: rgba(59, 91, 255, 0.35);
+      color: #ffffff;
     }
 
     /* Scrollbars */
@@ -71,19 +76,17 @@
       width: 8px;
     }
     ::-webkit-scrollbar-track {
-      background: var(--bg-darker);
+      background: var(--bg-base);
     }
     ::-webkit-scrollbar-thumb {
-      background: rgba(255, 255, 255, 0.1);
+      background: rgba(59, 91, 255, 0.3);
       border-radius: 4px;
     }
     ::-webkit-scrollbar-thumb:hover {
-      background: rgba(0, 255, 148, 0.3);
+      background: var(--accent-cyan);
     }
 
-    /* -------------------------------------------------------------
-       AMBIENT CYBER EFFECTS (Grid, Scanlines, Glows)
-       ------------------------------------------------------------- */
+    /* Ambient Background Effects */
     .ambient-grid {
       position: fixed;
       top: 0;
@@ -91,12 +94,11 @@
       width: 100%;
       height: 100%;
       background-image: 
-        linear-gradient(var(--border-green-subtle) 1px, transparent 1px),
-        linear-gradient(90deg, var(--border-green-subtle) 1px, transparent 1px);
-      background-size: 60px 60px;
+        radial-gradient(circle, rgba(59, 91, 255, 0.09) 1px, transparent 1px);
+      background-size: 36px 36px;
       pointer-events: none;
       z-index: 0;
-      opacity: 0.15;
+      opacity: 0.6;
     }
 
     .ambient-glow-orb {
@@ -107,39 +109,22 @@
       pointer-events: none;
       filter: blur(140px);
       z-index: 0;
-      opacity: 0.08;
+      opacity: 0.16;
       mix-blend-mode: screen;
     }
 
     .orb-1 {
       top: -10%;
-      left: 10%;
-      background: var(--accent-color);
+      left: -5%;
+      background: var(--accent-blue);
       animation: float-orb-1 25s infinite alternate ease-in-out;
     }
 
     .orb-2 {
-      top: 40%;
-      right: 5%;
-      background: var(--cyan-gradient);
+      top: 45%;
+      right: -5%;
+      background: var(--accent-cyan);
       animation: float-orb-2 30s infinite alternate ease-in-out;
-    }
-
-    .scan-bar {
-      position: fixed;
-      top: -20vh;
-      left: 0;
-      width: 100%;
-      height: 15px;
-      background: linear-gradient(
-        to bottom,
-        transparent,
-        rgba(0, 255, 148, 0.04),
-        transparent
-      );
-      z-index: 1;
-      pointer-events: none;
-      animation: sweep-scan 12s linear infinite;
     }
 
     .interactive-glow-layer {
@@ -152,13 +137,13 @@
       z-index: 1;
       background: radial-gradient(
         600px circle at var(--mouse-x, 50%) var(--mouse-y, 50%), 
-        rgba(0, 255, 148, 0.04), 
+        rgba(34, 211, 238, 0.05), 
         transparent 45%
       );
     }
 
     /* -------------------------------------------------------------
-       NAVIGATION BAR
+       SECTION 1: NAVIGATION BAR
        ------------------------------------------------------------- */
     header {
       position: fixed;
@@ -168,20 +153,21 @@
       z-index: 100;
       backdrop-filter: var(--glass-blur);
       -webkit-backdrop-filter: var(--glass-blur);
-      background: rgba(5, 7, 10, 0.75);
+      background: rgba(10, 14, 39, 0.85);
       border-bottom: 1px solid var(--border-subtle);
-      transition: border-color 0.3s ease;
+      transition: all 0.3s ease;
     }
 
     header.scrolled {
-      border-bottom-color: rgba(0, 255, 148, 0.15);
-      background: rgba(2, 3, 5, 0.85);
+      border-bottom-color: var(--accent-border);
+      background: rgba(10, 14, 39, 0.95);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
     }
 
     .nav-container {
-      max-width: 1200px;
+      max-width: 1280px;
       margin: 0 auto;
-      padding: 16px 24px;
+      padding: 18px 28px;
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -201,13 +187,13 @@
     }
 
     .logo-icon {
-      filter: drop-shadow(0 0 8px rgba(0, 255, 148, 0.5));
+      filter: drop-shadow(0 0 10px rgba(34, 211, 238, 0.5));
     }
 
     .logo-text {
       font-family: var(--font-display);
-      font-weight: 700;
-      font-size: 1.25rem;
+      font-weight: 800;
+      font-size: 1.35rem;
       letter-spacing: 0.12em;
       color: #ffffff;
     }
@@ -230,7 +216,6 @@
 
     .nav-link:hover {
       color: var(--text-primary);
-      text-shadow: 0 0 10px rgba(0, 255, 148, 0.3);
     }
 
     .nav-link::after {
@@ -239,9 +224,10 @@
       bottom: 0;
       left: 0;
       width: 0;
-      height: 1.5px;
-      background: var(--accent-color);
+      height: 2px;
+      background: var(--accent-gradient);
       transition: width 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      border-radius: 2px;
     }
 
     .nav-link:hover::after {
@@ -249,23 +235,23 @@
     }
 
     .nav-btn {
-      background: rgba(0, 255, 148, 0.04);
-      color: var(--accent-color);
-      border: 1px solid var(--accent-border);
-      padding: 10px 22px;
-      border-radius: 8px;
+      background: var(--accent-gradient);
+      color: #ffffff;
+      padding: 10px 24px;
+      border-radius: 10px;
       font-size: 0.9rem;
-      font-weight: 600;
+      font-weight: 700;
       text-decoration: none;
       transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-      backdrop-filter: var(--glass-blur);
+      box-shadow: 0 4px 20px rgba(59, 91, 255, 0.35);
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
     }
 
     .nav-btn:hover {
-      background: var(--accent-color);
-      color: var(--bg-darker);
-      box-shadow: 0 0 20px rgba(0, 255, 148, 0.4);
-      transform: translateY(-1px);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 28px rgba(34, 211, 238, 0.5);
     }
 
     .hamburger {
@@ -279,92 +265,66 @@
     }
 
     /* -------------------------------------------------------------
-       HERO SECTION
+       SECTION 2: HERO (TWO-COLUMN SPLIT WITH FLOATING PADLOCK)
        ------------------------------------------------------------- */
-    .hero {
-      max-width: 1200px;
+    .hero-wrapper {
+      max-width: 1280px;
       margin: 0 auto;
-      padding: 150px 24px 80px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      text-align: center;
+      padding: 160px 28px 90px;
       position: relative;
       z-index: 2;
     }
 
-    /* Glass Badge */
-    .badge {
-      display: inline-flex;
+    .hero-grid {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 48px;
       align-items: center;
-      gap: 10px;
-      background: rgba(0, 255, 148, 0.03);
-      border: 1px solid rgba(0, 255, 148, 0.15);
-      color: var(--accent-color);
-      padding: 8px 18px;
-      border-radius: 9999px;
-      font-size: 0.8rem;
-      font-weight: 600;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      margin-bottom: 28px;
-      backdrop-filter: var(--glass-blur);
-      -webkit-backdrop-filter: var(--glass-blur);
-      box-shadow: 0 0 15px rgba(0, 255, 148, 0.02);
-      transition: border-color 0.3s, background 0.3s;
     }
 
-    .badge:hover {
-      border-color: rgba(0, 255, 148, 0.4);
-      background: rgba(0, 255, 148, 0.06);
+    .hero-left {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      text-align: left;
     }
 
-    .badge-icon {
-      animation: pulse-op 1.5s infinite ease-in-out;
-    }
-
-    /* Headline */
     .headline {
       font-family: var(--font-display);
-      font-size: clamp(2.3rem, 5.2vw, 4.2rem);
-      font-weight: 700;
+      font-size: clamp(2.5rem, 4.2vw, 3.8rem);
+      font-weight: 800;
       line-height: 1.15;
       letter-spacing: -0.02em;
-      max-width: 920px;
-      margin-bottom: 24px;
+      margin-bottom: 20px;
       color: #ffffff;
     }
 
     .headline span.gradient {
-      background: linear-gradient(135deg, var(--accent-color) 0%, var(--cyan-gradient) 100%);
+      background: var(--accent-gradient);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
-      filter: drop-shadow(0 2px 10px rgba(0, 255, 148, 0.15));
+      filter: drop-shadow(0 2px 12px rgba(59, 91, 255, 0.35));
     }
 
-    /* Subtext */
     .subtext {
-      font-size: clamp(1rem, 1.8vw, 1.18rem);
+      font-size: 1.1rem;
       color: var(--text-secondary);
-      max-width: 760px;
-      margin-bottom: 40px;
-      line-height: 1.6;
+      margin-bottom: 36px;
+      line-height: 1.65;
     }
 
-    /* CTA Buttons */
     .cta-group {
       display: flex;
-      gap: 18px;
-      margin-bottom: 56px;
-      justify-content: center;
+      gap: 16px;
+      margin-bottom: 36px;
       flex-wrap: wrap;
     }
 
     .btn {
-      padding: 15px 32px;
-      border-radius: 8px;
+      padding: 14px 32px;
+      border-radius: 12px;
       font-size: 0.95rem;
-      font-weight: 600;
+      font-weight: 700;
       cursor: pointer;
       transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
       text-decoration: none;
@@ -375,379 +335,737 @@
     }
 
     .btn-primary {
-      background: var(--accent-color);
-      color: var(--bg-darker);
-      border: 1px solid var(--accent-color);
-      box-shadow: 0 0 25px rgba(0, 255, 148, 0.2);
+      background: var(--accent-gradient);
+      color: #ffffff;
+      border: none;
+      box-shadow: 0 6px 24px rgba(59, 91, 255, 0.4);
     }
 
     .btn-primary:hover {
-      background: #00e685;
-      border-color: #00e685;
-      box-shadow: 0 0 35px rgba(0, 255, 148, 0.45);
+      box-shadow: 0 10px 36px rgba(34, 211, 238, 0.55);
       transform: translateY(-2px);
     }
 
     .btn-secondary {
-      background: var(--glass-bg);
+      background: rgba(255, 255, 255, 0.03);
       color: #ffffff;
       border: 1px solid var(--border-subtle);
       backdrop-filter: var(--glass-blur);
-      -webkit-backdrop-filter: var(--glass-blur);
     }
 
     .btn-secondary:hover {
-      background: var(--glass-bg-hover);
+      background: rgba(59, 91, 255, 0.12);
       border-color: var(--accent-border);
-      color: var(--accent-color);
-      box-shadow: 0 0 20px rgba(0, 255, 148, 0.15);
+      color: var(--accent-cyan);
       transform: translateY(-2px);
     }
 
-    /* Features Row */
-    .features-row {
+    /* Right side hero floating padlock illustration matching reference */
+    .hero-right {
+      position: relative;
       display: flex;
-      gap: 16px;
+      align-items: center;
       justify-content: center;
-      flex-wrap: wrap;
-      margin-bottom: 64px;
-      max-width: 1050px;
+    }
+
+    .hero-right::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 550px;
+      height: 550px;
+      background: radial-gradient(circle, #2F8FD6 0%, #1A4262 40%, transparent 70%);
+      filter: blur(60px);
+      opacity: 0.55;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    .hero-image-stage {
+      position: relative;
+      z-index: 1;
+      background: transparent;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       width: 100%;
+      height: 100%;
+      max-width: 600px;
+      max-height: 600px;
+      border-radius: 0;
+      overflow: visible;
+      box-shadow: none;
     }
 
-    .feature-tag {
+    .hero-image-stage::after {
+      content: '';
+      position: absolute;
+      top: 5%;
+      left: 20%;
+      width: 160px;
+      height: 160px;
+      background: radial-gradient(circle, rgba(255, 255, 255, 0.4) 0%, transparent 70%);
+      filter: blur(30px);
+      pointer-events: none;
+      z-index: 4;
+    }
+
+    .hero-padlock-img {
+      position: relative;
+      z-index: 2;
+      margin: 0 auto;
+      width: 100%;
+      height: 100%;
+      max-width: 640px;
+      max-height: 640px;
+      object-fit: contain;
+      mask-image: radial-gradient(ellipse 75% 75% at center, black 55%, transparent 95%);
+      -webkit-mask-image: radial-gradient(ellipse 75% 75% at center, black 55%, transparent 95%);
+      filter: drop-shadow(0 20px 40px rgba(0, 0, 0, 0.6)) drop-shadow(0 0 30px rgba(34, 211, 238, 0.4));
+      animation: float-hero-img 6s infinite ease-in-out;
+    }
+
+    /* Accent floating shapes around image */
+    .accent-shape {
+      position: absolute;
+      z-index: 3;
+      border-radius: 50%;
+      background: var(--accent-gradient);
+      box-shadow: 0 0 15px rgba(34, 211, 238, 0.6);
+      animation: float-shape 5s infinite ease-in-out alternate;
+    }
+    .shape-1 { width: 14px; height: 14px; top: 15%; left: 12%; animation-delay: 0s; }
+    .shape-2 { width: 22px; height: 22px; bottom: 20%; right: 10%; animation-delay: 1.5s; }
+    .shape-3 { width: 10px; height: 10px; top: 25%; right: 15%; animation-delay: 0.8s; }
+
+    /* -------------------------------------------------------------
+       SECTION 3: PARTNER / TRUST STRIP
+       ------------------------------------------------------------- */
+    .partner-section {
+      max-width: 1280px;
+      margin: 0 auto 100px;
+      padding: 0 28px;
+      position: relative;
+      z-index: 2;
+    }
+
+    .partner-card {
+      background: var(--bg-card);
+      border: 1px solid var(--accent-border);
+      border-radius: 20px;
+      padding: 28px 40px;
+      box-shadow: var(--card-shadow);
       display: flex;
+      flex-direction: column;
       align-items: center;
-      gap: 12px;
-      background: var(--glass-bg);
-      border: 1px solid var(--border-subtle);
-      padding: 10px 20px;
-      border-radius: 9999px;
-      font-size: 0.88rem;
-      font-weight: 500;
-      color: #e2e8f0;
-      backdrop-filter: var(--glass-blur);
-      -webkit-backdrop-filter: var(--glass-blur);
+      gap: 18px;
+    }
+
+    .partner-title {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      color: var(--text-muted);
+      font-weight: 700;
+    }
+
+    .partner-logos {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      flex-wrap: wrap;
+      gap: 28px;
+    }
+
+    .partner-logo {
+      font-family: var(--font-display);
+      font-size: 1.15rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      color: rgba(148, 163, 184, 0.45);
       transition: all 0.3s ease;
+      cursor: default;
     }
 
-    .feature-tag:hover {
-      border-color: rgba(0, 255, 148, 0.35);
-      background: rgba(0, 255, 148, 0.03);
+    .partner-logo:hover {
+      color: var(--accent-cyan);
       transform: translateY(-2px);
-      box-shadow: 0 5px 15px rgba(0, 255, 148, 0.05);
-    }
-
-    .feature-icon {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: var(--accent-color);
-      filter: drop-shadow(0 0 4px rgba(0, 255, 148, 0.4));
+      text-shadow: 0 0 12px rgba(34, 211, 238, 0.3);
     }
 
     /* -------------------------------------------------------------
-       HIGH-FIDELITY CYBER CONSOLE WIDGET
+       SECTION 4: SINGLE PLATFORM SPLIT SECTION (WITH SHIELD ICON)
        ------------------------------------------------------------- */
-    .console-wrapper {
-      width: 100%;
-      max-width: 900px;
-      margin: 0 auto;
-      background: rgba(6, 8, 12, 0.65);
-      border: 1px solid var(--border-green-subtle);
-      border-radius: 12px;
-      backdrop-filter: var(--glass-blur);
-      -webkit-backdrop-filter: var(--glass-blur);
-      overflow: hidden;
-      box-shadow: 
-        0 30px 70px rgba(0, 0, 0, 0.7), 
-        inset 0 1px 0 rgba(255, 255, 255, 0.05),
-        0 0 30px rgba(0, 255, 148, 0.02);
-      text-align: left;
+    .platform-section {
+      max-width: 1280px;
+      margin: 0 auto 120px;
+      padding: 0 28px;
       position: relative;
-      transition: border-color 0.5s ease;
+      z-index: 2;
     }
 
-    .console-wrapper:hover {
-      border-color: rgba(0, 255, 148, 0.25);
-    }
-
-    /* Console Top Header */
-    .console-header {
-      background: rgba(0, 255, 148, 0.04);
-      border-bottom: 1px solid var(--border-green-subtle);
-      padding: 14px 20px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .console-controls {
-      display: flex;
-      gap: 6px;
-    }
-
-    .console-dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-    }
-    .dot-red { background-color: #ef4444; opacity: 0.8; }
-    .dot-yellow { background-color: #f59e0b; opacity: 0.8; }
-    .dot-green { background-color: #10b981; opacity: 0.8; }
-
-    .console-title {
-      font-family: var(--font-display);
-      font-size: 0.72rem;
-      font-weight: 700;
-      color: var(--accent-color);
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-    }
-
-    .console-status {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 0.72rem;
-      color: var(--text-secondary);
-      font-weight: 600;
-      letter-spacing: 0.05em;
-    }
-
-    .status-pulse {
-      width: 8px;
-      height: 8px;
-      background-color: var(--accent-color);
-      border-radius: 50%;
-      animation: radar-pulse 1.8s infinite;
-    }
-
-    /* Console Content Split Layout */
-    .console-body {
+    .platform-grid {
       display: grid;
-      grid-template-columns: 1.6fr 1fr;
-      height: 330px;
+      grid-template-columns: 0.9fr 1.1fr;
+      gap: 60px;
+      align-items: center;
     }
 
-    /* Left panel: Log terminal stream */
-    .console-terminal {
-      background: rgba(2, 3, 5, 0.85);
-      border-right: 1px solid var(--border-green-subtle);
-      padding: 20px;
-      font-family: var(--font-mono);
+    .section-eyebrow {
       font-size: 0.8rem;
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: var(--accent-cyan);
+      margin-bottom: 12px;
+      display: inline-block;
     }
 
-    .log-line {
+    .section-title {
+      font-family: var(--font-display);
+      font-size: clamp(2rem, 3.2vw, 2.75rem);
+      font-weight: 800;
+      line-height: 1.2;
+      margin-bottom: 20px;
+      color: #ffffff;
+    }
+
+    .section-title span.gradient {
+      background: var(--accent-gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    /* Tab row matching reference */
+    .tab-row {
       display: flex;
       gap: 12px;
-      line-height: 1.4;
-      animation: log-fade 0.3s ease-out forwards;
+      margin-bottom: 24px;
+      border-bottom: 1px solid var(--border-subtle);
+      padding-bottom: 12px;
     }
 
-    .log-time {
-      color: var(--text-muted);
-      flex-shrink: 0;
+    .tab-btn {
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 0.92rem;
+      font-weight: 600;
+      padding: 8px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.25s ease;
     }
 
-    .log-incoming { color: var(--text-primary); }
-    .log-analysis { color: #f59e0b; }
-    .log-contained { color: var(--accent-color); font-weight: 600; text-shadow: 0 0 10px rgba(0, 255, 148, 0.15); }
-    .log-notify { color: #3b82f6; }
-
-    /* Right panel: Visualization & KPI */
-    .console-panel {
-      padding: 20px 24px;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      align-items: center;
-      background: rgba(10, 15, 26, 0.25);
+    .tab-btn:hover {
+      color: var(--text-primary);
+      background: rgba(255, 255, 255, 0.04);
     }
 
-    .radar-container {
-      width: 150px;
-      height: 150px;
-      position: relative;
-      margin: 8px 0;
+    .tab-btn.active {
+      background: rgba(59, 91, 255, 0.15);
+      color: var(--accent-cyan);
+      border: 1px solid var(--accent-border);
     }
 
-    .radar-svg {
-      width: 100%;
-      height: 100%;
+    .platform-desc {
+      font-size: 1.05rem;
+      color: var(--text-secondary);
+      margin-bottom: 32px;
+      line-height: 1.65;
     }
 
-    .radar-sweep {
-      transform-origin: 100px 100px;
-      animation: radar-spin 5s linear infinite;
-    }
-
-    .radar-dot {
-      transform-origin: center;
-      animation: pulse-dot-key 2.5s ease-in-out infinite;
-    }
-    .dot-1 { animation-delay: 0.5s; }
-    .dot-2 { animation-delay: 1.5s; }
-    .dot-3 { animation-delay: 0.1s; }
-
-    /* KPI Grid inside Console */
-    .stats-grid {
-      width: 100%;
+    .checklist-2x2 {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 12px;
+      gap: 18px;
     }
 
-    .stat-card {
-      background: rgba(255, 255, 255, 0.015);
-      border: 1px solid rgba(255, 255, 255, 0.04);
-      border-radius: 8px;
-      padding: 10px 14px;
+    .checklist-card {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 14px;
+      padding: 16px 18px;
+      box-shadow: var(--card-shadow);
       transition: all 0.3s ease;
     }
 
-    .stat-card:hover {
-      background: rgba(255, 255, 255, 0.03);
-      border-color: rgba(0, 255, 148, 0.15);
+    .checklist-card:hover {
+      border-color: var(--accent-border);
+      transform: translateY(-2px);
+      box-shadow: var(--card-hover-shadow);
     }
 
-    .stat-label {
-      font-size: 0.65rem;
-      color: var(--text-secondary);
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      margin-bottom: 4px;
+    .check-badge {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--accent-gradient);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #ffffff;
+      flex-shrink: 0;
+      box-shadow: 0 4px 14px rgba(59, 91, 255, 0.35);
     }
 
-    .stat-value {
-      font-family: var(--font-display);
-      font-size: 1.15rem;
+    .checklist-title {
+      font-size: 0.95rem;
       font-weight: 700;
       color: #ffffff;
     }
 
-    .stat-value.glow-text {
-      color: var(--accent-color);
-      text-shadow: 0 0 10px rgba(0, 255, 148, 0.35);
+    /* Left side floating shield icon visual */
+    .platform-left-visual {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    .shield-img {
+      width: 600px;
+      height: 600px;
+      object-fit: contain;
+      filter: drop-shadow(0 20px 40px rgba(0,0,0,0.6)) drop-shadow(0 0 30px rgba(34,211,238,0.4));
+      animation: float-hero-img 6s infinite ease-in-out 1s;
+      mask-image: radial-gradient(ellipse 70% 70% at center, black 55%, transparent 90%);
+      -webkit-mask-image: radial-gradient(ellipse 70% 70% at center, black 55%, transparent 90%);
+      position: relative;
+      z-index: 2;
+    }
+
+    .shield-stage {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 400px;
+    }
+
+    .shield-stage::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 450px;
+      height: 450px;
+      background: radial-gradient(circle, #2F8FD6 0%, #1A4262 40%, transparent 70%);
+      filter: blur(60px);
+      opacity: 0.5;
+      z-index: 0;
+      pointer-events: none;
     }
 
     /* -------------------------------------------------------------
-       ANIMATION DEFINITIONS & ENTRANCE DELAYS
+       SECTION 5: OUR APPROACH NUMBERED SECTION (3 ROWS)
        ------------------------------------------------------------- */
-    /* Fade Up Entry */
-    @keyframes fade-up {
-      from {
-        opacity: 0;
-        transform: translateY(24px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
+    .approach-section {
+      max-width: 1280px;
+      margin: 0 auto 120px;
+      padding: 0 28px;
+      position: relative;
+      z-index: 2;
     }
 
-    .animate-fade-up {
+    .approach-header {
+      text-align: center;
+      max-width: 750px;
+      margin: 0 auto 60px;
+    }
+
+    .approach-rows {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .approach-row-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 20px;
+      padding: 28px 36px;
+      box-shadow: var(--card-shadow);
+      display: flex;
+      align-items: center;
+      gap: 28px;
+      transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .approach-row-card:hover {
+      border-color: var(--accent-border);
+      transform: translateX(6px);
+      box-shadow: var(--card-hover-shadow);
+    }
+
+    /* Circular gradient badge icons (64-80px diameter) */
+    .approach-badge-icon {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      background: var(--accent-gradient);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #ffffff;
+      flex-shrink: 0;
+      box-shadow: 0 8px 24px rgba(59, 91, 255, 0.4);
+      position: relative;
+      font-family: var(--font-display);
+      font-size: 1.35rem;
+      font-weight: 800;
+    }
+
+    .approach-content {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .approach-row-title {
+      font-family: var(--font-display);
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: #ffffff;
+      margin-bottom: 6px;
+    }
+
+    .approach-row-desc {
+      font-size: 0.98rem;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    /* -------------------------------------------------------------
+       SECTION 6: DEPLOYMENT TIERS & SOC PLANS (EXACT PRICING LAYOUT)
+       ------------------------------------------------------------- */
+    .pricing-section {
+      max-width: 1280px;
+      margin: 0 auto 120px;
+      padding: 0 28px;
+      position: relative;
+      z-index: 2;
+    }
+
+    .pricing-header {
+      text-align: center;
+      max-width: 700px;
+      margin: 0 auto 40px;
+    }
+
+    /* Monthly / Annual Toggle */
+    .toggle-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      margin-bottom: 50px;
+    }
+
+    .toggle-label {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+
+    .toggle-label.active {
+      color: #ffffff;
+    }
+
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 56px;
+      height: 30px;
+    }
+
+    .switch input {
       opacity: 0;
-      animation: fade-up 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      width: 0;
+      height: 0;
     }
 
-    .delay-1 { animation-delay: 150ms; }
-    .delay-2 { animation-delay: 280ms; }
-    .delay-3 { animation-delay: 400ms; }
-    .delay-4 { animation-delay: 520ms; }
-    .delay-5 { animation-delay: 650ms; }
-    .delay-6 { animation-delay: 780ms; }
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      inset: 0;
+      background-color: rgba(255, 255, 255, 0.1);
+      border: 1px solid var(--border-subtle);
+      transition: .3s;
+      border-radius: 30px;
+    }
 
-    /* Floating Orbs */
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 22px;
+      width: 22px;
+      left: 3px;
+      bottom: 3px;
+      background-color: var(--accent-cyan);
+      transition: .3s;
+      border-radius: 50%;
+      box-shadow: 0 0 10px var(--accent-cyan);
+    }
+
+    input:checked + .slider {
+      background-color: rgba(59, 91, 255, 0.3);
+    }
+
+    input:checked + .slider:before {
+      transform: translateX(26px);
+    }
+
+    .save-tag {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--accent-cyan);
+      background: rgba(34, 211, 238, 0.12);
+      border: 1px solid rgba(34, 211, 238, 0.25);
+      padding: 3px 10px;
+      border-radius: 20px;
+    }
+
+    /* 3 Pricing Cards Grid */
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 28px;
+      align-items: center;
+    }
+
+    .pricing-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 24px;
+      padding: 36px 30px;
+      box-shadow: var(--card-shadow);
+      display: flex;
+      flex-direction: column;
+      transition: all 0.35s ease;
+      position: relative;
+    }
+
+    .pricing-card:hover {
+      border-color: var(--accent-border);
+      transform: translateY(-4px);
+    }
+
+    /* Highlighted "Most Popular" Team SOC Card */
+    .pricing-card.featured {
+      border-color: var(--accent-cyan);
+      box-shadow: var(--card-hover-shadow), 0 0 40px rgba(34, 211, 238, 0.15);
+      transform: scale(1.05);
+      z-index: 3;
+      background: linear-gradient(180deg, rgba(16, 20, 46, 0.98) 0%, rgba(10, 14, 39, 0.98) 100%);
+    }
+
+    .pricing-card.featured:hover {
+      transform: scale(1.07);
+    }
+
+    .popular-badge {
+      position: absolute;
+      top: -14px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--accent-gradient);
+      color: #ffffff;
+      font-size: 0.75rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      padding: 6px 18px;
+      border-radius: 20px;
+      box-shadow: 0 4px 14px rgba(34, 211, 238, 0.4);
+    }
+
+    .plan-name {
+      font-family: var(--font-display);
+      font-size: 1.35rem;
+      font-weight: 800;
+      color: #ffffff;
+      margin-bottom: 8px;
+    }
+
+    .plan-desc {
+      font-size: 0.88rem;
+      color: var(--text-secondary);
+      margin-bottom: 24px;
+      min-height: 42px;
+    }
+
+    .plan-price {
+      display: flex;
+      align-items: baseline;
+      gap: 4px;
+      margin-bottom: 28px;
+    }
+
+    .price-val {
+      font-family: var(--font-display);
+      font-size: 2.75rem;
+      font-weight: 800;
+      color: #ffffff;
+    }
+
+    .price-period {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+    }
+
+    .pricing-checklist {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      margin-bottom: 32px;
+      flex: 1;
+    }
+
+    .pricing-feature {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+    }
+
+    .pricing-feature .check-badge {
+      width: 22px;
+      height: 22px;
+      box-shadow: none;
+    }
+
+    .pricing-feature .check-badge svg {
+      width: 12px;
+      height: 12px;
+    }
+
+    .pricing-btn {
+      width: 100%;
+      text-align: center;
+      justify-content: center;
+      margin-top: auto;
+    }
+
+    /* -------------------------------------------------------------
+       SECTION 7: CTA FOOTER BANNER & FOOTER
+       ------------------------------------------------------------- */
+    .footer-cta-container {
+      max-width: 1280px;
+      margin: 0 auto 80px;
+      padding: 0 28px;
+      position: relative;
+      z-index: 2;
+    }
+
+    .footer-cta-card {
+      background: linear-gradient(135deg, rgba(16, 20, 46, 0.95) 0%, rgba(10, 14, 39, 0.95) 100%);
+      border: 1px solid var(--accent-border);
+      border-radius: 24px;
+      padding: 64px 36px;
+      text-align: center;
+      box-shadow: var(--card-hover-shadow), 0 0 60px rgba(59, 91, 255, 0.15);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .footer-cta-card::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 500px;
+      height: 300px;
+      background: radial-gradient(ellipse, rgba(34, 211, 238, 0.18), transparent 70%);
+      pointer-events: none;
+    }
+
+    .footer-cta-title {
+      font-family: var(--font-display);
+      font-size: clamp(2rem, 3.5vw, 2.75rem);
+      font-weight: 800;
+      color: #ffffff;
+      margin-bottom: 16px;
+    }
+
+    .footer-cta-sub {
+      font-size: 1.1rem;
+      color: var(--text-secondary);
+      max-width: 600px;
+      margin: 0 auto 36px;
+    }
+
+    footer {
+      border-top: 1px solid var(--border-subtle);
+      padding: 36px 28px;
+      text-align: center;
+      font-size: 0.88rem;
+      color: var(--text-muted);
+      position: relative;
+      z-index: 2;
+    }
+
+    /* -------------------------------------------------------------
+       ANIMATIONS
+       ------------------------------------------------------------- */
+    @keyframes float-hero-img {
+      0%, 100% { transform: translateY(0) rotate(0deg); }
+      50% { transform: translateY(-12px) rotate(1deg); }
+    }
+
+    @keyframes pulse-stage {
+      0%, 100% { opacity: 0.3; transform: scale(0.95); }
+      50% { opacity: 0.6; transform: scale(1.05); }
+    }
+
+    @keyframes float-shape {
+      0% { transform: translateY(0) scale(1); }
+      100% { transform: translateY(-15px) scale(1.15); }
+    }
+
     @keyframes float-orb-1 {
       0% { transform: translate(0, 0) scale(1); }
-      100% { transform: translate(120px, 80px) scale(1.15); }
+      100% { transform: translate(100px, 60px) scale(1.1); }
     }
 
     @keyframes float-orb-2 {
-      0% { transform: translate(0, 0) scale(1.1); }
-      100% { transform: translate(-100px, -70px) scale(0.9); }
+      0% { transform: translate(0, 0) scale(1); }
+      100% { transform: translate(-80px, -50px) scale(0.95); }
     }
 
-    /* Scanning laser sweep bar */
-    @keyframes sweep-scan {
-      0% { top: -15vh; }
-      100% { top: 115vh; }
-    }
-
-    /* Pulse operations badge icon */
-    @keyframes pulse-op {
-      0%, 100% { opacity: 0.6; transform: scale(1); }
-      50% { opacity: 1; transform: scale(1.08); }
-    }
-
-    /* Radar sweep spin */
-    @keyframes radar-spin {
-      from { transform: rotate(0deg); }
-      to { transform: rotate(360deg); }
-    }
-
-    /* Radar pulse ring */
-    @keyframes radar-pulse {
-      0% {
-        transform: scale(0.85);
-        box-shadow: 0 0 0 0 rgba(0, 255, 148, 0.5);
-      }
-      70% {
-        transform: scale(1.2);
-        box-shadow: 0 0 0 8px rgba(0, 255, 148, 0);
-      }
-      100% {
-        transform: scale(0.85);
-        box-shadow: 0 0 0 0 rgba(0, 255, 148, 0);
-      }
-    }
-
-    /* Radar threat point pulsing */
-    @keyframes pulse-dot-key {
-      0%, 100% { opacity: 0.2; transform: scale(0.8); }
-      50% { opacity: 1; transform: scale(1.3); }
-    }
-
-    /* Log entry animation */
-    @keyframes log-fade {
-      from { opacity: 0; transform: translateY(6px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    /* -------------------------------------------------------------
-       RESPONSIVE DESIGN & MOBILE DRAWER
-       ------------------------------------------------------------- */
-    @media (max-width: 900px) {
-      .console-body {
+    /* Responsive Breakpoints */
+    @media (max-width: 1024px) {
+      .hero-grid, .platform-grid {
         grid-template-columns: 1fr;
-        height: auto;
+        gap: 40px;
       }
-      .console-terminal {
-        border-right: none;
-        border-bottom: 1px solid var(--border-green-subtle);
-        height: 220px;
+      .pricing-grid {
+        grid-template-columns: 1fr;
       }
-      .console-panel {
-        padding: 24px;
-        gap: 20px;
+      .pricing-card.featured {
+        transform: none;
+      }
+      .pricing-card.featured:hover {
+        transform: translateY(-4px);
       }
     }
 
     @media (max-width: 768px) {
       .nav-links {
-        display: none; /* hidden by default, toggled via JS */
+        display: none;
       }
-      
       .hamburger {
         display: block;
       }
-
       .mobile-menu-open .nav-links {
         display: flex;
         flex-direction: column;
@@ -755,29 +1073,26 @@
         top: 65px;
         left: 0;
         width: 100%;
-        background: rgba(3, 5, 8, 0.96);
-        border-bottom: 1px solid var(--border-green-subtle);
+        background: rgba(10, 14, 39, 0.96);
+        border-bottom: 1px solid var(--accent-border);
         padding: 30px 24px;
         gap: 24px;
         z-index: 99;
         backdrop-filter: blur(24px);
-        -webkit-backdrop-filter: blur(24px);
-        animation: menu-slide 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
       }
-
-      @keyframes menu-slide {
-        from { opacity: 0; transform: translateY(-10px); }
-        to { opacity: 1; transform: translateY(0); }
-      }
-
       .nav-links .nav-btn {
         width: 100%;
-        text-align: center;
-        margin-top: 10px;
+        justify-content: center;
       }
-
-      .hero {
+      .hero-wrapper {
         padding: 120px 20px 60px;
+      }
+      .checklist-2x2 {
+        grid-template-columns: 1fr;
+      }
+      .approach-row-card {
+        flex-direction: column;
+        align-items: flex-start;
       }
     }
   </style>
@@ -788,26 +1103,40 @@
   <div class="ambient-grid"></div>
   <div class="ambient-glow-orb orb-1"></div>
   <div class="ambient-glow-orb orb-2"></div>
-  <div class="scan-bar"></div>
   <div class="interactive-glow-layer"></div>
 
-  <!-- Header Navigation -->
+  <!-- SECTION 1: HEADER NAVIGATION BAR -->
   <header id="site-header">
     <div class="nav-container">
       <a href="#" class="logo">
-        <svg class="logo-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#00FF94" stroke-width="2">
+        <svg class="logo-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="url(#logoGrad)" stroke-width="2.5">
+          <defs>
+            <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#3B5BFF" />
+              <stop offset="100%" stop-color="#22D3EE" />
+            </linearGradient>
+          </defs>
           <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5" />
-          <circle cx="12" cy="12" r="3.5" fill="#00FF94" fill-opacity="0.25" stroke="#00FF94" stroke-width="1.5" />
-          <path d="M12 2v20" stroke-opacity="0.25" />
-          <path d="M2 12h20" stroke-opacity="0.25" />
+          <circle cx="12" cy="12" r="3.5" fill="#22D3EE" fill-opacity="0.25" stroke="#22D3EE" stroke-width="1.5" />
+          <path d="M12 2v20" stroke-opacity="0.3" />
+          <path d="M2 12h20" stroke-opacity="0.3" />
         </svg>
         <span class="logo-text">SENTRY</span>
       </a>
 
       <nav class="nav-links" id="nav-menu">
         <a href="#" class="nav-link">Home</a>
-        <a href="#features" class="nav-link">Features</a>
-        <a href="/login" class="nav-btn">Login</a>
+        <a href="/login" class="nav-link">Dashboard</a>
+        <a href="#approach" class="nav-link">Approach</a>
+        <a href="#pricing" class="nav-link">Pricing</a>
+        <a href="#contact" class="nav-link">Contact</a>
+        <a href="/login" class="nav-btn">
+          <span>Get Access</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+            <polyline points="12 5 19 12 12 19"></polyline>
+          </svg>
+        </a>
       </nav>
 
       <button class="hamburger" id="menu-toggle" aria-label="Toggle Navigation Menu">
@@ -820,30 +1149,350 @@
     </div>
   </header>
 
-  <!-- Hero Content Area -->
-  <main class="hero">
-    <!-- Autonomous SOC Pill/Badge -->
-    <div class="badge animate-fade-up delay-1">
-      <span class="pulse-dot"></span>
-      <span class="badge-icon">⚡</span>
-      <span>Human-Governed Autonomous SOC</span>
+  <!-- SECTION 2: HERO (TWO-COLUMN WITH FLOATING PADLOCK IMAGE) -->
+  <main class="hero-wrapper">
+    <div class="hero-grid">
+      <!-- Left Column -->
+      <div class="hero-left">
+        <h1 class="headline">
+          We Guard Modern Infrastructure <br>
+          <span class="gradient">From Threats.</span>
+        </h1>
+
+        <p class="subtext">
+          SENTRY correlates signals across email, identity, endpoint, and network telemetry into one unified incident stream. It auto-contains low-risk threats instantly, while routing high-impact operational decisions directly to human analysts.
+        </p>
+
+        <div class="cta-group">
+          <a href="/login" class="btn btn-primary">
+            Request Access
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+              <polyline points="12 5 19 12 12 19"></polyline>
+            </svg>
+          </a>
+          <a href="#platform" class="btn btn-secondary">
+            Learn More
+          </a>
+        </div>
+      </div>
+
+      <!-- Right Column: Floating Padlock Icon Image with Glow & Accent Shapes -->
+      <div class="hero-right">
+        <div class="hero-image-stage">
+          <!-- Padlock Icon Image with fallback -->
+          <img src="/assets/hero-padlock.jpg" alt="SENTRY Padlock Security Icon" class="hero-padlock-img" onerror="this.style.display='none'; document.getElementById('padlock-svg-fallback').style.display='block';" />
+          
+          <!-- SVG Fallback if image path differs -->
+          <svg id="padlock-svg-fallback" class="hero-padlock-img" style="display:none;" viewBox="0 0 24 24" fill="none" stroke="url(#heroSvgGrad)" stroke-width="1.8">
+            <defs>
+              <linearGradient id="heroSvgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#3B5BFF" />
+                <stop offset="100%" stop-color="#22D3EE" />
+              </linearGradient>
+            </defs>
+            <rect x="3" y="11" width="18" height="11" rx="3" ry="3" fill="#10142E" />
+            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+            <circle cx="12" cy="16" r="1.5" fill="#22D3EE" />
+          </svg>
+
+          <!-- Floating small accent shapes matching reference -->
+          <div class="accent-shape shape-1"></div>
+          <div class="accent-shape shape-2"></div>
+          <div class="accent-shape shape-3"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- SECTION 3: PARTNER / TRUST STRIP -->
+  <section class="partner-section">
+    <div class="partner-card">
+      <span class="partner-title">Trusted By Security Teams At</span>
+      <div class="partner-logos">
+        <span class="partner-logo">VAULTSEC</span>
+        <span class="partner-logo">CYBERGUARD</span>
+        <span class="partner-logo">APEX DEFENSE</span>
+        <span class="partner-logo">SENTINEL AI</span>
+        <span class="partner-logo">ACME CORP</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 4: SINGLE PLATFORM SPLIT SECTION (IMAGE LEFT, TEXT RIGHT) -->
+  <section class="platform-section" id="platform">
+    <div class="platform-grid">
+      <!-- Left side: Floating Shield Icon Visual -->
+      <div class="platform-left-visual">
+        <div class="shield-stage">
+          <img src="/assets/shield-icon.png" alt="SENTRY Shield Verification" class="shield-img" onerror="this.onerror=null; this.src='assets/shield-icon.png';" />
+        </div>
+      </div>
+
+      <!-- Right side: Text & Checklist Content -->
+      <div class="platform-right-content">
+        <span class="section-eyebrow">UNIFIED THREAT RESPONSE</span>
+        <h2 class="section-title">
+          Single Platform to Manage Your <span class="gradient">Threat Response</span>
+        </h2>
+
+        <!-- Tab Row matching reference -->
+        <div class="tab-row">
+          <button class="tab-btn active" onclick="switchTab(this, 'tab-approach')">Our Approach</button>
+          <button class="tab-btn" onclick="switchTab(this, 'tab-why')">Why SENTRY</button>
+          <button class="tab-btn" onclick="switchTab(this, 'tab-how')">How It Works</button>
+        </div>
+
+        <div id="tab-content">
+          <p class="platform-desc" id="tab-desc">
+            SENTRY unites disparate security signals into a single pane of glass. By blending real-time automated containment for low-risk anomalies with single-click human governance for critical playbooks, SOC teams reduce response fatigue by 90%.
+          </p>
+        </div>
+
+        <!-- 2x2 Checklist Grid with gradient checkmark badges -->
+        <div class="checklist-2x2">
+          <div class="checklist-card">
+            <div class="check-badge">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <span class="checklist-title">Real-Time Correlation</span>
+          </div>
+
+          <div class="checklist-card">
+            <div class="check-badge">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <span class="checklist-title">Human-Governed Actions</span>
+          </div>
+
+          <div class="checklist-card">
+            <div class="check-badge">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <span class="checklist-title">Full Audit Trail</span>
+          </div>
+
+          <div class="checklist-card">
+            <div class="check-badge">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <span class="checklist-title">Auto-Containment</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 5: OUR APPROACH NUMBERED SECTION (3 ROWS WITH CIRCULAR GRADIENT BADGES) -->
+  <section class="approach-section" id="approach">
+    <div class="approach-header">
+      <span class="section-eyebrow">DESIGNED FOR MAXIMUM EFFICIENCY</span>
+      <h2 class="section-title">
+        Our Approach Is Simple But <span class="gradient">Not Time-Wasting</span>
+      </h2>
+      <p class="subtext">
+        Eliminate repetitive manual investigation and focus analyst attention strictly where decisions matter most.
+      </p>
     </div>
 
-    <!-- Main Headline -->
-    <h1 class="headline animate-fade-up delay-2">
-      Detect Threats <br>
-      <span class="gradient">Before They Become Incidents.</span>
-    </h1>
+    <div class="approach-rows">
+      <!-- Row 1 -->
+      <div class="approach-row-card">
+        <div class="approach-badge-icon">01</div>
+        <div class="approach-content">
+          <h3 class="approach-row-title">Signal Ingestion</h3>
+          <p class="approach-row-desc">
+            Continuous real-time telemetry stream ingestion across identity providers, cloud infrastructure, endpoints, and email gateways, automatically normalized into a unified graph context.
+          </p>
+        </div>
+      </div>
 
-    <!-- Core Pitch Subtext -->
-    <p class="subtext animate-fade-up delay-3">
-      SENTRY correlates signals across email, identity, endpoint, and network into one unified incident. 
-      It auto-contains low-risk threats instantly, while routing high-impact operational decisions 
-      directly to human analysts for quick, final approval.
-    </p>
+      <!-- Row 2 -->
+      <div class="approach-row-card">
+        <div class="approach-badge-icon">02</div>
+        <div class="approach-content">
+          <h3 class="approach-row-title">Correlation Engine</h3>
+          <p class="approach-row-desc">
+            AI heuristic models evaluate attack vectors and blast radius in milliseconds, auto-containing low-risk threats without waiting for manual human intervention.
+          </p>
+        </div>
+      </div>
 
-    <!-- Call to Actions -->
-    <div class="cta-group animate-fade-up delay-4">
+      <!-- Row 3 -->
+      <div class="approach-row-card">
+        <div class="approach-badge-icon">03</div>
+        <div class="approach-content">
+          <h3 class="approach-row-title">Human-Governed Response</h3>
+          <p class="approach-row-desc">
+            High-impact containment decisions trigger single-click analyst authorization cards with complete cryptographic provenance and audit trail recording.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 6: DEPLOYMENT TIERS (REFRAMED PRICING MATCHING REFERENCE LAYOUT) -->
+  <section class="pricing-section" id="pricing">
+    <div class="pricing-header">
+      <span class="section-eyebrow">TRANSPARENT SOC PLANS</span>
+      <h2 class="section-title">Deployment Tiers &amp; SOC Plans</h2>
+      <p class="subtext">Choose the right autonomous security capacity for your organization's operational scale.</p>
+    </div>
+
+    <!-- Monthly / Annual Toggle -->
+    <div class="toggle-container">
+      <span class="toggle-label active" id="label-monthly">Monthly Billing</span>
+      <label class="switch">
+        <input type="checkbox" id="pricing-toggle" onchange="toggleBilling(this)" />
+        <span class="slider"></span>
+      </label>
+      <span class="toggle-label" id="label-annual">Annual Billing</span>
+      <span class="save-tag">SAVE 20%</span>
+    </div>
+
+    <!-- 3 Pricing Cards Grid -->
+    <div class="pricing-grid">
+      <!-- Card 1: Starter SOC -->
+      <div class="pricing-card">
+        <div class="plan-name">Starter SOC</div>
+        <div class="plan-desc">Essential automated threat correlation for small security teams.</div>
+        <div class="plan-price">
+          <span class="price-val" id="price-starter">$199</span>
+          <span class="price-period">/month</span>
+        </div>
+
+        <div class="pricing-checklist">
+          <div class="pricing-feature">
+            <div class="check-badge">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            </div>
+            <span>Core Signal Correlation Engine</span>
+          </div>
+          <div class="pricing-feature">
+            <div class="check-badge">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            </div>
+            <span>Up to 10 Monitored Endpoints</span>
+          </div>
+          <div class="pricing-feature">
+            <div class="check-badge">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            </div>
+            <span>Standard Email Support</span>
+          </div>
+          <div class="pricing-feature">
+            <div class="check-badge">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            </div>
+            <span>Basic Audit Log Export</span>
+          </div>
+        </div>
+
+        <a href="/login" class="btn btn-secondary pricing-btn">Choose Plan</a>
+      </div>
+
+      <!-- Card 2: Team SOC (MOST POPULAR - FEATURED MATCHING REFERENCE) -->
+      <div class="pricing-card featured">
+        <div class="popular-badge">Most Popular</div>
+        <div class="plan-name">Team SOC</div>
+        <div class="plan-desc">Full correlation, playbook automation, and human governance.</div>
+        <div class="plan-price">
+          <span class="price-val" id="price-team">$499</span>
+          <span class="price-period">/month</span>
+        </div>
+
+        <div class="pricing-checklist">
+          <div class="pricing-feature">
+            <div class="check-badge">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            </div>
+            <span>Advanced Real-Time Signal Fusion</span>
+          </div>
+          <div class="pricing-feature">
+            <div class="check-badge">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            </div>
+            <span>Up to 50 Monitored Endpoints</span>
+          </div>
+          <div class="pricing-feature">
+            <div class="check-badge">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            </div>
+            <span>Human-in-the-Loop Approval Cards</span>
+          </div>
+          <div class="pricing-feature">
+            <div class="check-badge">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            </div>
+            <span>Playbook Automation Engine</span>
+          </div>
+          <div class="pricing-feature">
+            <div class="check-badge">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            </div>
+            <span>Priority Support (24/7)</span>
+          </div>
+        </div>
+
+        <a href="/login" class="btn btn-primary pricing-btn">Choose Plan</a>
+      </div>
+
+      <!-- Card 3: Enterprise SOC -->
+      <div class="pricing-card">
+        <div class="plan-name">Enterprise SOC</div>
+        <div class="plan-desc">Dedicated deployment, custom integrations, and SLA guarantees.</div>
+        <div class="plan-price">
+          <span class="price-val" id="price-enterprise">$999</span>
+          <span class="price-period">/month</span>
+        </div>
+
+        <div class="pricing-checklist">
+          <div class="pricing-feature">
+            <div class="check-badge">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            </div>
+            <span>Dedicated Autonomous SOC Cluster</span>
+          </div>
+          <div class="pricing-feature">
+            <div class="check-badge">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            </div>
+            <span>Unlimited Monitored Endpoints</span>
+          </div>
+          <div class="pricing-feature">
+            <div class="check-badge">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            </div>
+            <span>Custom Cryptographic Audit Signers</span>
+          </div>
+          <div class="pricing-feature">
+            <div class="check-badge">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            </div>
+            <span>15-Minute SLA Guarantee</span>
+          </div>
+        </div>
+
+        <a href="/login" class="btn btn-secondary pricing-btn">Choose Plan</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 7: CTA FOOTER BANNER & FOOTER -->
+  <div class="footer-cta-container" id="contact">
+    <div class="footer-cta-card">
+      <h2 class="footer-cta-title">Start Protecting Your Organization Today</h2>
+      <p class="footer-cta-sub">
+        Experience human-governed autonomous security operations with SENTRY.
+      </p>
       <a href="/login" class="btn btn-primary">
         Enter Dashboard
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -851,124 +1500,15 @@
           <polyline points="12 5 19 12 12 19"></polyline>
         </svg>
       </a>
-      <a href="#features" class="btn btn-secondary">
-        Learn More
-      </a>
     </div>
+  </div>
 
-    <!-- Core Features Row -->
-    <div class="features-row animate-fade-up delay-5" id="features">
-      <div class="feature-tag">
-        <span class="feature-icon">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="20 6 9 17 4 12"></polyline>
-          </svg>
-        </span>
-        <span>Real-Time Correlation</span>
-      </div>
-      <div class="feature-tag">
-        <span class="feature-icon">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="20 6 9 17 4 12"></polyline>
-          </svg>
-        </span>
-        <span>Human-in-the-Loop Approval</span>
-      </div>
-      <div class="feature-tag">
-        <span class="feature-icon">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="20 6 9 17 4 12"></polyline>
-          </svg>
-        </span>
-        <span>Auto-Contain Low-Risk Threats</span>
-      </div>
-      <div class="feature-tag">
-        <span class="feature-icon">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="20 6 9 17 4 12"></polyline>
-          </svg>
-        </span>
-        <span>Full Audit Trail</span>
-      </div>
-    </div>
-
-    <!-- Cybersecurity Console/Dashboard Widget -->
-    <div class="console-wrapper animate-fade-up delay-6">
-      <div class="console-header">
-        <div class="console-controls">
-          <span class="console-dot dot-red"></span>
-          <span class="console-dot dot-yellow"></span>
-          <span class="console-dot dot-green"></span>
-        </div>
-        <div class="console-title">SENTRY COGNITIVE ENGINE v1.2</div>
-        <div class="console-status">
-          <span class="status-pulse"></span>
-          <span>SYSTEM SECURED</span>
-        </div>
-      </div>
-      
-      <div class="console-body">
-        <!-- Live scrolling logs -->
-        <div class="console-terminal" id="log-stream">
-          <!-- Populated dynamically via JS -->
-        </div>
-
-        <!-- Animated radar visualizer & stats -->
-        <div class="console-panel">
-          <div class="radar-container">
-            <svg class="radar-svg" viewBox="0 0 200 200">
-              <!-- Grid Circles -->
-              <circle cx="100" cy="100" r="90" fill="none" stroke="rgba(0, 255, 148, 0.15)" stroke-width="1"></circle>
-              <circle cx="100" cy="100" r="60" fill="none" stroke="rgba(0, 255, 148, 0.1)" stroke-width="1" stroke-dasharray="4 4"></circle>
-              <circle cx="100" cy="100" r="30" fill="none" stroke="rgba(0, 255, 148, 0.08)" stroke-width="1"></circle>
-              
-              <!-- Grid Axes -->
-              <line x1="100" y1="10" x2="100" y2="190" stroke="rgba(0, 255, 148, 0.08)" stroke-width="1"></line>
-              <line x1="10" y1="100" x2="190" y2="100" stroke="rgba(0, 255, 148, 0.08)" stroke-width="1"></line>
-              
-              <!-- Sweep Line -->
-              <line x1="100" y1="100" x2="100" y2="10" class="radar-sweep" stroke="url(#radarGradient)" stroke-width="2"></line>
-              
-              <!-- Simulated threats dots -->
-              <circle cx="65" cy="75" r="3" fill="#00FF94" class="radar-dot dot-1"></circle>
-              <circle cx="145" cy="115" r="4.5" fill="#ef4444" class="radar-dot dot-2"></circle>
-              <circle cx="115" cy="50" r="2.5" fill="#00FF94" class="radar-dot dot-3"></circle>
-
-              <defs>
-                <linearGradient id="radarGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stop-color="#00FF94" stop-opacity="1"></stop>
-                  <stop offset="100%" stop-color="#00FF94" stop-opacity="0"></stop>
-                </linearGradient>
-              </defs>
-            </svg>
-          </div>
-
-          <!-- Real-Time Metrics -->
-          <div class="stats-grid">
-            <div class="stat-card">
-              <div class="stat-label">Events Correlated</div>
-              <div class="stat-value" id="events-correlated">4,821/s</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-label">Containment Rate</div>
-              <div class="stat-value glow-text">99.4%</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-label">Anomalies Checked</div>
-              <div class="stat-value" id="anomalies-checked">142,892</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-label">Mean Response Time</div>
-              <div class="stat-value">0.12s</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </main>
+  <footer>
+    <p>&copy; 2026 SENTRY Autonomous SOC Platform. All rights reserved.</p>
+  </footer>
 
   <!-- -------------------------------------------------------------
-       INTERACTIVE FUNCTIONALITY SCRIPTS
+       INTERACTIVE SCRIPT CONTROLS
        ------------------------------------------------------------- -->
   <script>
     // 1. Mouse Glow Interaction
@@ -1001,17 +1541,13 @@
 
     menuToggle.addEventListener('click', () => {
       document.body.classList.toggle('mobile-menu-open');
-      
-      // Animate hamburger to 'X' and back
       const isOpen = document.body.classList.contains('mobile-menu-open');
       if (isOpen) {
         hamburgerLines.line1.setAttribute('x1', '18');
         hamburgerLines.line1.setAttribute('y1', '6');
         hamburgerLines.line1.setAttribute('x2', '6');
         hamburgerLines.line1.setAttribute('y2', '18');
-        
         hamburgerLines.line2.setAttribute('stroke-opacity', '0');
-        
         hamburgerLines.line3.setAttribute('x1', '6');
         hamburgerLines.line3.setAttribute('y1', '6');
         hamburgerLines.line3.setAttribute('x2', '18');
@@ -1021,9 +1557,7 @@
         hamburgerLines.line1.setAttribute('y1', '12');
         hamburgerLines.line1.setAttribute('x2', '21');
         hamburgerLines.line1.setAttribute('y2', '12');
-        
         hamburgerLines.line2.setAttribute('stroke-opacity', '1');
-        
         hamburgerLines.line3.setAttribute('x1', '3');
         hamburgerLines.line3.setAttribute('y1', '18');
         hamburgerLines.line3.setAttribute('x2', '21');
@@ -1031,131 +1565,31 @@
       }
     });
 
-    // Close menu when clicking nav link
-    const navLinks = document.querySelectorAll('.nav-link, .nav-btn');
-    navLinks.forEach(link => {
-      link.addEventListener('click', () => {
-        if (document.body.classList.contains('mobile-menu-open')) {
-          menuToggle.click();
-        }
-      });
-    });
+    // 4. Section 4 Tab Selector Switching
+    function switchTab(btn, tabId) {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
 
-    // 4. Live Simulated Threat Feed scrolling text inside Console
-    const mockLogs = [
-      { text: "INCOMING: Connection attempt from 198.51.100.42 on Port 22 [SSH]", type: "incoming" },
-      { text: "ANALYSIS: Brute-force heuristic triggered (4 attempts in 2s)", type: "analysis" },
-      { text: "CONTAINED: Target IP quarantined from internal network", type: "contained" },
-      { text: "INCOMING: O365 Login request from atypical location (Beijing)", type: "incoming" },
-      { text: "VERIFY: Routing authentication challenge to human supervisor", type: "notify" },
-      { text: "INCOMING: Executable drop detected in directory /tmp/sysd-proc", type: "incoming" },
-      { text: "ANALYSIS: Sandbox matches file signature to known Ransomware", type: "analysis" },
-      { text: "CONTAINED: Endpoint process terminated, file quarantined", type: "contained" },
-      { text: "INCOMING: High volume DNS egress querying active .onion domains", type: "incoming" },
-      { text: "ANALYSIS: Sentry AI models query correlation with C2 command", type: "analysis" },
-      { text: "CONTAINED: DNS request sinkholed; endpoint quarantined", type: "contained" },
-      { text: "NOTIFY: Generated full cryptographic audit trail for incident #14022", type: "notify" }
-    ];
-
-    const terminal = document.getElementById('log-stream');
-    let logPointer = 0;
-
-    function addLogToConsole() {
-      if (!terminal) return;
-
-      const log = mockLogs[logPointer % mockLogs.length];
-      const line = document.createElement('div');
-      line.className = 'log-line';
-
-      const timeString = new Date().toLocaleTimeString('en-US', { 
-        hour12: false, 
-        hour: '2-digit', 
-        minute: '2-digit', 
-        second: '2-digit' 
-      });
-
-      let typeClass = 'log-incoming';
-      if (log.type === 'analysis') typeClass = 'log-analysis';
-      if (log.type === 'contained') typeClass = 'log-contained';
-      if (log.type === 'notify') typeClass = 'log-notify';
-
-      line.innerHTML = `
-        <span class="log-time">[${timeString}]</span>
-        <span class="${typeClass}">${log.text}</span>
-      `;
-
-      terminal.appendChild(line);
-      terminal.scrollTop = terminal.scrollHeight;
-
-      // Keep screen size clean (truncate older logs)
-      while (terminal.childElementCount > 8) {
-        terminal.removeChild(terminal.firstElementChild);
+      const descEl = document.getElementById('tab-desc');
+      if (tabId === 'tab-approach') {
+        descEl.textContent = "SENTRY unites disparate security signals into a single pane of glass. By blending real-time automated containment for low-risk anomalies with single-click human governance for critical playbooks, SOC teams reduce response fatigue by 90%.";
+      } else if (tabId === 'tab-why') {
+        descEl.textContent = "Traditional SIEM & SOAR tools generate thousands of unvalidated alerts. SENTRY eliminates false positives through cross-domain signal correlation and guarantees human accountability on high-impact containment.";
+      } else if (tabId === 'tab-how') {
+        descEl.textContent = "Telemetry is ingested continuously, analyzed by AI heuristic models, and auto-contained if safe. When high-impact actions are needed, an authorization card is generated for immediate supervisor approval.";
       }
-
-      logPointer++;
-      
-      // Staggered log generations
-      const nextTime = Math.random() * 2000 + 1500; // 1.5s - 3.5s
-      setTimeout(addLogToConsole, nextTime);
     }
 
-    // Initialize with a few starter logs
-    function initializeTerminal() {
-      for (let i = 0; i < 4; i++) {
-        const log = mockLogs[i];
-        const line = document.createElement('div');
-        line.className = 'log-line';
-        
-        const timestamp = new Date(Date.now() - (4 - i) * 5000);
-        const timeString = timestamp.toLocaleTimeString('en-US', { 
-          hour12: false, 
-          hour: '2-digit', 
-          minute: '2-digit', 
-          second: '2-digit' 
-        });
+    // 5. Section 6 Monthly / Annual Billing Toggle Switch
+    function toggleBilling(checkbox) {
+      const isAnnual = checkbox.checked;
+      document.getElementById('label-monthly').classList.toggle('active', !isAnnual);
+      document.getElementById('label-annual').classList.toggle('active', isAnnual);
 
-        let typeClass = 'log-incoming';
-        if (log.type === 'analysis') typeClass = 'log-analysis';
-        if (log.type === 'contained') typeClass = 'log-contained';
-        if (log.type === 'notify') typeClass = 'log-notify';
-
-        line.innerHTML = `
-          <span class="log-time">[${timeString}]</span>
-          <span class="${typeClass}">${log.text}</span>
-        `;
-        terminal.appendChild(line);
-      }
-      logPointer = 4;
-      terminal.scrollTop = terminal.scrollHeight;
-      
-      // Start dynamic sequence
-      setTimeout(addLogToConsole, 2000);
+      document.getElementById('price-starter').textContent = isAnnual ? '$159' : '$199';
+      document.getElementById('price-team').textContent = isAnnual ? '$399' : '$499';
+      document.getElementById('price-enterprise').textContent = isAnnual ? '$799' : '$999';
     }
-
-    initializeTerminal();
-
-    // 5. Dynamic Stats Counter updates
-    let anomalyCount = 142892;
-    let eventsCorrelated = 4821;
-    
-    const anomalyEl = document.getElementById('anomalies-checked');
-    const eventsEl = document.getElementById('events-correlated');
-
-    setInterval(() => {
-      if (anomalyEl) {
-        anomalyCount += Math.floor(Math.random() * 4) + 1;
-        anomalyEl.textContent = anomalyCount.toLocaleString();
-      }
-    }, 2800);
-
-    setInterval(() => {
-      if (eventsEl) {
-        const fluctuation = Math.floor(Math.random() * 120) - 60;
-        eventsCorrelated = Math.max(4000, Math.min(6000, eventsCorrelated + fluctuation));
-        eventsEl.textContent = eventsCorrelated.toLocaleString() + "/s";
-      }
-    }, 1500);
-
   </script>
 </body>
 </html>
