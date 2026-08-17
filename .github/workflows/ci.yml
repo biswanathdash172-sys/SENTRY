@@ -1,0 +1,60 @@
+name: CI
+
+# Runs the real backend test suite (test_correlation_engine.py,
+# test_playbook_engine.py, test_media_integrity.py) on every push and PR.
+#
+# Scope note: this pipeline only covers backend/, because that's the only
+# part of the repo with real, working code today. frontend/src (the React
+# scaffold) is currently empty stub files (see App.jsx etc.) — add a
+# frontend job here once real components exist; a build/lint step against
+# empty files would be a false signal of "done," not a real check.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend-tests:
+    name: Backend tests (pytest)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run test suite
+        working-directory: backend
+        # DEMO_MODE=true keeps this identical to the judge-safe fallback
+        # path: tests never depend on a real Postgres instance, matching
+        # db/database.py's "never raises, always boots" contract.
+        env:
+          DEMO_MODE: "true"
+        run: pytest tests/ -v
+
+      - name: Verify app still boots (smoke test)
+        working-directory: backend
+        env:
+          DEMO_MODE: "true"
+        # Catches import-time/config errors that unit tests alone can miss
+        # (e.g. a broken router import) — mirrors ROADMAP.md Day 7's
+        # "confirm the whole stack runs from a clean checkout" check, but
+        # automated on every push instead of only the night before a demo.
+        run: |
+          python -c "
+          import main
+          print('OK: main.py imports and FastAPI app object exists:', main.app.title)
+          "
