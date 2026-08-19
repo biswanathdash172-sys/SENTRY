@@ -35,7 +35,7 @@ from fastapi.responses import FileResponse
 import pathlib
 
 from routers import alerts, actions, media_verify
-from store import STORE  # noqa: F401 — imported so /health can report STORE size
+from Store import STORE  # noqa: F401 — imported so /health can report STORE size
 
 app = FastAPI(title="SENTRY API", version="0.3.0-demo")
 
