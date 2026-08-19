@@ -34,8 +34,13 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 import pathlib
 
-from routers import alerts, actions, media_verify
-from Store import STORE  # noqa: F401 — imported so /health can report STORE size
+from routers import alerts, actions, media_verify, admin_auth
+from store import STORE  # noqa: F401 — imported so /health can report STORE size
+from backend.db.json_store import JSONStore
+from services.email_poller import EmailPoller
+
+store = JSONStore()
+email_poller = EmailPoller()
 
 app = FastAPI(title="SENTRY API", version="0.3.0-demo")
 
@@ -49,6 +54,8 @@ app.add_middleware(
 app.include_router(alerts.router)
 app.include_router(actions.router)
 app.include_router(media_verify.router)
+# register admin auth router
+app.include_router(admin_auth.router)
 
 # Serve the static frontend from the project's frontend/ directory. Mounts are always registered; when files are missing a helpful JSON is returned.
 _PROJECT_ROOT = pathlib.Path(__file__).resolve().parent.parent

@@ -42,6 +42,7 @@ class AuditEntry(BaseModel):
 
 class Alert(BaseModel):
     id: str = Field(default_factory=lambda: new_id("alert"))
+    org_id: int
     title: str
     severity: Severity
     status: Literal["open", "resolved"] = "open"
@@ -83,3 +84,20 @@ class IngestRequest(BaseModel):
     description: str
     confidence: float = Field(ge=0.0, le=1.0, default=0.5)
     title_hint: Optional[str] = None
+
+
+class Org(BaseModel):
+    """Organization record."""
+    id: int
+    name: str
+    monitored_mailbox: str
+    created_at: datetime
+
+
+class AdminUser(BaseModel):
+    """Administrative user tied to an Org."""
+    id: int
+    org_id: int
+    username: str
+    password_hash: str
+    created_at: datetime

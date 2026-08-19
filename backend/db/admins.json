@@ -1,0 +1,9 @@
+[
+  {
+    "id": 1,
+    "org_id": 1,
+    "username": "test",
+    "password_hash": "plain:test",
+    "created_at": "2026-08-19T18:43:33.487202"
+  }
+]

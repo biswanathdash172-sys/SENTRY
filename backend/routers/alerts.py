@@ -15,14 +15,26 @@ from models import (
 )
 from services import correlation_engine, playbook_engine, media_integrity_service
 from db import database as db
-from Store import STORE, get_alert_or_404
+from store import STORE, get_alert_or_404
+from services.auth_service import AuthService
 
 router = APIRouter(tags=["alerts"])
+_auth = AuthService()
 
 
 @router.get("/alerts", response_model=List[Alert])
-def list_alerts(source_type: str | None = None, status: str | None = None):
+def list_alerts(source_type: str | None = None, status: str | None = None, token: str | None = None):
     alerts = sorted(STORE.values(), key=lambda a: a.created_at, reverse=True)
+    # If token provided, filter by the org_id claimed in the token
+    if token:
+        try:
+            payload = _auth.decode_token(token)
+            org_id = payload.get("org_id")
+            if org_id is not None:
+                alerts = [a for a in alerts if getattr(a, "org_id", None) == org_id]
+        except Exception:
+            # Invalid token -> return empty list (or we could raise 401)
+            alerts = []
     if status:
         alerts = [a for a in alerts if a.status == status]
     if source_type and source_type != "all":
