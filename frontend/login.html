@@ -1,532 +1,750 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SENTRY | Organization Sign In</title>
-  <meta name="description" content="Sign in to SENTRY to connect and manage your organization's security infrastructure.">
-  
-  <!-- Fonts -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;800;900&family=Sora:wght@700;800&display=swap" rel="stylesheet">
-  
-  <style>
-    /* -------------------------------------------------------------
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SENTRY | Organization Sign In</title>
+    <meta
+      name="description"
+      content="Sign in to SENTRY to connect and manage your organization's security infrastructure."
+    />
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap");
+      * {
+        font-family: "Inter", sans-serif;
+      }
+
+      /* -------------------------------------------------------------
        DESIGN SYSTEM & VARIABLES
        ------------------------------------------------------------- */
-    :root {
-      --bg-dark: #0A0E27;
-      --bg-panel: #10142E;
-      --bg-card: #111633;
-      --accent-gradient: linear-gradient(135deg, #2F6BFF 0%, #22D3EE 100%);
-      --accent-blue: #2F6BFF;
-      --accent-cyan: #22D3EE;
-      --accent-glow: rgba(47, 107, 255, 0.25);
-      --accent-border: rgba(47, 107, 255, 0.25);
-      --glass-bg: rgba(17, 22, 51, 0.85);
-      --glass-border: rgba(255, 255, 255, 0.08);
-      --glass-border-focus: rgba(34, 211, 238, 0.5);
-      --text-primary: #ffffff;
-      --text-secondary: #94a3b8;
-      --text-muted: #64748b;
-      --font-sans: 'Inter', sans-serif;
-      --font-display: 'Plus Jakarta Sans', sans-serif;
-    }
+      :root {
+        --bg-dark: #050505;
+        --accent-green: #00ff94;
+        --accent-glow: rgba(0, 255, 148, 0.2);
+        --accent-border: rgba(0, 255, 148, 0.15);
+        --glass-bg: rgba(255, 255, 255, 0.04);
+        --glass-border: rgba(255, 255, 255, 0.06);
+        --glass-border-focus: rgba(0, 255, 148, 0.4);
+        --text-primary: #ffffff;
+        --text-secondary: #94a3b8;
+        --text-muted: #64748b;
+      }
 
-    /* -------------------------------------------------------------
+      /* -------------------------------------------------------------
        BASE STYLES
        ------------------------------------------------------------- */
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-      font-family: var(--font-sans);
-    }
-
-    body {
-      background: url('assets/login-page-bg.jpeg') center center / cover no-repeat, var(--bg-dark);
-      background-blend-mode: normal;
-      color: var(--text-primary);
-      min-height: 100dvh;
-      overflow: hidden;
-      position: relative;
-    }
-
-    /* Dark overlay on top of background image */
-    body::before {
-      content: '';
-      position: fixed;
-      inset: 0;
-      background: rgba(10, 14, 39, 0.45);
-      z-index: 0;
-      pointer-events: none;
-    }
-
-    /* -------------------------------------------------------------
-       LAYOUT
-       ------------------------------------------------------------- */
-    .login-container {
-      position: relative;
-      z-index: 1;
-    }
-
-    /* Right-side wrapper: header + card move together */
-    .login-card-wrapper {
-      position: fixed;
-      top: 50%;
-      right: 10%;
-      transform: translateY(-50%);
-      z-index: 10;
-      width: 100%;
-      max-width: 460px;
-      pointer-events: auto;
-    }
-
-    /* Above-card header */
-    .login-page-header {
-      text-align: left;
-    }
-
-    .login-page-title {
-      font-family: 'Orbitron', 'Sora', sans-serif;
-      font-size: 3rem;
-      font-weight: 800;
-      letter-spacing: 0.15em;
-      text-align: left;
-      margin-bottom: 6px;
-      background: var(--accent-gradient);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-
-    .login-page-subtitle {
-      font-size: 0.9rem;
-      color: var(--text-secondary, #94A3B8);
-      text-align: left;
-      margin-bottom: 20px;
-    }
-
-    /* Login Card Container */
-    .login-card-container {
-      width: 100%;
-      pointer-events: auto;
-    }
-
-    .login-card {
-      background: rgba(16, 20, 46, 0.55);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border: 1px solid rgba(59, 91, 255, 0.25);
-      border-radius: 20px;
-      padding: 40px;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 40px rgba(34,211,238,0.08);
-      display: flex;
-      flex-direction: column;
-    }
-
-    .card-header {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 28px;
-    }
-
-    .logo-icon {
-      filter: drop-shadow(0 0 10px rgba(34, 211, 238, 0.5));
-    }
-
-    .logo-text {
-      font-family: var(--font-display);
-      font-weight: 800;
-      font-size: 1.3rem;
-      letter-spacing: 0.12em;
-      color: #ffffff;
-    }
-
-    .card-title {
-      font-family: var(--font-display);
-      font-size: 1.75rem;
-      font-weight: 800;
-      margin-bottom: 10px;
-      color: #ffffff;
-      letter-spacing: -0.02em;
-      text-align: center;
-    }
-
-    .card-subtext {
-      font-size: 0.95rem;
-      color: var(--text-secondary);
-      line-height: 1.5;
-      margin-bottom: 32px;
-      text-align: center;
-    }
-
-    /* Form Fields */
-    form {
-      display: flex;
-      flex-direction: column;
-    }
-
-    .form-group {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      margin-bottom: 22px;
-    }
-
-    .form-group label {
-      font-size: 0.82rem;
-      font-weight: 600;
-      color: var(--text-secondary);
-      letter-spacing: 0.01em;
-    }
-
-    .label-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .forgot-link {
-      font-size: 0.8rem;
-      color: var(--text-muted);
-      text-decoration: none;
-      transition: color 0.2s ease;
-      font-weight: 500;
-    }
-
-    .forgot-link:hover {
-      color: var(--accent-cyan);
-    }
-
-    .form-group input {
-      background: rgba(10, 14, 39, 0.7);
-      border: 1px solid var(--glass-border);
-      color: #ffffff;
-      padding: 13px 16px;
-      border-radius: 10px;
-      font-size: 0.95rem;
-      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-      outline: none;
-    }
-
-    .form-group input:focus {
-      border-color: var(--glass-border-focus);
-      box-shadow: 0 0 20px rgba(34, 211, 238, 0.2), inset 0 0 8px rgba(47, 107, 255, 0.1);
-      background: rgba(10, 14, 39, 0.9);
-    }
-
-    .form-group input::placeholder {
-      color: #475569;
-    }
-
-    /* Terms & Conditions Checkbox */
-    .terms-checkbox {
-      display: flex;
-      align-items: flex-start;
-      gap: 10px;
-      font-size: 0.85rem;
-      color: var(--text-secondary);
-      margin: 16px 0 20px;
-      cursor: pointer;
-    }
-
-    .terms-checkbox input[type="checkbox"] {
-      accent-color: #22D3EE;
-      width: 16px;
-      height: 16px;
-      margin-top: 2px;
-      cursor: pointer;
-      flex-shrink: 0;
-    }
-
-    .terms-checkbox a {
-      color: #22D3EE;
-      text-decoration: none;
-    }
-
-    .terms-checkbox a:hover {
-      text-decoration: underline;
-    }
-
-    /* Terms error message */
-    #terms-error {
-      display: none;
-      color: #ff4d4d;
-      font-size: 0.8rem;
-      margin-top: -14px;
-      margin-bottom: 12px;
-      font-weight: 500;
-      align-items: center;
-      gap: 6px;
-    }
-
-    /* Submit Button */
-    .btn-submit {
-      background: var(--accent-gradient);
-      color: #ffffff;
-      font-size: 1rem;
-      font-weight: 700;
-      padding: 14px;
-      border: none;
-      border-radius: 10px;
-      cursor: pointer;
-      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-      box-shadow: 0 6px 24px rgba(47, 107, 255, 0.35);
-      width: 100%;
-      margin-top: 8px;
-      margin-bottom: 24px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-    }
-
-    .btn-submit:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 10px 32px rgba(34, 211, 238, 0.5);
-    }
-
-    .btn-submit:active {
-      transform: translateY(0);
-    }
-
-    .btn-submit:disabled {
-      cursor: not-allowed;
-      opacity: 0.7;
-    }
-
-    /* Card Footer Link */
-    .card-footer {
-      text-align: center;
-      font-size: 0.85rem;
-      color: var(--text-secondary);
-      line-height: 1.4;
-    }
-
-    .footer-link {
-      color: var(--accent-cyan);
-      text-decoration: none;
-      font-weight: 600;
-      transition: text-shadow 0.2s ease;
-    }
-
-    .footer-link:hover {
-      text-shadow: 0 0 10px rgba(34, 211, 238, 0.4);
-    }
-
-    /* -------------------------------------------------------------
-       ANIMATIONS ON LOAD
-       ------------------------------------------------------------- */
-    @keyframes fade-blur-in {
-      0% {
-        opacity: 0;
-        filter: blur(12px);
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
       }
-      100% {
-        opacity: 1;
-        filter: blur(0);
-      }
-    }
 
-    @keyframes fade-up-blur-in {
-      0% {
-        opacity: 0;
-        transform: translateY(20px);
-        filter: blur(8px);
-      }
-      100% {
-        opacity: 1;
-        transform: translateY(0);
-        filter: blur(0);
-      }
-    }
-
-    /* Animation initial triggers */
-    .login-card-wrapper {
-      opacity: 0;
-      animation: fade-blur-in 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-      animation-delay: 50ms;
-    }
-
-    .animate-item {
-      opacity: 0;
-      animation: fade-up-blur-in 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-    }
-
-    /* Stagger Delays for Card Contents */
-    .delay-1 { animation-delay: 200ms; }
-    .delay-2 { animation-delay: 320ms; }
-    .delay-3 { animation-delay: 440ms; }
-    .delay-4 { animation-delay: 560ms; }
-    .delay-5 { animation-delay: 680ms; }
-    .delay-6 { animation-delay: 800ms; }
-    .delay-7 { animation-delay: 920ms; }
-
-    /* Respect Accessibility Setting */
-    @media (prefers-reduced-motion: reduce) {
-      .login-card-wrapper,
-      .animate-item {
-        opacity: 1 !important;
-        transform: none !important;
-        filter: none !important;
-        animation: none !important;
-      }
-    }
-
-    /* -------------------------------------------------------------
-       RESPONSIVE DESIGN (MOBILE STACKING)
-       ------------------------------------------------------------- */
-    @media (max-width: 768px) {
       body {
-        overflow-y: auto;
-      }
-
-      .login-card-wrapper {
+        background-color: var(--bg-dark);
+        color: var(--text-primary);
+        min-height: 100dvh;
+        overflow: hidden;
         position: relative;
-        top: auto;
-        right: auto;
-        transform: none;
-        max-width: 100%;
-        padding: 40px 24px 60px;
       }
 
-      .login-page-title,
-      .login-page-subtitle {
-        text-align: center;
+      /* -------------------------------------------------------------
+       FULL-SCREEN BACKGROUND LAYERS
+       ------------------------------------------------------------- */
+      /* Base Layer (dotted square-grid) - z-index: 10 */
+      .base-layer {
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        background-color: var(--bg-dark);
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'%3E%3Crect x='6' y='6' width='20' height='20' rx='4' fill='none' stroke='%2300FF94' stroke-width='1.5' stroke-opacity='0.25'/%3E%3Crect x='38' y='6' width='20' height='20' rx='4' fill='%2300FF94' fill-opacity='0.08' stroke='%2300FF94' stroke-width='1.5' stroke-opacity='0.3'/%3E%3Crect x='6' y='38' width='20' height='20' rx='4' fill='none' stroke='%2300FF94' stroke-width='1.5' stroke-dasharray='2%2C2' stroke-opacity='0.2'/%3E%3Crect x='38' y='38' width='20' height='20' rx='4' fill='none' stroke='%2300FF94' stroke-width='1.5' stroke-opacity='0.3'/%3E%3Ccircle cx='16' cy='16' r='2' fill='%2300FF94' fill-opacity='0.4'/%3E%3Ccircle cx='48' cy='48' r='2' fill='%2300FF94' fill-opacity='0.4'/%3E%3Cline x1='26' y1='16' x2='38' y2='16' stroke='%2300FF94' stroke-opacity='0.1' stroke-width='1'/%3E%3Cline x1='16' y1='26' x2='16' y2='38' stroke='%2300FF94' stroke-opacity='0.1' stroke-width='1'/%3E%3C/svg%3E");
+        background-size: 64px 64px;
+        z-index: 10;
+        pointer-events: none;
+        opacity: 0.28;
+      }
+
+      /* Reveal Layer - z-index: 30 */
+      .reveal-layer {
+        position: fixed;
+        inset: 0;
+        width: 100vw;
+        height: 100vh;
+        background: center/cover no-repeat url(/assets/matrix-reveal.png);
+        z-index: 30;
+        pointer-events: none;
+
+        /* Dynamic mask properties */
+        mask-repeat: no-repeat;
+        -webkit-mask-repeat: no-repeat;
+        mask-size: 100% 100%;
+        -webkit-mask-size: 100% 100%;
+        mask-image: none;
+        -webkit-mask-image: none;
+      }
+
+      /* -------------------------------------------------------------
+       FLOATING OVERLAY CONTENT
+       ------------------------------------------------------------- */
+      /* Container for layout overlay sizing */
+      .login-container {
+        position: relative;
+        z-index: 50;
+        width: 100%;
+        min-height: 100dvh;
+        margin: 0 auto;
+        max-width: 1400px;
+        padding: 0 10%;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        pointer-events: none; /* Let clicks pass to background listeners if needed, card overrides this */
+      }
+
+      /* Left Side Heading Block (Floating overlay) - z-index: 50 */
+      .left-text {
+        position: fixed;
+        left: 10%;
+        top: 50%;
+        transform: translateY(-50%);
+        z-index: 50;
+        pointer-events: none;
+        max-width: 480px;
+      }
+
+      .left-label {
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.15em;
+        color: var(--accent-green);
+        font-weight: 600;
+        margin-bottom: 12px;
+        text-shadow: 0 0 10px rgba(0, 255, 148, 0.4);
+      }
+
+      .left-title {
+        font-size: clamp(1.8rem, 3.5vw, 2.5rem);
+        font-weight: 700;
+        line-height: 1.25;
+        color: #ffffff;
+        letter-spacing: -0.01em;
+      }
+
+      /* Right Side Login Card Container (Floating overlay) - z-index: 50 */
+      .login-card-container {
+        position: fixed;
+        right: 10%;
+        top: 50%;
+        transform: translateY(-50%);
+        z-index: 50;
+        width: 100%;
+        max-width: 460px;
+        pointer-events: auto; /* enable interactions */
       }
 
       .login-card {
-        padding: 36px 24px;
+        background: var(--glass-bg);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid var(--accent-border);
+        border-radius: 16px;
+        padding: 48px;
+        box-shadow:
+          0 25px 60px rgba(0, 0, 0, 0.6),
+          0 0 40px rgba(0, 255, 148, 0.02),
+          inset 0 1px 0 rgba(255, 255, 255, 0.05);
+        display: flex;
+        flex-direction: column;
       }
-    }
-  </style>
-</head>
-<body>
 
+      .card-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 32px;
+      }
 
+      .logo-icon {
+        filter: drop-shadow(0 0 8px var(--accent-green));
+      }
 
-  <!-- Overlay Content Layout -->
-  <div class="login-container">
+      .logo-text {
+        font-weight: 700;
+        font-size: 1.25rem;
+        letter-spacing: 0.12em;
+        color: #ffffff;
+      }
 
-    <!-- Right-side wrapper: header + card -->
-    <div class="login-card-wrapper">
+      .card-title {
+        font-size: 1.75rem;
+        font-weight: 700;
+        margin-bottom: 10px;
+        color: #ffffff;
+        letter-spacing: -0.02em;
+      }
 
-      <!-- Above-card header -->
-      <div class="login-page-header animate-item">
-        <h1 class="login-page-title">SENTRY</h1>
-        <p class="login-page-subtitle">Human-Governed Autonomous SOC</p>
+      .card-subtext {
+        font-size: 0.95rem;
+        color: var(--text-secondary);
+        line-height: 1.5;
+        margin-bottom: 36px;
+      }
+
+      /* Form Fields */
+      form {
+        display: flex;
+        flex-direction: column;
+      }
+
+      .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-bottom: 24px;
+      }
+
+      .form-group label {
+        font-size: 0.82rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+        letter-spacing: 0.01em;
+      }
+
+      .label-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .forgot-link {
+        font-size: 0.8rem;
+        color: var(--text-muted);
+        text-decoration: none;
+        transition: color 0.2s ease;
+        font-weight: 500;
+      }
+
+      .forgot-link:hover {
+        color: var(--accent-green);
+      }
+
+      .form-group input {
+        background: rgba(0, 0, 0, 0.45);
+        border: 1px solid var(--glass-border);
+        color: #ffffff;
+        padding: 13px 16px;
+        border-radius: 8px;
+        font-size: 0.95rem;
+        transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        outline: none;
+      }
+
+      .form-group input:focus {
+        border-color: var(--glass-border-focus);
+        box-shadow:
+          0 0 15px rgba(0, 255, 148, 0.12),
+          inset 0 0 8px rgba(0, 255, 148, 0.05);
+        background: rgba(0, 0, 0, 0.65);
+      }
+
+      .form-group input::placeholder {
+        color: #334155;
+      }
+
+      /* Submit Button */
+      .btn-submit {
+        background: var(--accent-green);
+        color: var(--bg-dark);
+        font-size: 1rem;
+        font-weight: 700;
+        padding: 14px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        box-shadow: 0 0 20px rgba(0, 255, 148, 0.15);
+        width: 100%;
+        margin-top: 8px;
+        margin-bottom: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+      }
+
+      .btn-submit:hover {
+        transform: scale(1.02);
+        box-shadow: 0 0 25px rgba(0, 255, 148, 0.4);
+        background: #00e685;
+      }
+
+      .btn-submit:active {
+        transform: scale(0.98);
+      }
+
+      .btn-submit:disabled {
+        cursor: not-allowed;
+      }
+
+      /* Card Footer Link */
+      .card-footer {
+        text-align: center;
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        line-height: 1.4;
+      }
+
+      .footer-link {
+        color: var(--accent-green);
+        text-decoration: none;
+        font-weight: 600;
+        transition: text-shadow 0.2s ease;
+      }
+
+      .footer-link:hover {
+        text-shadow: 0 0 8px rgba(0, 255, 148, 0.3);
+      }
+
+      /* -------------------------------------------------------------
+       ANIMATIONS ON LOAD
+       ------------------------------------------------------------- */
+      @keyframes fade-blur-in {
+        0% {
+          opacity: 0;
+          filter: blur(12px);
+        }
+        100% {
+          opacity: 1;
+          filter: blur(0);
+        }
+      }
+
+      @keyframes fade-up-blur-in {
+        0% {
+          opacity: 0;
+          transform: translateY(20px);
+          filter: blur(8px);
+        }
+        100% {
+          opacity: 1;
+          transform: translateY(0);
+          filter: blur(0);
+        }
+      }
+
+      /* Animation initial triggers */
+      .login-card {
+        opacity: 0;
+        animation: fade-blur-in 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        animation-delay: 50ms;
+      }
+
+      .animate-item {
+        opacity: 0;
+        animation: fade-up-blur-in 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      }
+
+      .left-label {
+        opacity: 0;
+        animation: fade-up-blur-in 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        animation-delay: 150ms;
+      }
+      .left-title {
+        opacity: 0;
+        animation: fade-up-blur-in 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        animation-delay: 300ms;
+      }
+
+      /* Stagger Delays for Card Contents */
+      .delay-1 {
+        animation-delay: 200ms;
+      }
+      .delay-2 {
+        animation-delay: 320ms;
+      }
+      .delay-3 {
+        animation-delay: 440ms;
+      }
+      .delay-4 {
+        animation-delay: 560ms;
+      }
+      .delay-5 {
+        animation-delay: 680ms;
+      }
+      .delay-6 {
+        animation-delay: 800ms;
+      }
+      .delay-7 {
+        animation-delay: 920ms;
+      }
+
+      /* Respect Accessibility Setting */
+      @media (prefers-reduced-motion: reduce) {
+        .login-card,
+        .animate-item,
+        .left-label,
+        .left-title {
+          opacity: 1 !important;
+          transform: none !important;
+          filter: none !important;
+          animation: none !important;
+        }
+      }
+
+      /* -------------------------------------------------------------
+       RESPONSIVE DESIGN (MOBILE STACKING)
+       ------------------------------------------------------------- */
+      @media (max-width: 768px) {
+        body {
+          overflow-y: auto;
+        }
+
+        .login-container {
+          flex-direction: column;
+          justify-content: flex-start;
+          padding: 0;
+        }
+
+        .left-text {
+          position: relative;
+          left: auto;
+          top: auto;
+          transform: none;
+          max-width: 100%;
+          width: 100%;
+          height: 40vh;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          align-items: center;
+          text-align: center;
+          padding: 0 24px;
+          margin: 0;
+        }
+
+        .login-card-container {
+          position: relative;
+          right: auto;
+          top: auto;
+          transform: none;
+          max-width: 100%;
+          width: 100%;
+          padding: 0 24px 60px;
+          margin: 0;
+        }
+
+        .login-card {
+          background: var(--glass-bg);
+          backdrop-filter: blur(16px);
+          -webkit-backdrop-filter: blur(16px);
+          border: 1px solid var(--accent-border);
+          border-radius: 16px;
+          padding: 36px 24px;
+          box-shadow:
+            0 20px 40px rgba(0, 0, 0, 0.5),
+            inset 0 1px 0 rgba(255, 255, 255, 0.05);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Full-Screen Base Layers -->
+    <div class="base-layer"></div>
+    <div class="reveal-layer" id="reveal-layer"></div>
+
+    <!-- Overlay Content Layout -->
+    <div class="login-container">
+      <!-- Left Text Overlay -->
+      <div class="left-text">
+        <div class="left-label">Organization Access</div>
+        <h1 class="left-title">Connect your security infrastructure.</h1>
       </div>
 
-      <!-- Login Form Card -->
+      <!-- Right Login Form Card Overlay -->
       <div class="login-card-container">
         <div class="login-card">
-
-        <h2 class="card-title animate-item delay-1">Organization Sign In</h2>
-        <p class="card-subtext animate-item delay-3">
-          Sign in to connect your org's security infrastructure to SENTRY.
-        </p>
-
-        <!-- Input Fields -->
-        <form id="login-form">
-          <div class="form-group animate-item delay-4">
-            <label for="email">Organization Email</label>
-            <input 
-              type="email" 
-              id="email" 
-              required 
-              placeholder="name@company.com"
-              autocomplete="email"
+          <!-- Wordmark / Logo -->
+          <div class="card-header animate-item delay-1">
+            <svg
+              class="logo-icon"
+              width="26"
+              height="26"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#00FF94"
+              stroke-width="2"
             >
+              <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5" />
+              <circle
+                cx="12"
+                cy="12"
+                r="3.5"
+                fill="#00FF94"
+                fill-opacity="0.25"
+                stroke="#00FF94"
+                stroke-width="1.5"
+              />
+              <path d="M12 2v20" stroke-opacity="0.25" />
+              <path d="M2 12h20" stroke-opacity="0.25" />
+            </svg>
+            <span class="logo-text">SENTRY</span>
           </div>
 
-          <div class="form-group animate-item delay-5">
-            <div class="label-row">
-              <label for="password">Password</label>
-              <a href="#" class="forgot-link">Forgot password?</a>
+          <h2 class="card-title animate-item delay-2">Organization Sign In</h2>
+          <p class="card-subtext animate-item delay-3">
+            Sign in to connect your org's security infrastructure to SENTRY.
+          </p>
+
+          <!-- Input Fields -->
+          <form id="login-form">
+            <div class="form-group animate-item delay-4">
+              <label for="email">Organization Email</label>
+              <input
+                type="email"
+                id="email"
+                required
+                placeholder="name@company.com"
+                autocomplete="email"
+              />
             </div>
-            <input 
-              type="password" 
-              id="password" 
-              required 
-              placeholder="••••••••"
-              autocomplete="current-password"
+
+            <div class="form-group animate-item delay-5">
+              <div class="label-row">
+                <label for="password">Password</label>
+                <a href="#" class="forgot-link">Forgot password?</a>
+              </div>
+              <input
+                type="password"
+                id="password"
+                required
+                placeholder="sentry123"
+                autocomplete="current-password"
+              />
+              <div
+                id="error-message"
+                style="
+                  display: none;
+                  color: #ff4d4d;
+                  font-size: 0.8rem;
+                  margin-top: 6px;
+                  font-weight: 500;
+                  display: flex;
+                  align-items: center;
+                  gap: 6px;
+                "
+              >
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="3"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  style="flex-shrink: 0"
+                >
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="12" y1="8" x2="12" y2="12"></line>
+                  <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+                <span>Invalid credentials</span>
+              </div>
+            </div>
+
+            <!-- Submit Action -->
+            <button
+              type="submit"
+              class="btn-submit animate-item delay-6"
+              id="submit-btn"
             >
-            <div id="error-message" style="display: none; color: #ff4d4d; font-size: 0.8rem; margin-top: 6px; font-weight: 500; display: flex; align-items: center; gap: 6px;">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-              <span>Invalid credentials</span>
-            </div>
+              <span>Sign In</span>
+            </button>
+          </form>
+
+          <!-- Footer -->
+          <div class="card-footer animate-item delay-7">
+            Don't have an organization account?
+            <a href="#" class="footer-link">Request access</a>
           </div>
-
-          <!-- Terms & Conditions -->
-          <label class="terms-checkbox animate-item delay-6">
-            <input type="checkbox" id="terms-agree" />
-            <span>I agree to the <a href="#">Terms &amp; Conditions</a> and <a href="#">Privacy Policy</a></span>
-          </label>
-
-          <!-- Terms error -->
-          <div id="terms-error">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-            <span>Please accept the terms to continue</span>
-          </div>
-
-          <!-- Submit Action -->
-          <button type="submit" class="btn-submit animate-item delay-7" id="submit-btn">
-            <span>Sign In</span>
-          </button>
-        </form>
-
-        <!-- Footer -->
-        <div class="card-footer animate-item delay-7">
-          Don't have an organization account? <a href="#" class="footer-link">Request access</a>
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- -------------------------------------------------------------
-       INTERACTIVE BACKGROUNDS & CONTROLS SCRIPTS (UNTOUCHED LOGIC)
+    <!-- -------------------------------------------------------------
+       INTERACTIVE BACKGROUNDS & CONTROLS SCRIPTS
        ------------------------------------------------------------- -->
-  <script>
-    // -------------------------------------------------------------
-    // DEMO FORM SUBMISSION FLOW
-    // -------------------------------------------------------------
-    const form = document.getElementById('login-form');
-    const submitBtn = document.getElementById('submit-btn');
+    <script>
+      // -------------------------------------------------------------
+      // CURSOR SPOTLIGHT TRACKING & CANVAS MASK
+      // -------------------------------------------------------------
+      const revealLayer = document.getElementById("reveal-layer");
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
 
-    form.addEventListener('submit', (e) => {
-      e.preventDefault();
+      let mouseX = 0;
+      let mouseY = 0;
+      let smoothX = 0;
+      let smoothY = 0;
+      let intensity = 0;
+      let isHovered = false;
+      let firstMove = true;
 
-      const termsCheckbox = document.getElementById('terms-agree');
-      const termsError = document.getElementById('terms-error');
+      const SPOTLIGHT_R = 260; // ≈7cm diameter circle at 96dpi
 
-      // Validate terms checkbox first
-      if (!termsCheckbox.checked) {
-        termsError.style.display = 'flex';
-        termsCheckbox.closest('.terms-checkbox').style.color = '#ff4d4d';
-        termsCheckbox.addEventListener('change', () => {
-          termsError.style.display = 'none';
-          termsCheckbox.closest('.terms-checkbox').style.color = '';
-        }, { once: true });
-        return;
+      function resizeCanvas() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
       }
-      termsError.style.display = 'none';
+      window.addEventListener("resize", resizeCanvas);
+      resizeCanvas();
 
-      const emailVal = document.getElementById('email').value;
-      const passwordVal = document.getElementById('password').value;
-      const errorMsg = document.getElementById('error-message');
-      
-      // Clear previous error styles
-      errorMsg.style.display = 'none';
-      document.getElementById('email').style.borderColor = '';
-      document.getElementById('password').style.borderColor = '';
+      // Track raw mouse position
+      document.addEventListener("mousemove", (e) => {
+        mouseX = e.clientX;
+        mouseY = e.clientY;
 
-      submitBtn.disabled = true;
-      const originalBtnContent = submitBtn.innerHTML;
-      submitBtn.innerHTML = `
+        if (firstMove) {
+          smoothX = mouseX;
+          smoothY = mouseY;
+          firstMove = false;
+        }
+
+        isHovered = true;
+      });
+
+      document.addEventListener("mouseleave", () => {
+        isHovered = false;
+      });
+
+      // Touch support for mobile devices
+      document.addEventListener(
+        "touchstart",
+        (e) => {
+          if (e.touches.length > 0) {
+            const touch = e.touches[0];
+            mouseX = touch.clientX;
+            mouseY = touch.clientY;
+
+            if (firstMove) {
+              smoothX = mouseX;
+              smoothY = mouseY;
+              firstMove = false;
+            }
+
+            isHovered = true;
+          }
+        },
+        { passive: true },
+      );
+
+      document.addEventListener(
+        "touchmove",
+        (e) => {
+          if (e.touches.length > 0) {
+            const touch = e.touches[0];
+            mouseX = touch.clientX;
+            mouseY = touch.clientY;
+            isHovered = true;
+          }
+        },
+        { passive: true },
+      );
+
+      document.addEventListener("touchend", () => {
+        isHovered = false;
+      });
+
+      // Main animation frame loop
+      function tick() {
+        // Smooth position with lerp easing (smooth trail)
+        smoothX += (mouseX - smoothX) * 0.1;
+        smoothY += (mouseY - smoothY) * 0.1;
+
+        // Smooth fade out when cursor leaves viewport
+        if (isHovered) {
+          intensity += (1 - intensity) * 0.1;
+        } else {
+          intensity += (0 - intensity) * 0.1;
+        }
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        if (intensity > 0.001) {
+          // Draw soft radial mask gradient centered on smoothed position
+          const gradient = ctx.createRadialGradient(
+            smoothX,
+            smoothY,
+            0,
+            smoothX,
+            smoothY,
+            SPOTLIGHT_R,
+          );
+
+          // Exact gradient stops requested:
+          // 0 -> rgba(255,255,255,1), 0.4 -> 1, 0.6 -> 0.75, 0.75 -> 0.4, 0.88 -> 0.12, 1 -> 0
+          gradient.addColorStop(0, `rgba(255, 255, 255, ${1 * intensity})`);
+          gradient.addColorStop(0.4, `rgba(255, 255, 255, ${1 * intensity})`);
+          gradient.addColorStop(
+            0.6,
+            `rgba(255, 255, 255, ${0.75 * intensity})`,
+          );
+          gradient.addColorStop(
+            0.75,
+            `rgba(255, 255, 255, ${0.4 * intensity})`,
+          );
+          gradient.addColorStop(
+            0.88,
+            `rgba(255, 255, 255, ${0.12 * intensity})`,
+          );
+          gradient.addColorStop(1, "rgba(255, 255, 255, 0)");
+
+          ctx.fillStyle = gradient;
+          ctx.beginPath();
+          ctx.arc(smoothX, smoothY, SPOTLIGHT_R, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Convert canvas image to mask url
+          try {
+            const dataUrl = canvas.toDataURL("image/png");
+            revealLayer.style.maskImage = `url(${dataUrl})`;
+            revealLayer.style.webkitMaskImage = `url(${dataUrl})`;
+          } catch (e) {
+            revealLayer.style.maskImage = "none";
+            revealLayer.style.webkitMaskImage = "none";
+          }
+        } else {
+          revealLayer.style.maskImage = "none";
+          revealLayer.style.webkitMaskImage = "none";
+        }
+
+        requestAnimationFrame(tick);
+      }
+
+      requestAnimationFrame(tick);
+
+      // -------------------------------------------------------------
+      // DEMO FORM SUBMISSION FLOW
+      // -------------------------------------------------------------
+      const API_BASE = ""; // same-origin, matches dashboard.html's `API` const
+      const form = document.getElementById("login-form");
+      const submitBtn = document.getElementById("submit-btn");
+
+      form.addEventListener("submit", (e) => {
+        e.preventDefault();
+
+        const emailVal = document.getElementById("email").value;
+        const passwordVal = document.getElementById("password").value;
+        const errorMsg = document.getElementById("error-message");
+
+        // Clear previous error styles
+        errorMsg.style.display = "none";
+        document.getElementById("email").style.borderColor = "";
+        document.getElementById("password").style.borderColor = "";
+
+        submitBtn.disabled = true;
+        const originalBtnContent = submitBtn.innerHTML;
+        submitBtn.innerHTML = `
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="animation: spin 1s linear infinite;">
           <line x1="12" y1="2" x2="12" y2="6"></line>
           <line x1="12" y1="18" x2="12" y2="22"></line>
@@ -539,59 +757,78 @@
         </svg>
         <span>Checking Key...</span>
       `;
-      submitBtn.style.opacity = '0.85';
-      submitBtn.style.boxShadow = '0 0 35px rgba(34, 211, 238, 0.5)';
+        submitBtn.style.opacity = "0.8";
+        submitBtn.style.boxShadow = "0 0 35px rgba(0, 255, 148, 0.5)";
 
-      // Append style for spin keyframe if missing
-      if (!document.getElementById('spin-keyframes')) {
-        const style = document.createElement('style');
-        style.id = 'spin-keyframes';
-        style.innerHTML = `@keyframes spin { 100% { transform: rotate(360deg); } }`;
-        document.head.appendChild(style);
-      }
+        // Append style for spin keyframe if missing
+        if (!document.getElementById("spin-keyframes")) {
+          const style = document.createElement("style");
+          style.id = "spin-keyframes";
+          style.innerHTML = `@keyframes spin { 100% { transform: rotate(360deg); } }`;
+          document.head.appendChild(style);
+        }
 
-      setTimeout(() => {
-        if (emailVal === 'admin@sentry.io' && passwordVal === 'sentry123') {
-          submitBtn.innerHTML = `
+        // Real admin login: POST /admin/login, store the JWT for the
+        // dashboard to use on every /alerts request (org-gated).
+        fetch(`${API_BASE}/admin/login`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username: emailVal, password: passwordVal }),
+        })
+          .then(async (res) => {
+            if (!res.ok) {
+              const body = await res.json().catch(() => ({}));
+              throw new Error(body.detail || "Invalid credentials");
+            }
+            return res.json();
+          })
+          .then((data) => {
+            sessionStorage.setItem("sentry_token", data.token);
+            sessionStorage.setItem("sentry_org_id", data.org_id);
+            sessionStorage.setItem("sentry_username", data.username);
+
+            submitBtn.innerHTML = `
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="20 6 9 17 4 12"></polyline>
             </svg>
             <span>Identity Verified</span>
           `;
-          submitBtn.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
-          submitBtn.style.color = '#ffffff';
-          submitBtn.style.boxShadow = '0 0 30px rgba(16, 185, 129, 0.4)';
-          
-          setTimeout(() => {
-            window.location.href = '/dashboard';
-          }, 800);
-        } else {
-          // Display error and reset form buttons
-          errorMsg.style.display = 'flex';
-          submitBtn.disabled = false;
-          submitBtn.innerHTML = originalBtnContent;
-          submitBtn.style.opacity = '';
-          submitBtn.style.boxShadow = '';
-          
-          // Give inputs a red border indicating invalid inputs
-          const emailInput = document.getElementById('email');
-          const passwordInput = document.getElementById('password');
-          emailInput.style.borderColor = '#ff4d4d';
-          passwordInput.style.borderColor = '#ff4d4d';
-          
-          // Clear error border styles on re-focus
-          const resetBorders = () => {
-            emailInput.style.borderColor = '';
-            passwordInput.style.borderColor = '';
-            errorMsg.style.display = 'none';
-            emailInput.removeEventListener('focus', resetBorders);
-            passwordInput.removeEventListener('focus', resetBorders);
-          };
-          emailInput.addEventListener('focus', resetBorders);
-          passwordInput.addEventListener('focus', resetBorders);
-        }
-      }, 1000);
-    });
-  </script>
-</body>
+            submitBtn.style.backgroundColor = "#10b981";
+            submitBtn.style.color = "#ffffff";
+            submitBtn.style.boxShadow = "0 0 30px rgba(16, 185, 129, 0.4)";
+
+            setTimeout(() => {
+              window.location.href = "/dashboard";
+            }, 800);
+          })
+          .catch((err) => {
+            // Display error and reset form buttons
+            document.querySelector("#error-message span").textContent =
+              err.message || "Invalid credentials";
+            errorMsg.style.display = "flex";
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalBtnContent;
+            submitBtn.style.opacity = "";
+            submitBtn.style.boxShadow = "";
+
+            // Give inputs a red border indicating invalid inputs
+            const emailInput = document.getElementById("email");
+            const passwordInput = document.getElementById("password");
+            emailInput.style.borderColor = "#ff4d4d";
+            passwordInput.style.borderColor = "#ff4d4d";
+
+            // Clear error border styles on re-focus
+            const resetBorders = () => {
+              emailInput.style.borderColor = "";
+              passwordInput.style.borderColor = "";
+              errorMsg.style.display = "none";
+              emailInput.removeEventListener("focus", resetBorders);
+              passwordInput.removeEventListener("focus", resetBorders);
+            };
+            emailInput.addEventListener("focus", resetBorders);
+            passwordInput.addEventListener("focus", resetBorders);
+          });
+      });
+    </script>
+  </body>
 </html>

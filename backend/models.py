@@ -42,7 +42,7 @@ class AuditEntry(BaseModel):
 
 class Alert(BaseModel):
     id: str = Field(default_factory=lambda: new_id("alert"))
-    org_id: int
+    org_id: Optional[str] = None  # None = legacy/demo-seeded alert, visible to all
     title: str
     severity: Severity
     status: Literal["open", "resolved"] = "open"
@@ -86,18 +86,40 @@ class IngestRequest(BaseModel):
     title_hint: Optional[str] = None
 
 
+# ---------------------------------------------------------------------------
+# Org / Admin auth models (real org onboarding + real email ingestion)
+# ---------------------------------------------------------------------------
 class Org(BaseModel):
-    """Organization record."""
-    id: int
+    """One organization. Owns exactly one monitored mailbox and exactly one
+    admin account (enforced at the store layer, not just by convention)."""
+    id: str = Field(default_factory=lambda: new_id("org"))
     name: str
-    monitored_mailbox: str
-    created_at: datetime
+    monitored_mailbox: str  # the Gmail address the IMAP poller watches
+    created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 class AdminUser(BaseModel):
-    """Administrative user tied to an Org."""
-    id: int
-    org_id: int
+    id: str = Field(default_factory=lambda: new_id("admin"))
+    org_id: str
     username: str
     password_hash: str
-    created_at: datetime
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class AdminRegisterRequest(BaseModel):
+    invite_code: str
+    org_name: str
+    monitored_mailbox: str
+    username: str
+    password: str = Field(min_length=8)
+
+
+class AdminLoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class AdminAuthResponse(BaseModel):
+    token: str
+    org_id: str
+    username: str

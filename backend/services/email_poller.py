@@ -1,68 +1,242 @@
-import os
-import imaplib
+"""
+services/email_poller.py
+-------------------------
+Real email ingestion for one org's monitored mailbox.
+
+Runs as its OWN process, separate from `uvicorn main:app`:
+
+    python services/email_poller.py
+
+What it does, every POLL_INTERVAL_SECONDS:
+  1. Logs into the mailbox over IMAP (imaplib, stdlib only — no extra
+     dependency) using a Gmail address + app password.
+  2. Searches for UNSEEN messages in INBOX.
+  3. For each new message, extracts sender/subject/links and runs a simple,
+     explainable phishing/deepfake-link heuristic (see `score_message`).
+  4. If the heuristic fires, POSTs the finding to the EXISTING
+     POST /ingest/email endpoint on the FastAPI backend — so it flows
+     through the same correlation_engine + playbook_engine as every other
+     evidence source. No parallel/duplicate alert logic.
+  5. Marks the message \\Seen either way, so it isn't reprocessed.
+
+Auth model: the poller logs in as the org's admin (username/password from
+env) to get a JWT, then sends that JWT with every /ingest/email call, so
+alerts it creates are correctly scoped to that org (see main.py's
+_optional_admin gating on the ingest routes).
+
+Env vars required:
+  IMAP_HOST              default: imap.gmail.com
+  IMAP_USER              the monitored Gmail address (must match the org's
+                          monitored_mailbox from registration)
+  IMAP_APP_PASSWORD      a Gmail App Password (NOT the normal account
+                          password — requires 2FA enabled on the account;
+                          generate at https://myaccount.google.com/apppasswords)
+  SENTRY_API_BASE         default: http://localhost:8000
+  SENTRY_ADMIN_USERNAME   the pre-created admin's username
+  SENTRY_ADMIN_PASSWORD   the pre-created admin's password
+  POLL_INTERVAL_SECONDS   default: 30
+"""
+
+from __future__ import annotations
+
 import email
+import email.utils
+import imaplib
+import logging
+import os
 import re
+import time
+from email.header import decode_header
+from pathlib import Path
+from typing import Optional
+
 import requests
-from typing import List
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [poller] %(message)s")
+logger = logging.getLogger("sentry.email_poller")
+
+IMAP_HOST = os.environ.get("IMAP_HOST", "imap.gmail.com")
+IMAP_USER = os.environ.get("IMAP_USER", "")
+IMAP_APP_PASSWORD = os.environ.get("IMAP_APP_PASSWORD", "")
+API_BASE = os.environ.get("SENTRY_API_BASE", "http://localhost:8000")
+ADMIN_USERNAME = os.environ.get("SENTRY_ADMIN_USERNAME", "")
+ADMIN_PASSWORD = os.environ.get("SENTRY_ADMIN_PASSWORD", "")
+POLL_INTERVAL_SECONDS = int(os.environ.get("POLL_INTERVAL_SECONDS", "30"))
+
+# Very small, explainable heuristics — intentionally simple (rule-based,
+# like the rest of the correlation engine) rather than a black box.
+URL_RE = re.compile(r"https?://[^\s\"'<>]+")
+SUSPICIOUS_TLDS = {".zip", ".xyz", ".top", ".click", ".country", ".gq", ".tk"}
+URGENCY_WORDS = {"urgent", "immediately", "verify your account", "wire transfer",
+                  "password expires", "click here now", "act now", "suspended"}
+LOOKALIKE_BRANDS = {"paypal", "microsoft", "google", "apple", "bank", "irs", "amazon"}
 
 
-class EmailPoller:
-    def __init__(self, ingest_url: str = None):
-        self.imap_user = os.environ.get("IMAP_USER")
-        self.imap_app_password = os.environ.get("IMAP_APP_PASSWORD")
-        # default to local ingest endpoint used by the demo backend
-        self.ingest_url = ingest_url or os.environ.get("INGEST_URL", "http://localhost:8000/ingest/email")
+def _decode(value: Optional[str]) -> str:
+    if not value:
+        return ""
+    parts = decode_header(value)
+    out = []
+    for text, enc in parts:
+        if isinstance(text, bytes):
+            out.append(text.decode(enc or "utf-8", errors="replace"))
+        else:
+            out.append(text)
+    return "".join(out)
 
-    def _extract_links(self, text: str) -> List[str]:
-        if not text:
-            return []
-        links = re.findall(r"http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+", text)
-        return links
 
-    def poll_inbox(self):
-        if not self.imap_user or not self.imap_app_password:
-            return
-        try:
-            imap = imaplib.IMAP4_SSL("imap.gmail.com")
-            imap.login(self.imap_user, self.imap_app_password)
-            imap.select("INBOX")
-            status, data = imap.search(None, "UNSEEN")
-            if status != "OK":
-                return
-            # data[0] is space-separated bytes of message ids
-            msg_nums = data[0].split()
-            for num in msg_nums:
-                status, msg_data = imap.fetch(num, "(RFC822)")
-                if status != "OK":
+def _extract_body(msg: email.message.Message) -> str:
+    if msg.is_multipart():
+        for part in msg.walk():
+            if part.get_content_type() == "text/plain":
+                try:
+                    return part.get_payload(decode=True).decode(
+                        part.get_content_charset() or "utf-8", errors="replace"
+                    )
+                except Exception:
                     continue
-                raw_email = msg_data[0][1]
-                email_message = email.message_from_bytes(raw_email)
-                subject = email_message.get("Subject", "")
-                links = self._extract_links(subject)
-                # also check body
-                body_text = ""
-                if email_message.is_multipart():
-                    for part in email_message.walk():
-                        if part.get_content_type() == "text/plain":
-                            try:
-                                body_text += part.get_payload(decode=True).decode(errors="ignore")
-                            except Exception:
-                                pass
-                else:
-                    try:
-                        body_text = email_message.get_payload(decode=True).decode(errors="ignore")
-                    except Exception:
-                        body_text = ""
-                links += self._extract_links(body_text)
-                if links:
-                    # send to ingest endpoint
-                    payload = {"description": f"Email with links: {links}", "confidence": 0.6, "title_hint": subject}
-                    try:
-                        requests.post(self.ingest_url, json=payload, timeout=5)
-                    except Exception:
-                        # best-effort, ignore failures
-                        pass
-            imap.logout()
-        except Exception:
-            # best-effort poller: swallow errors
-            return
+        return ""
+    try:
+        return msg.get_payload(decode=True).decode(
+            msg.get_content_charset() or "utf-8", errors="replace"
+        )
+    except Exception:
+        return ""
+
+
+def score_message(sender: str, subject: str, body: str) -> tuple[float, list[str]]:
+    """Returns (confidence 0..1, reasons[]). Pure function, easy to unit test."""
+    text = f"{subject}\n{body}".lower()
+    reasons: list[str] = []
+    score = 0.0
+
+    urls = URL_RE.findall(body)
+    for url in urls:
+        if any(url.lower().endswith(tld) or f"{tld}/" in url.lower() for tld in SUSPICIOUS_TLDS):
+            score += 0.35
+            reasons.append(f"Link uses a suspicious TLD: {url}")
+        # crude lookalike-domain check: brand name appears in URL but not
+        # as the actual registered domain of a known provider.
+        for brand in LOOKALIKE_BRANDS:
+            if brand in url.lower() and brand not in sender.lower():
+                score += 0.25
+                reasons.append(f"Link references '{brand}' but sender is '{sender}' (possible lookalike).")
+                break
+
+    hits = [w for w in URGENCY_WORDS if w in text]
+    if hits:
+        score += min(0.3, 0.1 * len(hits))
+        reasons.append(f"Urgency/pressure language detected: {', '.join(hits)}")
+
+    if urls and not reasons:
+        # unscored links still add a small baseline signal worth surfacing
+        score += 0.1
+        reasons.append(f"Message contains {len(urls)} link(s) with no other signal.")
+
+    return round(min(score, 0.97), 3), reasons
+
+
+def get_admin_token() -> str:
+    resp = requests.post(
+        f"{API_BASE}/admin/login",
+        json={"username": ADMIN_USERNAME, "password": ADMIN_PASSWORD},
+        timeout=10,
+    )
+    resp.raise_for_status()
+    return resp.json()["token"]
+
+
+def post_ingest_email(token: str, description: str, confidence: float, title_hint: str) -> None:
+    resp = requests.post(
+        f"{API_BASE}/ingest/email",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"description": description, "confidence": confidence, "title_hint": title_hint},
+        timeout=10,
+    )
+    if resp.status_code >= 400:
+        logger.warning(f"Ingest failed ({resp.status_code}): {resp.text}")
+    else:
+        logger.info(f"Alert created: {resp.json().get('id')} — {title_hint}")
+
+
+def poll_once(imap: imaplib.IMAP4_SSL, token: str) -> None:
+    imap.select("INBOX")
+    status, data = imap.search(None, "UNSEEN")
+    if status != "OK":
+        logger.warning(f"IMAP search failed: {status}")
+        return
+
+    ids = data[0].split()
+    if not ids:
+        logger.info("No new mail.")
+        return
+
+    for msg_id in ids:
+        status, msg_data = imap.fetch(msg_id, "(RFC822)")
+        if status != "OK" or not msg_data or not msg_data[0]:
+            continue
+        raw = msg_data[0][1]
+        msg = email.message_from_bytes(raw)
+
+        sender = _decode(msg.get("From", ""))
+        subject = _decode(msg.get("Subject", ""))
+        body = _extract_body(msg)
+
+        confidence, reasons = score_message(sender, subject, body)
+        logger.info(f"Scanned '{subject}' from {sender} — score={confidence}")
+
+        if confidence >= 0.3:
+            description = (
+                f"Email from '{sender}' subject '{subject}': " + "; ".join(reasons)
+            )
+            post_ingest_email(
+                token,
+                description=description,
+                confidence=confidence,
+                title_hint=f"Suspicious email: {subject[:80]}",
+            )
+
+        # Mark seen either way, so we never reprocess it.
+        imap.store(msg_id, "+FLAGS", "\\Seen")
+
+
+def main() -> None:
+    missing = [name for name, val in [
+        ("IMAP_USER", IMAP_USER), ("IMAP_APP_PASSWORD", IMAP_APP_PASSWORD),
+        ("SENTRY_ADMIN_USERNAME", ADMIN_USERNAME), ("SENTRY_ADMIN_PASSWORD", ADMIN_PASSWORD),
+    ] if not val]
+    if missing:
+        logger.error(f"Missing required env vars: {', '.join(missing)}. See module docstring.")
+        return
+
+    logger.info(f"Logging into admin API at {API_BASE} as {ADMIN_USERNAME}...")
+    token = get_admin_token()
+    logger.info("Got admin token. Starting IMAP poll loop...")
+
+    while True:
+        try:
+            imap = imaplib.IMAP4_SSL(IMAP_HOST)
+            imap.login(IMAP_USER, IMAP_APP_PASSWORD)
+            try:
+                poll_once(imap, token)
+            finally:
+                imap.logout()
+        except imaplib.IMAP4.error as exc:
+            logger.error(f"IMAP error: {exc}")
+        except requests.RequestException as exc:
+            logger.error(f"API request failed ({exc}) — will retry, and refresh token if expired.")
+            try:
+                token = get_admin_token()
+            except Exception:
+                pass
+        except Exception as exc:
+            logger.error(f"Unexpected error in poll loop: {exc}")
+
+        time.sleep(POLL_INTERVAL_SECONDS)
+
+
+if __name__ == "__main__":
+    main()

@@ -1,52 +1,101 @@
+"""
+services/auth_service.py
+-------------------------
+Real auth for org admins — bcrypt password hashing + JWT sessions.
+Deliberately separate from the existing demo `/login` in main.py (which
+stays exactly as-is for the analyst dashboard demo path).
+
+Env vars:
+  JWT_SECRET        Secret used to sign tokens. Falls back to a dev-only
+                     default so local `uvicorn --reload` never fails to
+                     boot — set a real one before deploying anywhere.
+  JWT_EXPIRE_HOURS   Token lifetime in hours (default 12).
+  ADMIN_INVITE_CODE  The invite code required by POST /admin/register.
+                      Registration is rejected without a matching code —
+                      this is what makes it "invite-only".
+"""
+
+from __future__ import annotations
+
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from passlib.hash import bcrypt
-from jose import jwt
+from jose import jwt, JWTError
+from passlib.context import CryptContext
 
-from backend.db.json_store import JSONStore
+from db import org_store
+from models import AdminUser, Org
+
+JWT_SECRET = os.environ.get("JWT_SECRET", "dev-only-insecure-secret-change-me")
+JWT_ALGORITHM = "HS256"
+JWT_EXPIRE_HOURS = int(os.environ.get("JWT_EXPIRE_HOURS", "12"))
+ADMIN_INVITE_CODE = os.environ.get("ADMIN_INVITE_CODE", "")
+
+_pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
-class AuthService:
-    def __init__(self, store: Optional[JSONStore] = None):
-        self.secret_key = os.environ.get("SECRET_KEY", "dev-secret")
-        self.store = store or JSONStore()
-        # token lifetime (optional)
-        self.token_exp_minutes = int(os.environ.get("TOKEN_EXP_MINUTES", "1440"))
+class AuthError(Exception):
+    """Raised for any auth failure; routers translate this to HTTP 401/403."""
 
-    def create_admin(self, invite_code: str, org_id: int, username: str, password: str):
-        admins = self.store.load_admins() or []
-        next_id = 1 + max((a.get("id", 0) for a in admins), default=0)
-        hashed_password = bcrypt.hash(password)
-        admin = {
-            "id": next_id,
-            "org_id": org_id,
-            "username": username,
-            "password_hash": hashed_password,
-            "created_at": datetime.utcnow().isoformat(),
-        }
-        admins.append(admin)
-        self.store.save_admins(admins)
-        return admin
 
-    def authenticate(self, username: str, password: str) -> Optional[str]:
-        admins = self.store.load_admins() or []
-        for a in admins:
-            if a.get("username") == username:
-                try:
-                    if bcrypt.verify(password, a.get("password_hash", "")):
-                        payload = {
-                            "admin_id": a["id"],
-                            "org_id": a["org_id"],
-                            "exp": datetime.utcnow() + timedelta(minutes=self.token_exp_minutes),
-                        }
-                        token = jwt.encode(payload, self.secret_key, algorithm="HS256")
-                        return token
-                except Exception:
-                    # any verification error -> treat as auth failure
-                    return None
-        return None
+def hash_password(password: str) -> str:
+    return _pwd_context.hash(password)
 
-    def decode_token(self, token: str):
-        return jwt.decode(token, self.secret_key, algorithms=["HS256"])
+
+def verify_password(password: str, password_hash: str) -> bool:
+    return _pwd_context.verify(password, password_hash)
+
+
+def create_token(admin: AdminUser) -> str:
+    payload = {
+        "sub": admin.username,
+        "admin_id": admin.id,
+        "org_id": admin.org_id,
+        "exp": datetime.now(timezone.utc) + timedelta(hours=JWT_EXPIRE_HOURS),
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+
+def decode_token(token: str) -> dict:
+    try:
+        return jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+    except JWTError as exc:
+        raise AuthError(f"Invalid or expired token: {exc}")
+
+
+def register_admin(invite_code: str, org_name: str, monitored_mailbox: str,
+                    username: str, password: str) -> tuple[Org, AdminUser]:
+    """Invite-only admin registration. Creates a new Org + its one Admin."""
+    if not ADMIN_INVITE_CODE:
+        raise AuthError("Admin registration is disabled: ADMIN_INVITE_CODE is not configured.")
+    if invite_code != ADMIN_INVITE_CODE:
+        raise AuthError("Invalid invite code.")
+    if org_store.get_admin_by_username(username):
+        raise AuthError(f"Username '{username}' is already taken.")
+    if org_store.get_org_by_mailbox(monitored_mailbox):
+        raise AuthError(f"An org already monitors mailbox '{monitored_mailbox}'.")
+
+    org = org_store.create_org(name=org_name, monitored_mailbox=monitored_mailbox)
+    # One-admin-per-org, enforced here even though we just created the org
+    # (defensive — protects against a future code path that reuses an org).
+    if org_store.admin_exists_for_org(org.id):
+        raise AuthError("This org already has an admin.")
+    admin = org_store.create_admin(org_id=org.id, username=username,
+                                    password_hash=hash_password(password))
+    return org, admin
+
+
+def authenticate(username: str, password: str) -> AdminUser:
+    admin = org_store.get_admin_by_username(username)
+    if not admin or not verify_password(password, admin.password_hash):
+        raise AuthError("Invalid username or password.")
+    return admin
+
+
+def get_admin_from_token(token: str) -> AdminUser:
+    payload = decode_token(token)
+    admin = org_store.get_admin_by_username(payload.get("sub", ""))
+    if not admin:
+        raise AuthError("Admin no longer exists.")
+    return admin
