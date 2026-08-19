@@ -88,3 +88,35 @@ The architecture relies on the concept that the **Media Integrity Agent is a plu
 
    To enable a persistent DB, set DATABASE_URL to a PostgreSQL connection string and ensure the driver (psycopg2-binary) is available. If DATABASE_URL is unreachable or misconfigured, the app will log a warning and continue using the in-memory STORE (it never fails to boot).
 ```
+
+   ## Admin login setup
+
+   The backend ships with a small seed script that creates a demo organization and admin account for local development.
+
+   Steps to create the admin account locally:
+
+   1. Copy the example environment file and customize if needed:
+
+      ```powershell
+      cd backend
+      cp .env.example .env
+      ```
+
+   2. Install Python dependencies into your virtualenv (.venv recommended):
+
+      ```powershell
+      python -m pip install -r requirements.txt
+      ```
+
+      Note: On Windows you may need PostgreSQL client libraries to build `psycopg2-binary` if you plan to use a Postgres DATABASE_URL. For quick local testing use demo mode (no DATABASE_URL required).
+
+   3. Run the seed script to pre-create a test org and admin (username: `test`, password: `test`):
+
+      ```powershell
+      python db/seed_org.py
+      ```
+
+   4. Start the backend and log in via the `POST /login` route or the frontend login page.
+
+   If you prefer the simpler built-in demo auth (PBKDF2 + builtin JWT), the code is under `backend/auth.py` and `backend/routers/auth.py`. The repository should keep only one auth system to avoid confusion — if you want me to switch the app to the simpler auth or remove the alternative code, I can do that for you.
+

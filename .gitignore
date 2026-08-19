@@ -3,3 +3,6 @@ __pycache__/
 *.pyc
 backend/**/__pycache__/
 .env
+# Ignore runtime data files and seeded JSONs
+backend/data/
+backend/db/*.json
