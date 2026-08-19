@@ -15,7 +15,7 @@ from models import (
 )
 from services import correlation_engine, playbook_engine, media_integrity_service
 from db import database as db
-from store import STORE, get_alert_or_404
+from Store import STORE, get_alert_or_404
 
 router = APIRouter(tags=["alerts"])
 
