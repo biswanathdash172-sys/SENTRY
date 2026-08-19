@@ -146,10 +146,23 @@ def get_admin_token() -> str:
         timeout=10,
     )
     resp.raise_for_status()
-    return resp.json()["token"]
+    body = resp.json()
+    # accept common token field names
+    for key in ("access_token", "token", "accessToken", "jwt", "accessToken"):
+        if key in body:
+            return body[key]
+    # some endpoints nest token under data or return the entire admin object — be defensive
+    if isinstance(body, dict):
+        if "data" in body and isinstance(body["data"], dict):
+            for key in ("access_token", "token", "accessToken", "jwt"):
+                if key in body["data"]:
+                    return body["data"][key]
+    raise RuntimeError("Could not extract token from admin/login response")
+
 
 
 def post_ingest_email(token: str, description: str, confidence: float, title_hint: str) -> None:
+    headers = {"Authorization": f"Bearer {token}"} if token else {}
     resp = requests.post(
         f"{API_BASE}/ingest/email",
         headers={"Authorization": f"Bearer {token}"},
@@ -159,7 +172,12 @@ def post_ingest_email(token: str, description: str, confidence: float, title_hin
     if resp.status_code >= 400:
         logger.warning(f"Ingest failed ({resp.status_code}): {resp.text}")
     else:
-        logger.info(f"Alert created: {resp.json().get('id')} — {title_hint}")
+        try:
+            j = resp.json()
+            alert_id = j.get('id') or (j.get('alert') and j.get('alert').get('id'))
+        except Exception:
+            alert_id = None
+        logger.info(f"Alert created: {alert_id} — {title_hint}")
 
 
 def poll_once(imap: imaplib.IMAP4_SSL, token: str) -> None:

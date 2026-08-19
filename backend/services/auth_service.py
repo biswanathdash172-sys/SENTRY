@@ -22,7 +22,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from jose import jwt, JWTError
-from passlib.context import CryptContext
+import bcrypt
 
 from db import org_store
 from models import AdminUser, Org
@@ -32,27 +32,28 @@ JWT_ALGORITHM = "HS256"
 JWT_EXPIRE_HOURS = int(os.environ.get("JWT_EXPIRE_HOURS", "12"))
 ADMIN_INVITE_CODE = os.environ.get("ADMIN_INVITE_CODE", "")
 
-_pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-
 class AuthError(Exception):
     """Raised for any auth failure; routers translate this to HTTP 401/403."""
 
 
 def hash_password(password: str) -> str:
-    return _pwd_context.hash(password)
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
 
 def verify_password(password: str, password_hash: str) -> bool:
-    return _pwd_context.verify(password, password_hash)
+    return bcrypt.checkpw(password.encode("utf-8"), password_hash.encode("utf-8"))
 
 
 def create_token(admin: AdminUser) -> str:
+    now = datetime.now(timezone.utc)
+    exp = now + timedelta(hours=JWT_EXPIRE_HOURS)
     payload = {
         "sub": admin.username,
         "admin_id": admin.id,
         "org_id": admin.org_id,
-        "exp": datetime.now(timezone.utc) + timedelta(hours=JWT_EXPIRE_HOURS),
+        # jose expects a numeric (unix) timestamp for exp
+        "iat": int(now.timestamp()),
+        "exp": int(exp.timestamp()),
     }
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
