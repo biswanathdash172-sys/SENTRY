@@ -73,30 +73,27 @@ def _get_client():
     """Lazily creates and caches the Supabase client. Never raises on
     import — only when an org/employee lookup is actually attempted,
     matching db/database.py's "app must always boot" philosophy."""
-    global _client, _client_init_attempted
+    global _client, SUPABASE_URL, SUPABASE_KEY
 
     if _client is not None:
         return _client
-    if _client_init_attempted and _client is None:
-        # Already tried once and failed this process lifetime — fail fast
-        # instead of retrying a broken config on every request.
-        raise SupabaseNotConfigured(
-            "Supabase client failed to initialize earlier — check SUPABASE_URL / SUPABASE_KEY."
-        )
 
-    _client_init_attempted = True
+    # Re-read env vars on every attempt (not just at import time) so a
+    # fixed .env is picked up without needing a fresh process, and so we
+    # never get permanently stuck on a stale empty value.
+    SUPABASE_URL = os.environ.get("SUPABASE_URL", SUPABASE_URL)
+    SUPABASE_KEY = os.environ.get("SUPABASE_KEY", SUPABASE_KEY)
 
     if not SUPABASE_URL or not SUPABASE_KEY:
         raise SupabaseNotConfigured(
             "SUPABASE_URL and SUPABASE_KEY must both be set (see backend/.env.example)."
         )
-
     try:
         from supabase import create_client  # local import: optional dependency
     except ImportError as exc:
         raise SupabaseNotConfigured(
             f"The 'supabase' package isn't installed ({exc}). Run: pip install supabase"
-        )
+        ) from exc
 
     try:
         _client = create_client(SUPABASE_URL, SUPABASE_KEY)
