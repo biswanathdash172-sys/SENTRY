@@ -1,10 +1,19 @@
+
 fastapi==0.115.0
 uvicorn[standard]==0.30.6
 pydantic==2.9.2
 sqlalchemy==2.0.35
-psycopg2-binary==2.9.9
 filelock==3.16.1
 requests==2.32.3
 python-multipart==0.0.12
 python-dotenv==1.0.1
 supabase==2.7.4
+ 
+# psycopg2-binary is OPTIONAL - only needed if you set DATABASE_URL to a
+# real Postgres instance. Without it, the app automatically falls back to
+# in-memory storage (see backend/db/database.py) and boots fine. Uncomment
+# only if you actually have Postgres configured AND your platform has a
+# prebuilt wheel for it (Windows/py3.13 often doesn't yet - this was
+# causing the "pg_config not found" build error).
+# psycopg2-binary==2.9.9
+ 

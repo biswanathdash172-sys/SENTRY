@@ -1,31 +1,34 @@
 """
 routers/org_auth.py
 --------------------
-Replaces routers/admin_auth.py (deleted). Two-step access flow, matching
-the requested product flow exactly:
+Org/employee access flow, backed by Supabase.
 
-  1. POST /access/verify-org
-     "Get Access" page — org_id + org_password checked against Supabase's
-     `organizations` table. Does not log anyone in; it just confirms this
-     organization is real and known, and unlocks the login page.
+  1. POST /access/verify-org   - "Get Access" page: org_id + org_password
+     checked against Supabase's `organizations` table.
+  2. POST /login                - Employee ID + password checked against
+     Supabase's `employees` table. Returns a signed JWT.
 
-  2. POST /login
-     The actual analyst-dashboard sign-in — employee_id + password
-     checked against Supabase's `employees` table (which also carries
-     org_id). On success returns a signed JWT the frontend stores and
-     sends as `Authorization: Bearer <token>` on every /alerts call, so
-     alerts stay scoped to the employee's org (see main.py's
-     _get_org_alert_or_404).
-
-JWT issuance/verification reuses backend/auth.py's existing hand-rolled
-HS256 implementation (stdlib-only, already used elsewhere in this repo) —
-no new JWT dependency introduced for this refactor.
+SELF-CONTAINED JWT (no import from a separate top-level auth.py):
+this file used to do `from auth import create_access_token, ...`, which
+broke if backend/auth.py wasn't present or wasn't on sys.path depending
+on how uvicorn was launched (e.g. `uvicorn main:app` run from inside
+backend/ vs from the project root). To remove that fragility entirely,
+the JWT create/verify logic (stdlib-only HS256, same approach as before)
+now lives directly in this file.
 """
+
+from __future__ import annotations
+
+import base64
+import hashlib
+import hmac
+import json
+import os
+import time
 
 from fastapi import APIRouter, HTTPException, Header, Form
 from pydantic import BaseModel
 
-from auth import create_access_token, decode_access_token, TokenError
 from services.supabase_service import (
     verify_org_access,
     verify_employee_login,
@@ -36,9 +39,64 @@ from models import AdminUser
 
 router = APIRouter(tags=["org-auth"])
 
+# ---------------------------------------------------------------------------
+# Minimal stdlib HS256 JWT (no PyJWT/jose dependency needed)
+# ---------------------------------------------------------------------------
+JWT_SECRET = os.environ.get("JWT_SECRET", "sentry-demo-insecure-secret-change-me")
+JWT_EXPIRY_SECONDS = int(os.environ.get("JWT_EXPIRY_SECONDS", str(24 * 60 * 60)))
+
+
+class TokenError(Exception):
+    pass
+
+
+def _b64url_encode(raw: bytes) -> str:
+    return base64.urlsafe_b64encode(raw).rstrip(b"=").decode("ascii")
+
+
+def _b64url_decode(s: str) -> bytes:
+    padding = "=" * (-len(s) % 4)
+    return base64.urlsafe_b64decode(s + padding)
+
+
+def create_access_token(subject: str, extra_claims: dict | None = None) -> str:
+    now = int(time.time())
+    header = {"alg": "HS256", "typ": "JWT"}
+    payload = {"sub": subject, "iat": now, "exp": now + JWT_EXPIRY_SECONDS, **(extra_claims or {})}
+    header_b64 = _b64url_encode(json.dumps(header, separators=(",", ":")).encode())
+    payload_b64 = _b64url_encode(json.dumps(payload, separators=(",", ":")).encode())
+    signing_input = f"{header_b64}.{payload_b64}".encode("ascii")
+    signature = hmac.new(JWT_SECRET.encode("utf-8"), signing_input, hashlib.sha256).digest()
+    return f"{header_b64}.{payload_b64}.{_b64url_encode(signature)}"
+
+
+def decode_access_token(token: str) -> dict:
+    try:
+        header_b64, payload_b64, signature_b64 = token.split(".")
+    except ValueError:
+        raise TokenError("Malformed token")
+
+    signing_input = f"{header_b64}.{payload_b64}".encode("ascii")
+    expected_sig = hmac.new(JWT_SECRET.encode("utf-8"), signing_input, hashlib.sha256).digest()
+    try:
+        actual_sig = _b64url_decode(signature_b64)
+    except Exception:
+        raise TokenError("Malformed token signature")
+    if not hmac.compare_digest(expected_sig, actual_sig):
+        raise TokenError("Invalid token signature")
+
+    try:
+        payload = json.loads(_b64url_decode(payload_b64))
+    except Exception:
+        raise TokenError("Malformed token payload")
+
+    if payload.get("exp", 0) < int(time.time()):
+        raise TokenError("Token expired")
+    return payload
+
 
 # ---------------------------------------------------------------------------
-# Step 1 — "Get Access": validate org_id + org preset password
+# Step 1 - "Get Access": validate org_id + org preset password
 # ---------------------------------------------------------------------------
 class OrgAccessRequest(BaseModel):
     org_id: str
@@ -56,9 +114,6 @@ def verify_org(req: OrgAccessRequest):
     try:
         org = verify_org_access(req.org_id, req.org_password)
     except SupabaseNotConfigured as exc:
-        # Distinct 503 (not 401) — this means Supabase isn't wired up yet,
-        # not that the credentials were wrong. Never disguise a config
-        # problem as a bad-password error.
         raise HTTPException(status_code=503, detail=str(exc))
     except SupabaseAuthError as exc:
         raise HTTPException(status_code=401, detail=str(exc))
@@ -67,15 +122,10 @@ def verify_org(req: OrgAccessRequest):
 
 
 # ---------------------------------------------------------------------------
-# Step 2 — Employee login (the real /login used by the dashboard form)
+# Step 2 - Employee login
 # ---------------------------------------------------------------------------
 @router.post("/login")
 def employee_login(employee_id: str = Form(...), password: str = Form(...)):
-    """
-    Same request shape the frontend already posts (Form fields), just
-    renamed from `username` to `employee_id` and now backed by Supabase
-    instead of the demo "accept anything" stub / the old local user store.
-    """
     try:
         employee = verify_employee_login(employee_id, password)
     except SupabaseNotConfigured as exc:
@@ -96,10 +146,7 @@ def employee_login(employee_id: str = Form(...), password: str = Form(...)):
 
 
 # ---------------------------------------------------------------------------
-# Dependency used by main.py's org-gated routes (GET /alerts, approve/deny,
-# etc.) — decodes the JWT issued above and returns an AdminUser-shaped
-# object carrying org_id, so existing gating logic in main.py needs no
-# further changes beyond the import path.
+# Dependency used by main.py's org-gated routes
 # ---------------------------------------------------------------------------
 def get_current_admin(authorization: str | None = Header(default=None)) -> AdminUser:
     if not authorization or not authorization.lower().startswith("bearer "):
