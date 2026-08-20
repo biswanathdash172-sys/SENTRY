@@ -1057,7 +1057,7 @@ function updateStats() {
 
 async function fetchAlerts(){
   try{
-    const res = await fetch(`${API}/alerts`);
+    const res = await fetch(`${API}/alerts`, { headers: { Authorization: `Bearer ${sessionStorage.getItem("sentry_token")}` } });
     if(!res.ok) throw new Error("bad status");
     alerts = await res.json();
     document.getElementById("api-status").textContent = "● live";
