@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SENTRY | Employee Sign In</title>
-  <meta name="description" content="Sign in to SENTRY with your organization-issued Employee ID." />
+  <title>SENTRY | Get Access</title>
+  <meta name="description" content="Connect your organization to SENTRY using your organization ID and preset password." />
   <style>
     @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
 
@@ -16,6 +16,8 @@
       --border: rgba(255,255,255,0.08);
       --text: #FFFFFF;
       --muted: #94A3B8;
+      --ok: #22D3EE;
+      --err: #ff6b6b;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
     body {
@@ -29,7 +31,7 @@
     }
     .card {
       width: 100%;
-      max-width: 380px;
+      max-width: 400px;
       background: var(--panel);
       border: 1px solid var(--border);
       border-radius: 16px;
@@ -42,29 +44,10 @@
       gap: 10px;
       margin-bottom: 24px;
     }
-    .brand span {
-      font-weight: 800;
-      letter-spacing: 0.1em;
-      font-size: 1.1rem;
-    }
-    h1 {
-      font-size: 1.3rem;
-      font-weight: 700;
-      margin-bottom: 6px;
-    }
-    p.sub {
-      font-size: 0.85rem;
-      color: var(--muted);
-      margin-bottom: 24px;
-      line-height: 1.5;
-    }
-    label {
-      display: block;
-      font-size: 0.78rem;
-      font-weight: 600;
-      color: var(--muted);
-      margin-bottom: 6px;
-    }
+    .brand span { font-weight: 800; letter-spacing: 0.1em; font-size: 1.1rem; }
+    h1 { font-size: 1.3rem; font-weight: 700; margin-bottom: 6px; }
+    p.sub { font-size: 0.85rem; color: var(--muted); margin-bottom: 24px; line-height: 1.5; }
+    label { display: block; font-size: 0.78rem; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
     .field { margin-bottom: 18px; }
     input {
       width: 100%;
@@ -91,18 +74,10 @@
       margin-top: 6px;
     }
     button:disabled { opacity: 0.6; cursor: not-allowed; }
-    .error {
-      display: none;
-      color: #ff6b6b;
-      font-size: 0.8rem;
-      margin-top: 10px;
-    }
-    .footer {
-      margin-top: 20px;
-      text-align: center;
-      font-size: 0.82rem;
-      color: var(--muted);
-    }
+    .msg { font-size: 0.82rem; margin-top: 12px; display: none; line-height: 1.5; }
+    .msg.error { color: var(--err); }
+    .msg.success { color: var(--ok); }
+    .footer { margin-top: 20px; text-align: center; font-size: 0.82rem; color: var(--muted); }
     .footer a { color: var(--accent-2); text-decoration: none; font-weight: 600; }
   </style>
 </head>
@@ -116,69 +91,71 @@
       <span>SENTRY</span>
     </div>
 
-    <h1>Employee Sign In</h1>
-    <p class="sub">Use the Employee ID and password your organization gave you.</p>
+    <h1>Get Access</h1>
+    <p class="sub">Enter your Organization ID and the preset organization password to connect your org to SENTRY.</p>
 
-    <form id="login-form">
+    <form id="access-form">
       <div class="field">
-        <label for="employee-id">Employee ID</label>
-        <input type="text" id="employee-id" placeholder="e.g. EMP-0231" required autocomplete="username" />
+        <label for="org-id">Organization ID</label>
+        <input type="text" id="org-id" placeholder="e.g. ACME-01" required autocomplete="off" />
       </div>
       <div class="field">
-        <label for="password">Password</label>
-        <input type="password" id="password" placeholder="••••••••" required autocomplete="current-password" />
+        <label for="org-password">Organization Password</label>
+        <input type="password" id="org-password" placeholder="••••••••" required autocomplete="off" />
       </div>
-      <button type="submit" id="submit-btn">Sign In</button>
-      <div class="error" id="error-message"></div>
+      <button type="submit" id="submit-btn">Verify Organization</button>
+      <div class="msg error" id="error-message"></div>
+      <div class="msg success" id="success-message"></div>
     </form>
 
     <div class="footer">
-      Organization not connected yet? <a href="/get-access">Get Access</a>
+      Already connected? <a href="/login">Sign in with your Employee ID</a>
     </div>
   </div>
 
   <script>
     const API_BASE = "";
-    const form = document.getElementById("login-form");
+    const form = document.getElementById("access-form");
     const submitBtn = document.getElementById("submit-btn");
     const errorEl = document.getElementById("error-message");
+    const successEl = document.getElementById("success-message");
 
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
       errorEl.style.display = "none";
+      successEl.style.display = "none";
 
-      const employeeId = document.getElementById("employee-id").value.trim();
-      const password = document.getElementById("password").value;
+      const orgId = document.getElementById("org-id").value.trim();
+      const orgPassword = document.getElementById("org-password").value;
 
       submitBtn.disabled = true;
-      submitBtn.textContent = "Signing in…";
+      submitBtn.textContent = "Verifying…";
 
       try {
-        const body = new URLSearchParams();
-        body.set("employee_id", employeeId);
-        body.set("password", password);
-
-        const res = await fetch(`${API_BASE}/login`, {
+        const res = await fetch(`${API_BASE}/access/verify-org`, {
           method: "POST",
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
-          body,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ org_id: orgId, org_password: orgPassword }),
         });
 
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
-          throw new Error(err.detail || "Invalid Employee ID or password.");
+          throw new Error(err.detail || "Could not verify this organization.");
         }
 
         const data = await res.json();
-        sessionStorage.setItem("sentry_token", data.token);
-        sessionStorage.setItem("sentry_org_id", data.org_id);
-        sessionStorage.setItem("sentry_employee_id", data.employee_id);
-        window.location.href = "/dashboard";
+        sessionStorage.setItem("sentry_verified_org_id", data.org_id);
+        sessionStorage.setItem("sentry_verified_org_name", data.org_name);
+
+        successEl.textContent = `Organization "${data.org_name}" verified. Redirecting to sign in…`;
+        successEl.style.display = "block";
+
+        setTimeout(() => { window.location.href = "/login"; }, 1200);
       } catch (err) {
-        errorEl.textContent = err.message || "Sign in failed.";
+        errorEl.textContent = err.message || "Verification failed.";
         errorEl.style.display = "block";
         submitBtn.disabled = false;
-        submitBtn.textContent = "Sign In";
+        submitBtn.textContent = "Verify Organization";
       }
     });
   </script>
