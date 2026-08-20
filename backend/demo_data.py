@@ -36,7 +36,7 @@ def _flagship_deepfake_alert() -> Alert:
     confidence = combined_confidence(evidence)
     severity = severity_from_confidence(confidence)
     alert = Alert(
-        org_id=1,
+        org_id=None,
         title="Likely deepfake-powered wire-fraud attempt (CFO impersonation)",
         severity=severity,
         evidence=evidence,
@@ -69,7 +69,7 @@ def _network_alert() -> Alert:
     confidence = combined_confidence(evidence)
     severity = severity_from_confidence(confidence)
     return Alert(
-        org_id=1,
+        org_id=None,
         title="Possible lateral movement on finance subnet",
         severity=severity,
         evidence=evidence,
@@ -91,7 +91,7 @@ def _resolved_alert() -> Alert:
     ]
     severity = "low"
     return Alert(
-        org_id=1,
+        org_id=None,
         title="New-device login (confirmed by user)",
         severity=severity,
         status="resolved",
