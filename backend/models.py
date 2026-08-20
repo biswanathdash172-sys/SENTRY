@@ -2,6 +2,13 @@
 models.py
 ---------
 Lightweight in-memory data shapes for the SENTRY demo backend.
+
+CHANGED IN THIS REFACTOR:
+  - Removed: Org, AdminUser (old local-store version), AdminRegisterRequest,
+    AdminLoginRequest, AdminAuthResponse. Organization/employee identity now
+    lives in Supabase (see services/supabase_service.py) — this file no
+    longer models that data, it only models the JWT-claims shape returned
+    to routes after a successful Supabase-backed login.
 """
 
 from pydantic import BaseModel, Field
@@ -71,9 +78,6 @@ class ActionDecision(BaseModel):
     approved_by: Optional[str] = "analyst_demo_user"
 
 
-# ---------------------------------------------------------------------------
-# NEW — request shapes for the /ingest/* routes (Biswanath, Priority 0)
-# ---------------------------------------------------------------------------
 class IngestRequest(BaseModel):
     """
     Generic shape for all /ingest/* endpoints. Each connector-style route
@@ -87,39 +91,12 @@ class IngestRequest(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Org / Admin auth models (real org onboarding + real email ingestion)
+# Auth identity shape — NOT persisted anywhere in this file anymore.
+# Organizations and employees live in Supabase (services/supabase_service.py).
+# This is just the shape carried inside a decoded JWT's claims, returned by
+# routers/org_auth.get_current_admin() so existing org-gated routes in
+# main.py (GET /alerts, approve/deny, etc.) keep working unchanged.
 # ---------------------------------------------------------------------------
-class Org(BaseModel):
-    """One organization. Owns exactly one monitored mailbox and exactly one
-    admin account (enforced at the store layer, not just by convention)."""
-    id: str = Field(default_factory=lambda: new_id("org"))
-    name: str
-    monitored_mailbox: str  # the Gmail address the IMAP poller watches
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-
 class AdminUser(BaseModel):
-    id: str = Field(default_factory=lambda: new_id("admin"))
+    employee_id: str
     org_id: str
-    username: str
-    password_hash: str
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-
-class AdminRegisterRequest(BaseModel):
-    invite_code: str
-    org_name: str
-    monitored_mailbox: str
-    username: str
-    password: str = Field(min_length=8)
-
-
-class AdminLoginRequest(BaseModel):
-    username: str
-    password: str
-
-
-class AdminAuthResponse(BaseModel):
-    token: str
-    org_id: str
-    username: str

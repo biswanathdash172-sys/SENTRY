@@ -4,25 +4,16 @@ main.py
 SENTRY demo backend — Human-Governed Autonomous SOC with integrated media
 integrity checks.
 
-  * In-memory store instead of Postgres (see models.py docstring for the
-    drop-in upgrade path).
-  * Polling-friendly REST endpoints instead of a WebSocket.
-  * Every mutating endpoint is wrapped so a bad request returns a clean
-    4xx instead of a 500 — the app must never crash mid-demo.
-
-NEW IN THIS VERSION (Biswanath, Priority 0 — see BISWANATH_TASKS.txt):
-  * POST /ingest/email, /ingest/identity, /ingest/network, /ingest/endpoint
-    Thin "connector-style" routes so the "many systems feed in" story is
-    demonstrable, not just described. Each one just builds a normal
-    Evidence object and hands it to the SAME correlation_engine.correlate()
-    used everywhere else — no separate ingestion path, no shortcut.
+REFACTOR NOTE (org auth): the old local JSON-store admin auth
+(routers/admin_auth.py + services/auth_service.py + db/org_store.py) has
+been removed entirely. Organization + employee identity is now backed by
+Supabase (see services/supabase_service.py, routers/org_auth.py). The old
+"accept any credentials" demo `/login` stub that used to live directly on
+`app` has also been removed — /login is now real, served by org_auth.py.
 
 Run:
     pip install -r requirements.txt
     uvicorn main:app --reload --port 8000
-
-Then open ../frontend/index.html directly in a browser (it talks to
-http://localhost:8000 by default).
 """
 
 from fastapi import FastAPI, HTTPException, Depends
@@ -35,8 +26,8 @@ import pathlib
 import os
 
 # Auto-load backend/.env so environment variables (JWT_SECRET,
-# ADMIN_INVITE_CODE, etc.) don't have to be manually exported in every
-# terminal session before running uvicorn. Safe no-op if .env is missing.
+# SUPABASE_URL, SUPABASE_KEY, etc.) don't have to be manually exported in
+# every terminal session before running uvicorn. Safe no-op if .env is missing.
 from dotenv import load_dotenv
 load_dotenv(pathlib.Path(__file__).resolve().parent / ".env")
 
@@ -47,10 +38,10 @@ from models import (
 from services import correlation_engine, playbook_engine, media_integrity_service
 from demo_data import seed_alerts
 from db import database as db
-from routers.admin_auth import router as admin_auth_router, get_current_admin
+from routers.org_auth import router as org_auth_router, get_current_admin
 
-app = FastAPI(title="SENTRY API", version="0.3.0-demo")
-app.include_router(admin_auth_router)
+app = FastAPI(title="SENTRY API", version="0.4.0-demo")
+app.include_router(org_auth_router)
 
 app.add_middleware(
     CORSMiddleware,
@@ -59,13 +50,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Serve the static frontend from the project's frontend/ directory. Mounts are always registered; when files are missing a helpful JSON is returned.
+# Serve the static frontend from the project's frontend/ directory.
 _PROJECT_ROOT = pathlib.Path(__file__).resolve().parent.parent
 _FRONTEND_DIR = _PROJECT_ROOT / "frontend"
-# Mount frontend directory at /static so assets can be fetched from /static/...
 app.mount("/static", StaticFiles(directory=str(_FRONTEND_DIR)), name="static")
 _ASSETS_DIR = _FRONTEND_DIR / "assets"
 app.mount("/assets", StaticFiles(directory=str(_ASSETS_DIR)), name="assets")
+
 
 @app.get("/", include_in_schema=False)
 def _serve_frontend_index():
@@ -75,46 +66,41 @@ def _serve_frontend_index():
     return {"detail": "Frontend index.html not found; API is available under /docs"}
 
 
-@app.get('/login', include_in_schema=False)
+@app.get("/get-access", include_in_schema=False)
+def _serve_get_access_page():
+    """New step in the login flow: validates an org ID + org preset
+    password against Supabase before the employee login page is used."""
+    page_path = _FRONTEND_DIR / "get-access.html"
+    if page_path.exists():
+        return FileResponse(str(page_path))
+    return {"detail": "Get Access page not found"}
+
+
+@app.get("/login", include_in_schema=False)
 def _serve_login_page():
-    login_path = _FRONTEND_DIR / 'login.html'
+    login_path = _FRONTEND_DIR / "login.html"
     if login_path.exists():
         return FileResponse(str(login_path))
     return {"detail": "Login page not found"}
 
 
-@app.get('/dashboard', include_in_schema=False)
+@app.get("/dashboard", include_in_schema=False)
 def _serve_dashboard_page():
-    dashboard_path = _FRONTEND_DIR / 'dashboard.html'
+    dashboard_path = _FRONTEND_DIR / "dashboard.html"
     if dashboard_path.exists():
         return FileResponse(str(dashboard_path))
     return {"detail": "Dashboard page not found"}
 
 
-from fastapi import Form
-
-@app.post('/login')
-def _login(username: str = Form(...), password: str = Form(...)):
-    # Demo-only: accept any credentials and return a demo token
-    token = f"demo-token-{username}"
-    return {"status": "ok", "user": username, "token": token}
+# NOTE: the old `POST /login` demo stub ("accept any credentials, return
+# f'demo-token-{username}'") has been removed. Real employee login is now
+# `POST /login` as registered by routers/org_auth.py (employee_id +
+# password, checked against Supabase, returns a signed JWT).
 
 
 # ---------------------------------------------------------------------------
-# Storage bootstrap (Biswanath, Priority 2 - Postgres swap-in). Strict
-# drop-in: db.init_db() NEVER raises, so the app boots identically whether
-# or not a real Postgres DATABASE_URL is configured or reachable.
-#
-#   - DB reachable AND has existing alerts  -> load them (state survives a
-#     restart, proving the system is real, per ROADMAP.md Day 4).
-#   - DB reachable but empty (first boot)    -> seed demo data, persist it
-#     immediately so it's there on the next restart too.
-#   - DB unreachable / DEMO_MODE=true        -> exactly the old behavior:
-#     pure in-memory STORE, seeded fresh every boot. Never fails.
-#
-# STORE (the in-memory dict) remains the single source of truth for every
-# request in this process. The DB is a best-effort mirror written on every
-# mutation, never a blocking dependency of any route.
+# Storage bootstrap (unchanged from before this refactor) — Postgres if
+# DATABASE_URL is reachable, else in-memory STORE. Never fails to boot.
 # ---------------------------------------------------------------------------
 db.init_db()
 
@@ -138,7 +124,7 @@ def _get_alert_or_404(alert_id: str) -> Alert:
 def _get_org_alert_or_404(alert_id: str, admin: AdminUser) -> Alert:
     """Like _get_alert_or_404 but also enforces org gating for mutating routes."""
     alert = _get_alert_or_404(alert_id)
-    if alert.org_id is not None and alert.org_id != admin.org_id:
+    if alert.org_id is not None and str(alert.org_id) != str(admin.org_id):
         raise HTTPException(status_code=404, detail=f"Alert '{alert_id}' not found")
     return alert
 
@@ -157,11 +143,8 @@ def list_alerts(
     status: str | None = None,
     admin: AdminUser = Depends(get_current_admin),
 ):
-    # Gated: an admin only ever sees alerts belonging to their own org.
-    # Legacy/demo-seeded alerts (org_id is None) are visible to everyone so
-    # the existing demo scenarios keep working without re-seeding.
     alerts = sorted(STORE.values(), key=lambda a: a.created_at, reverse=True)
-    alerts = [a for a in alerts if a.org_id is None or a.org_id == admin.org_id]
+    alerts = [a for a in alerts if a.org_id is None or str(a.org_id) == str(admin.org_id)]
     if status:
         alerts = [a for a in alerts if a.status == status]
     if source_type and source_type != "all":
@@ -172,7 +155,7 @@ def list_alerts(
 @app.get("/alerts/{alert_id}", response_model=Alert)
 def get_alert(alert_id: str, admin: AdminUser = Depends(get_current_admin)):
     alert = _get_alert_or_404(alert_id)
-    if alert.org_id is not None and alert.org_id != admin.org_id:
+    if alert.org_id is not None and str(alert.org_id) != str(admin.org_id):
         raise HTTPException(status_code=404, detail=f"Alert '{alert_id}' not found")
     return alert
 
@@ -185,9 +168,9 @@ def approve_action(alert_id: str, action_id: str, decision: ActionDecision | Non
     if not action:
         raise HTTPException(status_code=404, detail=f"Action '{action_id}' not found on alert")
     action.mode = "approved"
-    who = (decision.approved_by if decision else None) or "analyst_demo_user"
+    who = (decision.approved_by if decision else None) or admin.employee_id
     alert.audit_log.append(AuditEntry(message=f"Action '{action.label}' APPROVED by {who}."))
-    db.save_alert(alert)  # best-effort persist, never blocks/raises
+    db.save_alert(alert)
     return alert
 
 
@@ -199,9 +182,9 @@ def deny_action(alert_id: str, action_id: str, decision: ActionDecision | None =
     if not action:
         raise HTTPException(status_code=404, detail=f"Action '{action_id}' not found on alert")
     action.mode = "denied"
-    who = (decision.approved_by if decision else None) or "analyst_demo_user"
+    who = (decision.approved_by if decision else None) or admin.employee_id
     alert.audit_log.append(AuditEntry(message=f"Action '{action.label}' DENIED by {who}."))
-    db.save_alert(alert)  # best-effort persist, never blocks/raises
+    db.save_alert(alert)
     return alert
 
 
@@ -210,7 +193,7 @@ def resolve_alert(alert_id: str, admin: AdminUser = Depends(get_current_admin)):
     alert = _get_org_alert_or_404(alert_id, admin)
     alert.status = "resolved"
     alert.audit_log.append(AuditEntry(message="Alert manually marked resolved by analyst."))
-    db.save_alert(alert)  # best-effort persist, never blocks/raises
+    db.save_alert(alert)
     return alert
 
 
@@ -223,20 +206,10 @@ def verify_media(req: MediaVerifyRequest):
 
 
 # ---------------------------------------------------------------------------
-# NEW — Ingestion routes (connector-style stubs)
+# Ingestion routes (connector-style stubs) — unchanged logic, only the
+# optional-admin resolution now goes through the new Supabase-backed
+# get_current_admin instead of the old local-store version.
 # ---------------------------------------------------------------------------
-# These prove "many real systems can feed in" without needing a live Gmail/
-# Okta/EDR/network-tap integration this hackathon. Each route:
-#   1. Builds a normal Evidence object for its source_type.
-#   2. Calls the SAME correlation_engine.correlate() used by /alerts/simulate
-#      and demo_data.py — no separate/parallel logic.
-#   3. Runs the result through the SAME playbook_engine.generate_playbook().
-#   4. Stores a new Alert and returns it.
-#
-# Fail-safe by design: a bad request (empty description, out-of-range
-# confidence, wrong type) is rejected by Pydantic validation and returns a
-# clean 400/422 — it can never reach correlation_engine with malformed data,
-# and it can never crash the app with a 500.
 def _ingest(source_type: str, req: IngestRequest, default_title: str,
             org_id: str | None = None) -> Alert:
     try:
@@ -264,20 +237,14 @@ def _ingest(source_type: str, req: IngestRequest, default_title: str,
             ],
         )
         STORE[alert.id] = alert
-        db.save_alert(alert)  # best-effort persist, never blocks/raises
+        db.save_alert(alert)
         return alert
     except HTTPException:
         raise
     except Exception as exc:
-        # Fail-safe: never let an ingestion route 500 the whole demo.
         raise HTTPException(status_code=400, detail=f"Could not ingest {source_type} evidence: {exc}")
 
 
-# NOTE: org_id here is *optional auth* — these routes stay callable without
-# a token so the existing demo/hackathon flows (curl, Postman, judges) keep
-# working unchanged. When a bearer token IS present (as the IMAP poller
-# always sends), the resulting alert is stamped with that admin's org_id
-# and therefore only shows up for that org's admin.
 def _optional_admin(authorization: str | None = None) -> AdminUser | None:
     if not authorization:
         return None
@@ -292,10 +259,6 @@ from fastapi import Header
 
 @app.post("/ingest/email", response_model=Alert)
 def ingest_email(req: IngestRequest, authorization: str | None = Header(default=None)):
-    """POST /ingest/email — e.g. a mail-gateway connector (our IMAP poller)
-    pushing a suspicious-message event (lookalike domain, credential-harvest
-    link). If called with a valid admin bearer token, the resulting alert
-    is scoped to that admin's org."""
     admin = _optional_admin(authorization)
     return _ingest("email", req, default_title="Suspicious email signal (ingested)",
                     org_id=admin.org_id if admin else None)
@@ -303,8 +266,6 @@ def ingest_email(req: IngestRequest, authorization: str | None = Header(default=
 
 @app.post("/ingest/identity", response_model=Alert)
 def ingest_identity(req: IngestRequest, authorization: str | None = Header(default=None)):
-    """POST /ingest/identity — e.g. an identity-provider connector pushing
-    a login/auth anomaly (impossible travel, unusual MFA pattern)."""
     admin = _optional_admin(authorization)
     return _ingest("identity", req, default_title="Identity/login signal (ingested)",
                     org_id=admin.org_id if admin else None)
@@ -312,8 +273,6 @@ def ingest_identity(req: IngestRequest, authorization: str | None = Header(defau
 
 @app.post("/ingest/network", response_model=Alert)
 def ingest_network(req: IngestRequest, authorization: str | None = Header(default=None)):
-    """POST /ingest/network — e.g. a network-monitoring connector pushing
-    an anomalous-traffic event."""
     admin = _optional_admin(authorization)
     return _ingest("network", req, default_title="Network signal (ingested)",
                     org_id=admin.org_id if admin else None)
@@ -321,16 +280,13 @@ def ingest_network(req: IngestRequest, authorization: str | None = Header(defaul
 
 @app.post("/ingest/endpoint", response_model=Alert)
 def ingest_endpoint(req: IngestRequest, authorization: str | None = Header(default=None)):
-    """POST /ingest/endpoint — e.g. an EDR/device-monitoring connector
-    pushing a malware/process-injection event."""
     admin = _optional_admin(authorization)
     return _ingest("endpoint", req, default_title="Endpoint signal (ingested)",
                     org_id=admin.org_id if admin else None)
 
 
 # ---------------------------------------------------------------------------
-# Simulate incoming alert — mirrors the prototype's "Simulate incoming
-# alert" button: media evidence -> correlation -> playbook.
+# Simulate incoming alert
 # ---------------------------------------------------------------------------
 @app.post("/alerts/simulate", response_model=Alert)
 def simulate_alert(scenario: str = "deepfake_wire_fraud"):
@@ -372,5 +328,5 @@ def simulate_alert(scenario: str = "deepfake_wire_fraud"):
         audit_log=[AuditEntry(message=f"Simulated alert created from {len(evidence)} evidence source(s).")],
     )
     STORE[alert.id] = alert
-    db.save_alert(alert)  # best-effort persist, never blocks/raises
+    db.save_alert(alert)
     return alert
