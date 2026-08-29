@@ -1,4 +1,4 @@
-
+pyyaml==5.3.1
 fastapi==0.115.0
 uvicorn[standard]==0.30.6
 pydantic==2.9.2
@@ -8,7 +8,7 @@ requests==2.32.3
 python-multipart==0.0.12
 python-dotenv==1.0.1
 supabase==2.7.4
- 
+ python-pptx==1.0.2
 # psycopg2-binary is OPTIONAL - only needed if you set DATABASE_URL to a
 # real Postgres instance. Without it, the app automatically falls back to
 # in-memory storage (see backend/db/database.py) and boots fine. Uncomment

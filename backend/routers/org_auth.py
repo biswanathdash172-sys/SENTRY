@@ -15,6 +15,18 @@ on how uvicorn was launched (e.g. `uvicorn main:app` run from inside
 backend/ vs from the project root). To remove that fragility entirely,
 the JWT create/verify logic (stdlib-only HS256, same approach as before)
 now lives directly in this file.
+
+RISK-CLASSIFIER HOOK (new): the first time an org successfully verifies
+via /access/verify-org, we ensure its auto_approval_rules defaults exist
+in Supabase (not_risky=auto, part_risky=manual, high_risky=manual —
+non-negotiable). This is the "org creation" moment for our purposes,
+since this codebase has no separate org-registration route — org rows
+already exist in Supabase (created directly there per
+services/supabase_service.py's schema), and the first verify-org call is
+the first time SENTRY-side code is aware of that org. ensure_default_rules()
+is idempotent (upsert) and NEVER raises, so a Supabase hiccup here can
+never break the login flow itself — see risk_classifier.py's docstring
+for the full fail-safe reasoning.
 """
 
 from __future__ import annotations
@@ -23,10 +35,11 @@ import base64
 import hashlib
 import hmac
 import json
+import logging
 import os
 import time
 
-from fastapi import APIRouter, HTTPException, Header, Form
+from fastapi import APIRouter, HTTPException, Header, Form, Depends
 from pydantic import BaseModel
 
 from services.supabase_service import (
@@ -35,7 +48,10 @@ from services.supabase_service import (
     SupabaseAuthError,
     SupabaseNotConfigured,
 )
+from services.risk_classifier import ensure_default_rules
 from models import AdminUser
+
+logger = logging.getLogger("sentry.org_auth")
 
 router = APIRouter(tags=["org-auth"])
 
@@ -118,6 +134,20 @@ def verify_org(req: OrgAccessRequest):
     except SupabaseAuthError as exc:
         raise HTTPException(status_code=401, detail=str(exc))
 
+    # NEW: first successful verification for this org -> make sure its
+    # auto_approval_rules defaults exist. Idempotent, never raises — a
+    # failure here is logged and swallowed, never surfaced to the org as
+    # a login error (see risk_classifier.ensure_default_rules docstring).
+    try:
+        ensure_default_rules(org.org_id)
+    except Exception as exc:
+        # Belt-and-suspenders: ensure_default_rules() already catches its
+        # own errors internally and never raises, but if that contract
+        # ever changes, this outer catch guarantees /access/verify-org
+        # still can't be broken by a risk-rules problem.
+        logger.warning(f"ensure_default_rules raised unexpectedly for org "
+                        f"'{org.org_id}' ({exc}) — continuing login anyway.")
+
     return OrgAccessResponse(status="ok", org_id=org.org_id, org_name=org.org_name)
 
 
@@ -133,14 +163,22 @@ def employee_login(employee_id: str = Form(...), password: str = Form(...)):
     except SupabaseAuthError as exc:
         raise HTTPException(status_code=401, detail=str(exc))
 
+    # RBAC (Option A): is_admin is baked into the JWT at login time, sourced
+    # directly from Supabase's employees.is_admin column — never trust a
+    # client-supplied role, always re-derive it server-side from the DB.
     token = create_access_token(
         subject=employee.employee_id,
-        extra_claims={"org_id": employee.org_id, "employee_id": employee.employee_id},
+        extra_claims={
+            "org_id": employee.org_id,
+            "employee_id": employee.employee_id,
+            "is_admin": employee.is_admin,
+        },
     )
     return {
         "status": "ok",
         "employee_id": employee.employee_id,
         "org_id": employee.org_id,
+        "is_admin": employee.is_admin,
         "token": token,
     }
 
@@ -162,4 +200,25 @@ def get_current_admin(authorization: str | None = Header(default=None)) -> Admin
     if not org_id or not employee_id:
         raise HTTPException(status_code=401, detail="Token missing org/employee claims.")
 
-    return AdminUser(employee_id=employee_id, org_id=org_id)
+    # FAIL CLOSED: if an older token (issued before this RBAC update) has
+    # no is_admin claim at all, default to False rather than trusting an
+    # absence of the field as "admin". Same fail-safe direction as
+    # risk_classifier.py's "unknown -> treat as the more restrictive case."
+    is_admin = bool(payload.get("is_admin", False))
+
+    return AdminUser(employee_id=employee_id, org_id=org_id, is_admin=is_admin)
+
+
+def require_admin(admin: AdminUser = Depends(get_current_admin)) -> AdminUser:
+    """
+    Second-layer dependency for routes that must be admin-only. Layered on
+    top of get_current_admin (which only proves "this is a valid logged-in
+    employee of this org") rather than duplicating its logic, so there is
+    exactly one place that decodes/validates the JWT itself.
+    """
+    if not admin.is_admin:
+        raise HTTPException(
+            status_code=403,
+            detail="This action requires an organization admin account.",
+        )
+    return admin

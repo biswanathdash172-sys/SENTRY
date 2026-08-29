@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SENTRY | My Risk Status</title>
+    <meta
+      name="description"
+      content="Employee view: status of risk items associated with your account."
+    />
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap");
+
+      :root {
+        --bg: #0a0e27;
+        --panel: #10142e;
+        --accent: #3b5bff;
+        --accent-2: #22d3ee;
+        --border: rgba(255, 255, 255, 0.08);
+        --text: #ffffff;
+        --muted: #94a3b8;
+        --ok: #22d3ee;
+        --pending: #f59e0b;
+        --err: #ff6b6b;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        font-family: "Inter", sans-serif;
+      }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        min-height: 100vh;
+      }
+
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 18px 32px;
+        border-bottom: 1px solid var(--border);
+        background: rgba(16, 20, 46, 0.6);
+        backdrop-filter: blur(12px);
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 800;
+        letter-spacing: 0.1em;
+      }
+      .brand span.tag {
+        font-size: 0.7rem;
+        font-weight: 600;
+        color: var(--muted);
+        letter-spacing: 0.05em;
+        background: rgba(255, 255, 255, 0.05);
+        padding: 3px 10px;
+        border-radius: 20px;
+        border: 1px solid var(--border);
+      }
+      .who {
+        font-size: 0.85rem;
+        color: var(--muted);
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
+      .signout {
+        color: var(--accent-2);
+        text-decoration: none;
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      main {
+        max-width: 760px;
+        margin: 0 auto;
+        padding: 48px 24px;
+      }
+      h1 {
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin-bottom: 6px;
+      }
+      p.sub {
+        color: var(--muted);
+        font-size: 0.9rem;
+        margin-bottom: 32px;
+        line-height: 1.6;
+      }
+
+      .flag-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .flag-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 16px 20px;
+      }
+      .flag-left {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .flag-id {
+        font-family: "Fira Code", monospace;
+        font-size: 0.78rem;
+        color: var(--muted);
+      }
+      .flag-time {
+        font-size: 0.75rem;
+        color: var(--muted);
+      }
+      .status-badge {
+        font-family: "Fira Code", monospace;
+        font-size: 0.75rem;
+        font-weight: 700;
+        padding: 5px 14px;
+        border-radius: 20px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      .status-pending {
+        background: rgba(245, 158, 11, 0.12);
+        color: var(--pending);
+        border: 1px solid rgba(245, 158, 11, 0.3);
+      }
+      .status-completed {
+        background: rgba(34, 211, 238, 0.12);
+        color: var(--ok);
+        border: 1px solid rgba(34, 211, 238, 0.3);
+      }
+
+      .empty {
+        text-align: center;
+        color: var(--muted);
+        padding: 60px 20px;
+        font-size: 0.9rem;
+        line-height: 1.6;
+      }
+      .error-banner {
+        background: rgba(255, 107, 107, 0.1);
+        border: 1px solid rgba(255, 107, 107, 0.3);
+        color: var(--err);
+        padding: 14px 18px;
+        border-radius: 10px;
+        font-size: 0.85rem;
+        margin-bottom: 24px;
+        display: none;
+      }
+      .note {
+        margin-top: 32px;
+        font-size: 0.78rem;
+        color: var(--muted);
+        line-height: 1.6;
+        border-top: 1px solid var(--border);
+        padding-top: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="brand">
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="#22D3EE"
+          stroke-width="2"
+        >
+          <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5" />
+          <circle
+            cx="12"
+            cy="12"
+            r="3.5"
+            fill="#22D3EE"
+            fill-opacity="0.25"
+            stroke="#22D3EE"
+            stroke-width="1.5"
+          />
+        </svg>
+        <span>SENTRY</span>
+        <span class="tag">EMPLOYEE VIEW</span>
+      </div>
+      <div class="who">
+        <span id="who-label">—</span>
+        <a class="signout" onclick="signOut()">Sign out</a>
+      </div>
+    </header>
+
+    <main>
+      <h1>My Risk Status</h1>
+      <p class="sub">
+        This shows only the status of risk items associated with your account.
+        Full details are reviewed and managed by your organization's security
+        team.
+      </p>
+
+      <div class="error-banner" id="error-banner"></div>
+      <div class="flag-list" id="flag-list">
+        <div class="empty">Loading…</div>
+      </div>
+
+      <div class="note">
+        Status meanings — <strong>Pending</strong>: awaiting review by your
+        organization. <strong>Completed</strong>: reviewed and resolved by your
+        organization or auto-cleared per policy. No further action is needed
+        from you for either state.
+      </div>
+    </main>
+
+    <script>
+      const token = sessionStorage.getItem("sentry_token");
+      const employeeId = sessionStorage.getItem("sentry_employee_id");
+
+      if (!token) {
+        window.location.href = "/login";
+      }
+
+      document.getElementById("who-label").textContent = employeeId
+        ? `Signed in as ${employeeId}`
+        : "";
+
+      function signOut() {
+        sessionStorage.clear();
+        window.location.href = "/login";
+      }
+
+      function relativeTime(isoStr) {
+        const diff = Math.floor((Date.now() - new Date(isoStr)) / 1000);
+        if (diff < 60) return `${diff}s ago`;
+        if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+        if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+        return `${Math.floor(diff / 86400)}d ago`;
+      }
+
+      function showError(msg) {
+        const el = document.getElementById("error-banner");
+        el.textContent = msg;
+        el.style.display = "block";
+      }
+
+      async function loadMyFlags() {
+        try {
+          const res = await fetch("/risk-flags/my", {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (res.status === 401) {
+            sessionStorage.clear();
+            window.location.href = "/login";
+            return;
+          }
+          if (!res.ok) throw new Error(await res.text());
+          const flags = await res.json();
+          renderFlags(flags);
+        } catch (e) {
+          showError(
+            "Could not load your risk status — is the backend running?",
+          );
+          document.getElementById("flag-list").innerHTML = "";
+        }
+      }
+
+      function renderFlags(flags) {
+        const list = document.getElementById("flag-list");
+        if (!flags.length) {
+          list.innerHTML = `<div class="empty">No risk items associated with your account right now.</div>`;
+          return;
+        }
+        list.innerHTML = flags
+          .map(
+            (f) => `
+        <div class="flag-row">
+          <div class="flag-left">
+            <span class="flag-id">${f.id}</span>
+            <span class="flag-time">${relativeTime(f.created_at)}</span>
+          </div>
+          <span class="status-badge status-${f.status}">${f.status}</span>
+        </div>
+      `,
+          )
+          .join("");
+      }
+
+      loadMyFlags();
+      setInterval(loadMyFlags, 8000);
+    </script>
+  </body>
+</html>

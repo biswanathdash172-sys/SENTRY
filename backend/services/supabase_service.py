@@ -1,53 +1,45 @@
 """
 services/supabase_service.py
 -----------------------------
-Replaces the previous local JSON-file org/admin store (db/org_store.py,
-db/json_store.py, services/auth_service.py — all removed) with a real
+Replaces the previous local JSON-file org/admin store with a real
 Supabase-backed source of truth for organizations and employees.
 
-WHY SUPABASE INSTEAD OF THE OLD LOCAL JSON STORE:
-The earlier build kept orgs/admins in flat JSON files on disk
-(db/orgs.json, db/admins.json) guarded by a file lock — fine for a single
-demo machine, but not a real "connect your org" system. Supabase gives us
-a real hosted Postgres table any teammate/judge can inspect, with the
-same "never crash the demo" fail-safe philosophy as the rest of this
-codebase: every function below catches connection/config errors and
-raises a clearly-typed SupabaseAuthError instead of letting a raw
-exception (or a 500) reach the judge's screen.
+RBAC UPDATE (Option A, confirmed with the user): employees now carry an
+is_admin flag. verify_employee_login() selects and returns it so
+routers/org_auth.py can embed it in the JWT. create_employee() is the new
+Employee Management write path — the org's FIRST employee is
+automatically promoted to admin (enforced here via a count check, not
+left to a manual DB edit), since every subsequent employee needs a real
+admin identity to exist in the first place for this ordering to be safe.
 
-EXPECTED SUPABASE SCHEMA (create these two tables in the Supabase SQL
-editor before running):
+EXPECTED SUPABASE SCHEMA (create/alter these before running):
 
     create table organizations (
-        org_id        text primary key,      -- the org-facing ID, e.g. "ACME-01"
+        org_id        text primary key,
         org_name      text not null,
-        org_password  text not null,         -- preset password, plaintext by
-                                              -- design for a hackathon demo;
-                                              -- swap for a hashed column +
-                                              -- verify_org_password() below
-                                              -- if you want this production-safe
+        org_password  text not null,
         created_at    timestamptz default now()
     );
 
     create table employees (
-        employee_id   text primary key,      -- what the login page asks for
+        employee_id   text primary key,
         org_id        text references organizations(org_id) not null,
-        password      text not null,         -- preset password, same note as above
+        password      text not null,
         display_name  text,
+        is_admin      boolean not null default false,   -- added: db/sca_schema.sql §5
         created_at    timestamptz default now()
     );
 
 Env vars required (see backend/.env.example):
     SUPABASE_URL
-    SUPABASE_KEY   (the anon or service key — service key recommended for
-                    server-side password checks so RLS can stay strict)
+    SUPABASE_KEY
 """
 
 from __future__ import annotations
 
 import os
 from dataclasses import dataclass
-from typing import Optional
+from typing import Any, Optional, cast
 
 logger_prefix = "[supabase_service]"
 
@@ -57,30 +49,21 @@ SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
 _client = None
 
 
-
 class SupabaseAuthError(Exception):
     """Raised for any org/employee auth failure — routers turn this into a
     clean 401/400/503, never a raw 500."""
 
 
 class SupabaseNotConfigured(SupabaseAuthError):
-    """Raised when SUPABASE_URL / SUPABASE_KEY aren't set. Kept as a
-    distinct subclass so a router can show a friendlier "not configured
-    yet" message during setup/demo rehearsal vs. a genuine bad-login 401."""
+    """Raised when SUPABASE_URL / SUPABASE_KEY aren't set."""
 
 
 def _get_client():
-    """Lazily creates and caches the Supabase client. Never raises on
-    import — only when an org/employee lookup is actually attempted,
-    matching db/database.py's "app must always boot" philosophy."""
     global _client, SUPABASE_URL, SUPABASE_KEY
 
     if _client is not None:
         return _client
 
-    # Re-read env vars on every attempt (not just at import time) so a
-    # fixed .env is picked up without needing a fresh process, and so we
-    # never get permanently stuck on a stale empty value.
     SUPABASE_URL = os.environ.get("SUPABASE_URL", SUPABASE_URL)
     SUPABASE_KEY = os.environ.get("SUPABASE_KEY", SUPABASE_KEY)
 
@@ -89,7 +72,7 @@ def _get_client():
             "SUPABASE_URL and SUPABASE_KEY must both be set (see backend/.env.example)."
         )
     try:
-        from supabase import create_client  # local import: optional dependency
+        from supabase import create_client
     except ImportError as exc:
         raise SupabaseNotConfigured(
             f"The 'supabase' package isn't installed ({exc}). Run: pip install supabase"
@@ -115,13 +98,11 @@ class EmployeeRecord:
     employee_id: str
     org_id: str
     display_name: Optional[str] = None
+    is_admin: bool = False
 
 
 # ---------------------------------------------------------------------------
-# "Get Access" step — org_id + org preset password -> proves this org is
-# allowed to onboard. Does NOT log anyone in; it just unlocks the next step
-# (creating/using an employee login) in the flow the product doc describes:
-# admin/org connects once -> analyst dashboard activates.
+# "Get Access" step — unchanged
 # ---------------------------------------------------------------------------
 def verify_org_access(org_id: str, org_password: str) -> OrgRecord:
     if not org_id or not org_password:
@@ -144,9 +125,6 @@ def verify_org_access(org_id: str, org_password: str) -> OrgRecord:
         raise SupabaseAuthError("Unknown organization ID.")
 
     row = rows[0]
-    # NOTE: plaintext-equality check, matching the "organizational preset
-    # passwords" requirement. If you later hash org_password in Supabase,
-    # swap this line for a bcrypt/argon2 verify call.
     if row.get("org_password") != org_password:
         raise SupabaseAuthError("Incorrect organization password.")
 
@@ -154,8 +132,7 @@ def verify_org_access(org_id: str, org_password: str) -> OrgRecord:
 
 
 # ---------------------------------------------------------------------------
-# Employee login — employee_id + password -> which org they belong to.
-# This is what backs the actual analyst-dashboard /login form.
+# Employee login — NOW selects is_admin too
 # ---------------------------------------------------------------------------
 def verify_employee_login(employee_id: str, password: str) -> EmployeeRecord:
     if not employee_id or not password:
@@ -165,7 +142,7 @@ def verify_employee_login(employee_id: str, password: str) -> EmployeeRecord:
     try:
         result = (
             client.table("employees")
-            .select("employee_id, org_id, password, display_name")
+            .select("employee_id, org_id, password, display_name, is_admin")
             .eq("employee_id", employee_id)
             .limit(1)
             .execute()
@@ -185,4 +162,223 @@ def verify_employee_login(employee_id: str, password: str) -> EmployeeRecord:
         employee_id=row["employee_id"],
         org_id=row["org_id"],
         display_name=row.get("display_name"),
+        is_admin=bool(row.get("is_admin", False)),
     )
+
+
+# ---------------------------------------------------------------------------
+# NEW: Employee Management — real write path, admin-gated in the router.
+# ---------------------------------------------------------------------------
+def create_employee(
+    org_id: str,
+    employee_id: str,
+    name: str,
+    password: str,
+) -> EmployeeRecord:
+    """
+    Creates a new employee row for an org. FAIL-SAFE ADMIN BOOTSTRAP: the
+    very first employee ever created for a given org_id is automatically
+    made is_admin=true (checked via a real count query against Supabase,
+    not assumed) — every org needs exactly one real admin identity to
+    exist before any admin-gated route can be used at all, and this is
+    the only safe moment to grant it automatically. Every employee after
+    the first is is_admin=false by default; promoting anyone further
+    requires an existing admin's action (not built as a self-service
+    "make me admin" route — that would defeat the purpose of RBAC).
+
+    Raises SupabaseAuthError on duplicate employee_id or any DB failure —
+    a write failure here must be visible to the caller (the admin doing
+    the creating), never silently swallowed.
+    """
+    if not org_id or not employee_id or not name or not password:
+        raise SupabaseAuthError("org_id, employee_id, name, and password are all required.")
+
+    client = _get_client()
+
+    try:
+        existing = (
+            client.table("employees")
+            .select("employee_id")
+            .eq("employee_id", employee_id)
+            .limit(1)
+            .execute()
+        )
+        if existing.data:
+            raise SupabaseAuthError(f"Employee ID '{employee_id}' already exists.")
+
+        count_result = (
+            client.table("employees")
+            .select("employee_id", count=cast(Any, "exact"))
+            .eq("org_id", org_id)
+            .execute()
+        )
+        is_first_employee = (count_result.count or 0) == 0
+
+        insert_row = {
+            "employee_id": employee_id,
+            "org_id": org_id,
+            "display_name": name,
+            "password": password,  # NOTE: plaintext, matching organizations.org_password's
+                                    # existing pattern in this codebase — see this file's
+                                    # top-level docstring note about hashing later.
+            "is_admin": is_first_employee,
+        }
+        insert_result = client.table("employees").insert(insert_row).execute()
+        if not insert_result.data:
+            raise SupabaseAuthError("Insert succeeded but returned no row — unexpected Supabase response.")
+
+        row = insert_result.data[0]
+        return EmployeeRecord(
+            employee_id=row["employee_id"],
+            org_id=row["org_id"],
+            display_name=row.get("display_name"),
+            is_admin=bool(row.get("is_admin", False)),
+        )
+    except SupabaseAuthError:
+        raise
+    except Exception as exc:
+        raise SupabaseAuthError(f"Could not create employee: {exc}")
+
+
+# ---------------------------------------------------------------------------
+# NEW: Advanced employee/role management (Item 1).
+# ---------------------------------------------------------------------------
+def list_employees(org_id: str) -> list[EmployeeRecord]:
+    """Real Supabase read — every employee belonging to this org."""
+    client = _get_client()
+    try:
+        result = (
+            client.table("employees")
+            .select("employee_id, org_id, display_name, is_admin")
+            .eq("org_id", org_id)
+            .order("employee_id")
+            .execute()
+        )
+    except Exception as exc:
+        raise SupabaseAuthError(f"Could not list employees: {exc}")
+
+    return [
+        EmployeeRecord(
+            employee_id=row["employee_id"],
+            org_id=row["org_id"],
+            display_name=row.get("display_name"),
+            is_admin=bool(row.get("is_admin", False)),
+        )
+        for row in (result.data or [])
+    ]
+
+
+def count_org_admins(org_id: str) -> int:
+    """Used as a fail-safe check before any demotion/deletion that could
+    leave an org with zero admins — a real count query, not an assumption."""
+    client = _get_client()
+    try:
+        result = (
+            client.table("employees")
+            .select("employee_id", count=cast(Any, "exact"))
+            .eq("org_id", org_id)
+            .eq("is_admin", True)
+            .execute()
+        )
+        return result.count or 0
+    except Exception as exc:
+        raise SupabaseAuthError(f"Could not count org admins: {exc}")
+
+
+def set_employee_admin_status(org_id: str, employee_id: str, is_admin: bool) -> EmployeeRecord:
+    """
+    Promotes or revokes admin status for one employee. FAIL-SAFE: if this
+    is a REVOKE (is_admin=False) and the target is currently the org's
+    LAST remaining admin, this raises rather than proceeding — an org
+    with zero admins can never manage itself again, so this must never
+    be allowed to happen silently. The caller (router) still enforces its
+    own "can't demote yourself if you're the last admin" UX-level check;
+    this is the authoritative, DB-backed guarantee underneath it.
+    """
+    client = _get_client()
+
+    try:
+        existing = (
+            client.table("employees")
+            .select("employee_id, org_id, is_admin")
+            .eq("employee_id", employee_id)
+            .eq("org_id", org_id)
+            .limit(1)
+            .execute()
+        )
+    except Exception as exc:
+        raise SupabaseAuthError(f"Could not look up employee: {exc}")
+
+    rows = existing.data or []
+    if not rows:
+        raise SupabaseAuthError(f"Employee '{employee_id}' not found in this organization.")
+
+    target = rows[0]
+    if not is_admin and bool(target.get("is_admin")):
+        remaining_admins = count_org_admins(org_id)
+        if remaining_admins <= 1:
+            raise SupabaseAuthError(
+                "Cannot revoke admin status: this is the organization's last "
+                "remaining admin. Promote another employee to admin first."
+            )
+
+    try:
+        result = (
+            client.table("employees")
+            .update({"is_admin": is_admin})
+            .eq("employee_id", employee_id)
+            .eq("org_id", org_id)
+            .execute()
+        )
+    except Exception as exc:
+        raise SupabaseAuthError(f"Could not update admin status: {exc}")
+
+    if not result.data:
+        raise SupabaseAuthError("Update succeeded but returned no row — unexpected Supabase response.")
+
+    row = result.data[0]
+    return EmployeeRecord(
+        employee_id=row["employee_id"],
+        org_id=row["org_id"],
+        display_name=row.get("display_name"),
+        is_admin=bool(row.get("is_admin", False)),
+    )
+
+
+def delete_employee(org_id: str, employee_id: str) -> None:
+    """
+    Removes an employee. FAIL-SAFE: refuses to delete an org's last
+    remaining admin, same reasoning as set_employee_admin_status above —
+    an org must never be left with zero admins as a side effect of a
+    deletion.
+    """
+    client = _get_client()
+
+    try:
+        existing = (
+            client.table("employees")
+            .select("employee_id, is_admin")
+            .eq("employee_id", employee_id)
+            .eq("org_id", org_id)
+            .limit(1)
+            .execute()
+        )
+    except Exception as exc:
+        raise SupabaseAuthError(f"Could not look up employee: {exc}")
+
+    rows = existing.data or []
+    if not rows:
+        raise SupabaseAuthError(f"Employee '{employee_id}' not found in this organization.")
+
+    if bool(rows[0].get("is_admin")):
+        remaining_admins = count_org_admins(org_id)
+        if remaining_admins <= 1:
+            raise SupabaseAuthError(
+                "Cannot remove this employee: they are the organization's last "
+                "remaining admin. Promote another employee to admin first."
+            )
+
+    try:
+        client.table("employees").delete().eq("employee_id", employee_id).eq("org_id", org_id).execute()
+    except Exception as exc:
+        raise SupabaseAuthError(f"Could not delete employee: {exc}")

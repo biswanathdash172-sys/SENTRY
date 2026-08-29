@@ -2,24 +2,18 @@
 main.py
 -------
 SENTRY demo backend — Human-Governed Autonomous SOC with integrated media
-integrity checks.
-
-REFACTOR NOTE (org auth): the old local JSON-store admin auth
-(routers/admin_auth.py + services/auth_service.py + db/org_store.py) has
-been removed entirely. Organization + employee identity is now backed by
-Supabase (see services/supabase_service.py, routers/org_auth.py). The old
-"accept any credentials" demo `/login` stub that used to live directly on
-`app` has also been removed — /login is now real, served by org_auth.py.
+integrity checks, SCA vulnerability scanning, and Windows notification
+capture, all unified under one RBAC'd, Supabase-backed system.
 
 Run:
     pip install -r requirements.txt
     uvicorn main:app --reload --port 8000
 """
 
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from datetime import datetime
 from typing import List
 import pathlib
@@ -38,10 +32,29 @@ from models import (
 from services import correlation_engine, playbook_engine, media_integrity_service
 from demo_data import seed_alerts
 from db import database as db
-from routers.org_auth import router as org_auth_router, get_current_admin
 
-app = FastAPI(title="SENTRY API", version="0.4.0-demo")
+# --- All routers ---
+from routers.org_auth import router as org_auth_router, get_current_admin
+from routers.scan import router as scan_router
+from routers.employees import router as employees_router
+from routers.rules import router as rules_router
+from routers.risk_actions import router as risk_actions_router
+from routers.analytics import router as analytics_router
+from routers.reports import router as reports_router
+from routers.notification_ingest import router as notification_ingest_router
+from routers.audit import router as audit_router
+
+app = FastAPI(title="SENTRY API", version="0.5.0-demo")
+
 app.include_router(org_auth_router)
+app.include_router(scan_router)
+app.include_router(employees_router)
+app.include_router(rules_router)
+app.include_router(risk_actions_router)
+app.include_router(analytics_router)
+app.include_router(reports_router)
+app.include_router(notification_ingest_router)
+app.include_router(audit_router)
 
 app.add_middleware(
     CORSMiddleware,
@@ -68,8 +81,8 @@ def _serve_frontend_index():
 
 @app.get("/get-access", include_in_schema=False)
 def _serve_get_access_page():
-    """New step in the login flow: validates an org ID + org preset
-    password against Supabase before the employee login page is used."""
+    """"Get Access" page: validates an org ID + org preset password
+    against Supabase before the employee login page is used."""
     page_path = _FRONTEND_DIR / "get-access.html"
     if page_path.exists():
         return FileResponse(str(page_path))
@@ -86,21 +99,40 @@ def _serve_login_page():
 
 @app.get("/dashboard", include_in_schema=False)
 def _serve_dashboard_page():
-    dashboard_path = _FRONTEND_DIR / "dashboard.html"
-    if dashboard_path.exists():
-        return FileResponse(str(dashboard_path))
-    return {"detail": "Dashboard page not found"}
+    """
+    RESOLVED (previously an orphaned legacy page): this used to serve the
+    old static SOC demo (dashboard.html), which read from the legacy
+    in-memory Alert/STORE pipeline below. That pipeline is now superseded
+    entirely by admin-dashboard.html / employee-dashboard.html, which run
+    on scan_results + risk_flags in Supabase. Nothing links to /dashboard
+    anymore since login.html redirects by role. Redirect here rather than
+    serve stale content that no longer reflects real data.
+    """
+    return RedirectResponse(url="/login")
 
 
-# NOTE: the old `POST /login` demo stub ("accept any credentials, return
-# f'demo-token-{username}'") has been removed. Real employee login is now
-# `POST /login` as registered by routers/org_auth.py (employee_id +
-# password, checked against Supabase, returns a signed JWT).
+@app.get("/admin-dashboard", include_in_schema=False)
+def _serve_admin_dashboard_page():
+    page_path = _FRONTEND_DIR / "admin-dashboard.html"
+    if page_path.exists():
+        return FileResponse(str(page_path))
+    return {"detail": "Admin dashboard not found"}
+
+
+@app.get("/employee-dashboard", include_in_schema=False)
+def _serve_employee_dashboard_page():
+    page_path = _FRONTEND_DIR / "employee-dashboard.html"
+    if page_path.exists():
+        return FileResponse(str(page_path))
+    return {"detail": "Employee dashboard not found"}
 
 
 # ---------------------------------------------------------------------------
-# Storage bootstrap (unchanged from before this refactor) — Postgres if
-# DATABASE_URL is reachable, else in-memory STORE. Never fails to boot.
+# LEGACY: original SOC demo storage bootstrap. Kept only because the
+# original /alerts, /media/verify, and /ingest/* routes below still use
+# it — none of the NEW admin/employee dashboards touch this at all
+# anymore (they use Supabase's scan_results/risk_flags exclusively via
+# the routers above). This whole block is legacy/optional at this point.
 # ---------------------------------------------------------------------------
 db.init_db()
 
@@ -122,7 +154,6 @@ def _get_alert_or_404(alert_id: str) -> Alert:
 
 
 def _get_org_alert_or_404(alert_id: str, admin: AdminUser) -> Alert:
-    """Like _get_alert_or_404 but also enforces org gating for mutating routes."""
     alert = _get_alert_or_404(alert_id)
     if alert.org_id is not None and str(alert.org_id) != str(admin.org_id):
         raise HTTPException(status_code=404, detail=f"Alert '{alert_id}' not found")
@@ -135,7 +166,8 @@ def health():
 
 
 # ---------------------------------------------------------------------------
-# Alerts
+# LEGACY Alerts (superseded by /scan/results, /risk-flags/my — kept only
+# for backward compatibility, not used by any current frontend page)
 # ---------------------------------------------------------------------------
 @app.get("/alerts", response_model=List[Alert])
 def list_alerts(
@@ -197,18 +229,17 @@ def resolve_alert(alert_id: str, admin: AdminUser = Depends(get_current_admin)):
     return alert
 
 
-# ---------------------------------------------------------------------------
-# Media verification (S26 module, plugged in as an evidence source)
-# ---------------------------------------------------------------------------
 @app.post("/media/verify", response_model=MediaVerifyResult)
 def verify_media(req: MediaVerifyRequest):
     return media_integrity_service.verify_media(req)
 
 
 # ---------------------------------------------------------------------------
-# Ingestion routes (connector-style stubs) — unchanged logic, only the
-# optional-admin resolution now goes through the new Supabase-backed
-# get_current_admin instead of the old local-store version.
+# LEGACY ingestion routes (source-agnostic evidence -> old Alert pipeline).
+# NOTE: Windows notification capture no longer uses these — it now calls
+# POST /ingest/notification (routers/notification_ingest.py), which
+# writes into the NEW scan_results/risk_flags pipeline instead. These
+# /ingest/* routes are kept only for any other legacy caller.
 # ---------------------------------------------------------------------------
 def _ingest(source_type: str, req: IngestRequest, default_title: str,
             org_id: str | None = None) -> Alert:
@@ -254,9 +285,6 @@ def _optional_admin(authorization: str | None = None) -> AdminUser | None:
         return None
 
 
-from fastapi import Header
-
-
 @app.post("/ingest/email", response_model=Alert)
 def ingest_email(req: IngestRequest, authorization: str | None = Header(default=None)):
     admin = _optional_admin(authorization)
@@ -286,7 +314,8 @@ def ingest_endpoint(req: IngestRequest, authorization: str | None = Header(defau
 
 
 # ---------------------------------------------------------------------------
-# Simulate incoming alert
+# Simulate incoming alert (legacy demo button, unrelated to new SCA/
+# notification pipelines)
 # ---------------------------------------------------------------------------
 @app.post("/alerts/simulate", response_model=Alert)
 def simulate_alert(scenario: str = "deepfake_wire_fraud"):

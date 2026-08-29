@@ -238,7 +238,8 @@
         sessionStorage.setItem("sentry_token", data.token);
         sessionStorage.setItem("sentry_org_id", data.org_id);
         sessionStorage.setItem("sentry_employee_id", data.employee_id);
-        window.location.href = "/dashboard";
+        sessionStorage.setItem("sentry_is_admin", data.is_admin ? "true" : "false");
+        window.location.href = data.is_admin ? "/admin-dashboard" : "/employee-dashboard";
       } catch (err) {
         errorEl.textContent = err.message || "Sign in failed.";
         errorEl.style.display = "block";

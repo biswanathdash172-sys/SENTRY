@@ -1,0 +1,1104 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SENTRY | Admin — Risk & Scan Console</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap");
+
+      :root {
+        --bg: #0a0e27;
+        --panel: #10142e;
+        --accent: #3b5bff;
+        --accent-2: #22d3ee;
+        --border: rgba(255, 255, 255, 0.08);
+        --text: #ffffff;
+        --muted: #94a3b8;
+        --ok: #22d3ee;
+        --pending: #f59e0b;
+        --err: #ff6b6b;
+        --not-risky: #22d3ee;
+        --part-risky: #f59e0b;
+        --high-risky: #ef5b5b;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        font-family: "Inter", sans-serif;
+      }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        min-height: 100vh;
+      }
+
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 16px 32px;
+        border-bottom: 1px solid var(--border);
+        background: rgba(16, 20, 46, 0.7);
+        backdrop-filter: blur(12px);
+        position: sticky;
+        top: 0;
+        z-index: 10;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 800;
+        letter-spacing: 0.1em;
+      }
+      .brand span.tag {
+        font-size: 0.68rem;
+        font-weight: 600;
+        color: var(--accent-2);
+        letter-spacing: 0.05em;
+        background: rgba(34, 211, 238, 0.1);
+        padding: 3px 10px;
+        border-radius: 20px;
+        border: 1px solid rgba(34, 211, 238, 0.3);
+      }
+      .who {
+        font-size: 0.85rem;
+        color: var(--muted);
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
+      .signout {
+        color: var(--accent-2);
+        text-decoration: none;
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      main {
+        max-width: 1180px;
+        margin: 0 auto;
+        padding: 32px 24px 80px;
+        display: flex;
+        flex-direction: column;
+        gap: 32px;
+      }
+
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 24px;
+      }
+      .card h2 {
+        font-size: 0.78rem;
+        font-weight: 800;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--accent-2);
+        margin-bottom: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+
+      .btn {
+        background: linear-gradient(135deg, var(--accent), var(--accent-2));
+        color: #fff;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 8px;
+        font-weight: 700;
+        font-size: 0.85rem;
+        cursor: pointer;
+        white-space: nowrap;
+      }
+      .btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      .btn.secondary {
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid var(--border);
+      }
+      .btn.small {
+        padding: 6px 14px;
+        font-size: 0.75rem;
+      }
+      .btn.approve {
+        background: linear-gradient(135deg, #16a34a, var(--accent-2));
+      }
+      .btn.deny {
+        background: rgba(239, 91, 91, 0.15);
+        color: #ff8080;
+        border: 1px solid rgba(239, 91, 91, 0.35);
+      }
+      .btn.deny:hover {
+        background: var(--high-risky);
+        color: #fff;
+      }
+      .btn.danger-outline {
+        background: transparent;
+        border: 1px solid rgba(239, 91, 91, 0.4);
+        color: #ff8080;
+      }
+
+      /* Stats row */
+      .stats-row {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 16px;
+      }
+      .stat-box {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 18px 20px;
+      }
+      .stat-label {
+        font-size: 0.7rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin-bottom: 8px;
+      }
+      .stat-value {
+        font-size: 1.9rem;
+        font-weight: 800;
+      }
+      .stat-box.not-risky .stat-value {
+        color: var(--not-risky);
+      }
+      .stat-box.part-risky .stat-value {
+        color: var(--part-risky);
+      }
+      .stat-box.high-risky .stat-value {
+        color: var(--high-risky);
+      }
+      .stat-box.avg-time .stat-value {
+        color: var(--text);
+        font-size: 1.5rem;
+      }
+
+      .charts-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+      }
+      canvas {
+        max-height: 220px;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.82rem;
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--border);
+        vertical-align: middle;
+      }
+      th {
+        color: var(--muted);
+        font-weight: 600;
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      td.mono {
+        font-family: "Fira Code", monospace;
+        font-size: 0.78rem;
+      }
+      .tier-badge {
+        font-family: "Fira Code", monospace;
+        font-size: 0.7rem;
+        font-weight: 700;
+        padding: 3px 10px;
+        border-radius: 20px;
+        text-transform: uppercase;
+        white-space: nowrap;
+      }
+      .tier-not_risky {
+        background: rgba(34, 211, 238, 0.12);
+        color: var(--not-risky);
+        border: 1px solid rgba(34, 211, 238, 0.3);
+      }
+      .tier-part_risky {
+        background: rgba(245, 158, 11, 0.12);
+        color: var(--part-risky);
+        border: 1px solid rgba(245, 158, 11, 0.3);
+      }
+      .tier-high_risky {
+        background: rgba(239, 91, 91, 0.12);
+        color: var(--high-risky);
+        border: 1px solid rgba(239, 91, 91, 0.3);
+      }
+      .status-pill {
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: var(--muted);
+        white-space: nowrap;
+      }
+      .status-pill.completed {
+        color: var(--ok);
+      }
+      .status-pill.pending {
+        color: var(--pending);
+      }
+      .action-cell {
+        display: flex;
+        gap: 6px;
+      }
+
+      .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr auto;
+        gap: 12px;
+        align-items: end;
+      }
+      .field label {
+        display: block;
+        font-size: 0.72rem;
+        color: var(--muted);
+        margin-bottom: 6px;
+      }
+      .field input {
+        width: 100%;
+        background: rgba(0, 0, 0, 0.3);
+        border: 1px solid var(--border);
+        color: var(--text);
+        padding: 10px 12px;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        outline: none;
+      }
+      .field input:focus {
+        border-color: var(--accent-2);
+      }
+
+      .rules-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .rule-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: rgba(0, 0, 0, 0.2);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 12px 16px;
+      }
+      .rule-row.locked {
+        opacity: 0.55;
+      }
+      .switch {
+        position: relative;
+        display: inline-block;
+        width: 44px;
+        height: 24px;
+      }
+      .switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+      }
+      .slider {
+        position: absolute;
+        cursor: pointer;
+        inset: 0;
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid var(--border);
+        transition: 0.2s;
+        border-radius: 24px;
+      }
+      .slider:before {
+        position: absolute;
+        content: "";
+        height: 16px;
+        width: 16px;
+        left: 3px;
+        bottom: 3px;
+        background: var(--accent-2);
+        transition: 0.2s;
+        border-radius: 50%;
+      }
+      input:checked + .slider {
+        background: rgba(59, 91, 255, 0.4);
+      }
+      input:checked + .slider:before {
+        transform: translateX(20px);
+      }
+      input:disabled + .slider {
+        cursor: not-allowed;
+        opacity: 0.4;
+      }
+
+      .role-chip {
+        font-size: 0.68rem;
+        font-weight: 700;
+        padding: 3px 10px;
+        border-radius: 20px;
+        text-transform: uppercase;
+        white-space: nowrap;
+      }
+      .role-chip.admin {
+        background: rgba(59, 91, 255, 0.15);
+        color: #93a5ff;
+        border: 1px solid rgba(59, 91, 255, 0.35);
+      }
+      .role-chip.employee {
+        background: rgba(255, 255, 255, 0.06);
+        color: var(--muted);
+        border: 1px solid var(--border);
+      }
+
+      .msg {
+        font-size: 0.8rem;
+        padding: 10px 14px;
+        border-radius: 8px;
+        margin-top: 12px;
+        display: none;
+      }
+      .msg.success {
+        background: rgba(34, 211, 238, 0.1);
+        border: 1px solid rgba(34, 211, 238, 0.3);
+        color: var(--ok);
+        display: block;
+      }
+      .msg.error {
+        background: rgba(255, 107, 107, 0.1);
+        border: 1px solid rgba(255, 107, 107, 0.3);
+        color: var(--err);
+        display: block;
+      }
+
+      .empty {
+        text-align: center;
+        color: var(--muted);
+        padding: 30px;
+        font-size: 0.85rem;
+      }
+
+      @media (max-width: 900px) {
+        .stats-row {
+          grid-template-columns: repeat(2, 1fr);
+        }
+        .charts-row {
+          grid-template-columns: 1fr;
+        }
+        .form-row {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="brand">
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="#22D3EE"
+          stroke-width="2"
+        >
+          <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5" />
+          <circle
+            cx="12"
+            cy="12"
+            r="3.5"
+            fill="#22D3EE"
+            fill-opacity="0.25"
+            stroke="#22D3EE"
+            stroke-width="1.5"
+          />
+        </svg>
+        <span>SENTRY</span>
+        <span class="tag">ADMIN CONSOLE</span>
+      </div>
+      <div class="who">
+        <span id="who-label">—</span>
+        <a class="signout" onclick="signOut()">Sign out</a>
+      </div>
+    </header>
+
+    <main>
+      <!-- Live analytics -->
+      <div class="stats-row">
+        <div class="stat-box not-risky">
+          <div class="stat-label">Not Risky</div>
+          <div class="stat-value" id="stat-not-risky">—</div>
+        </div>
+        <div class="stat-box part-risky">
+          <div class="stat-label">Part Risky</div>
+          <div class="stat-value" id="stat-part-risky">—</div>
+        </div>
+        <div class="stat-box high-risky">
+          <div class="stat-label">High Risky</div>
+          <div class="stat-value" id="stat-high-risky">—</div>
+        </div>
+        <div class="stat-box avg-time">
+          <div class="stat-label">Avg. Resolution Time</div>
+          <div class="stat-value" id="stat-avg-time">—</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>
+          Organizational Analytics — Live
+          <button
+            class="btn secondary"
+            onclick="exportReport()"
+            id="export-btn"
+          >
+            Export to PPT
+          </button>
+        </h2>
+        <div class="msg" id="export-msg"></div>
+        <div class="charts-row">
+          <div>
+            <p
+              style="
+                font-size: 0.72rem;
+                color: var(--muted);
+                margin-bottom: 10px;
+              "
+            >
+              Risk Distribution by Tier
+            </p>
+            <canvas id="tier-chart"></canvas>
+          </div>
+          <div>
+            <p
+              style="
+                font-size: 0.72rem;
+                color: var(--muted);
+                margin-bottom: 10px;
+              "
+            >
+              Risk Frequency — Last 7 Days
+            </p>
+            <canvas id="trend-chart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Scan engine + resolution actions -->
+      <div class="card">
+        <h2>
+          SCA Scan Results & Resolution
+          <button class="btn" id="scan-btn" onclick="runScan()">
+            Run Fixed-Payload Scan (OSV.dev, live)
+          </button>
+        </h2>
+        <div class="msg" id="scan-msg"></div>
+        <table>
+          <thead>
+            <tr>
+              <th>Source</th>
+              <th>Package / App</th>
+              <th>Vuln ID</th>
+              <th>CVSS/Score</th>
+              <th>Tier</th>
+              <th>Status</th>
+              <th>Summary</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="scan-table-body">
+            <tr>
+              <td colspan="8" class="empty">Loading…</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Audit log -->
+      <div class="card">
+        <h2>Audit Log</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Actor</th>
+              <th>Message</th>
+            </tr>
+          </thead>
+          <tbody id="audit-table-body">
+            <tr>
+              <td colspan="3" class="empty">Loading…</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Auto-approval rules -->
+      <div class="card">
+        <h2>Auto-Approval Rules (org-defined, runtime)</h2>
+        <div class="rules-list" id="rules-list">
+          <div class="empty">Loading…</div>
+        </div>
+        <div class="msg" id="rules-msg"></div>
+      </div>
+
+      <!-- Employee & role management -->
+      <div class="card">
+        <h2>Employee & Role Management</h2>
+        <div class="form-row">
+          <div class="field">
+            <label for="emp-id">Employee ID</label>
+            <input type="text" id="emp-id" placeholder="EMP-0231" />
+          </div>
+          <div class="field">
+            <label for="emp-name">Name</label>
+            <input type="text" id="emp-name" placeholder="Jane Doe" />
+          </div>
+          <div class="field">
+            <label for="emp-password">Password</label>
+            <input type="password" id="emp-password" placeholder="••••••••" />
+          </div>
+          <button class="btn" onclick="createEmployee()">
+            Create Employee
+          </button>
+        </div>
+        <div class="msg" id="employee-msg"></div>
+
+        <table style="margin-top: 20px">
+          <thead>
+            <tr>
+              <th>Employee ID</th>
+              <th>Name</th>
+              <th>Role</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="employee-table-body">
+            <tr>
+              <td colspan="4" class="empty">Loading…</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </main>
+
+    <script>
+      const token = sessionStorage.getItem("sentry_token");
+      const isAdmin = sessionStorage.getItem("sentry_is_admin") === "true";
+      const employeeId = sessionStorage.getItem("sentry_employee_id");
+
+      if (!token) {
+        window.location.href = "/login";
+      }
+      if (!isAdmin) {
+        window.location.href = "/employee-dashboard";
+      }
+
+      document.getElementById("who-label").textContent = employeeId
+        ? `Admin: ${employeeId}`
+        : "";
+
+      function signOut() {
+        sessionStorage.clear();
+        window.location.href = "/login";
+      }
+      function authHeaders(extra = {}) {
+        return { Authorization: `Bearer ${token}`, ...extra };
+      }
+
+      function showMsg(elId, text, isError) {
+        const el = document.getElementById(elId);
+        el.textContent = text;
+        el.className = "msg " + (isError ? "error" : "success");
+        setTimeout(() => {
+          el.className = "msg";
+        }, 5000);
+      }
+
+      async function handle401(res) {
+        if (res.status === 401) {
+          sessionStorage.clear();
+          window.location.href = "/login";
+          return true;
+        }
+        if (res.status === 403) {
+          window.location.href = "/employee-dashboard";
+          return true;
+        }
+        return false;
+      }
+
+      /* ---------------- Live analytics ---------------- */
+      let tierChart = null,
+        trendChart = null;
+
+      function initCharts() {
+        tierChart = new Chart(document.getElementById("tier-chart"), {
+          type: "bar",
+          data: {
+            labels: ["Not Risky", "Part Risky", "High Risky"],
+            datasets: [
+              {
+                data: [0, 0, 0],
+                backgroundColor: ["#22D3EE", "#f59e0b", "#ef5b5b"],
+                borderRadius: 6,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: {
+              x: { ticks: { color: "#94A3B8" }, grid: { display: false } },
+              y: {
+                ticks: { color: "#94A3B8", stepSize: 1 },
+                beginAtZero: true,
+                grid: { color: "rgba(255,255,255,0.05)" },
+              },
+            },
+          },
+        });
+
+        trendChart = new Chart(document.getElementById("trend-chart"), {
+          type: "line",
+          data: {
+            labels: [],
+            datasets: [
+              {
+                label: "Risks Detected",
+                data: [],
+                borderColor: "#3B5BFF",
+                backgroundColor: "rgba(59,91,255,0.08)",
+                fill: true,
+                tension: 0.3,
+                pointRadius: 3,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: {
+              x: {
+                ticks: { color: "#94A3B8", font: { size: 9 } },
+                grid: { display: false },
+              },
+              y: {
+                ticks: { color: "#94A3B8", stepSize: 1 },
+                beginAtZero: true,
+                grid: { color: "rgba(255,255,255,0.05)" },
+              },
+            },
+          },
+        });
+      }
+
+      async function loadAnalytics() {
+        try {
+          const res = await fetch("/analytics", { headers: authHeaders() });
+          if (await handle401(res)) return;
+          if (!res.ok) throw new Error(await res.text());
+          const a = await res.json();
+
+          document.getElementById("stat-not-risky").textContent =
+            a.tier_counts.not_risky;
+          document.getElementById("stat-part-risky").textContent =
+            a.tier_counts.part_risky;
+          document.getElementById("stat-high-risky").textContent =
+            a.tier_counts.high_risky;
+          document.getElementById("stat-avg-time").textContent =
+            a.avg_resolution_minutes !== null
+              ? `${a.avg_resolution_minutes} min`
+              : "No data yet";
+
+          if (tierChart) {
+            tierChart.data.datasets[0].data = [
+              a.tier_counts.not_risky,
+              a.tier_counts.part_risky,
+              a.tier_counts.high_risky,
+            ];
+            tierChart.update();
+          }
+          if (trendChart) {
+            trendChart.data.labels = a.daily_counts.map((d) => d.date.slice(5)); // MM-DD
+            trendChart.data.datasets[0].data = a.daily_counts.map(
+              (d) => d.count,
+            );
+            trendChart.update();
+          }
+        } catch (e) {
+          console.error("Could not load analytics", e);
+        }
+      }
+
+      async function exportReport() {
+        const btn = document.getElementById("export-btn");
+        btn.disabled = true;
+        btn.textContent = "Generating…";
+        try {
+          const res = await fetch("/reports/export", {
+            headers: authHeaders(),
+          });
+          if (await handle401(res)) return;
+          if (!res.ok) throw new Error(await res.text());
+          const blob = await res.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          const disposition = res.headers.get("Content-Disposition") || "";
+          const match = disposition.match(/filename="(.+)"/);
+          a.download = match ? match[1] : "sentry-report.pptx";
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          window.URL.revokeObjectURL(url);
+          showMsg("export-msg", "Report downloaded.", false);
+        } catch (e) {
+          showMsg("export-msg", "Export failed: " + e.message, true);
+        } finally {
+          btn.disabled = false;
+          btn.textContent = "Export to PPT";
+        }
+      }
+
+      /* ---------------- Scan results + approve/deny ---------------- */
+      function renderScanTable(results) {
+        const tbody = document.getElementById("scan-table-body");
+        if (!results.length) {
+          tbody.innerHTML = `<tr><td colspan="8" class="empty">No scans yet — click "Run Fixed-Payload Scan" above.</td></tr>`;
+          return;
+        }
+        tbody.innerHTML = results
+          .map((r) => {
+            const canAct = r.risk_flag_status === "pending" && r.risk_flag_id;
+            const actionCell = canAct
+              ? `<div class="action-cell">
+               <button class="btn small approve" onclick="resolveFlag('${r.risk_flag_id}','approve')">Approve</button>
+               <button class="btn small deny" onclick="resolveFlag('${r.risk_flag_id}','deny')">Deny</button>
+             </div>`
+              : `<span style="color:var(--muted);font-size:0.75rem;">—</span>`;
+            const isNotif = r.source_type === "notification";
+            const sourceBadge = isNotif
+              ? `<span class="tier-badge" style="background:rgba(59,91,255,0.12);color:#93a5ff;border:1px solid rgba(59,91,255,0.3);">Notification</span>`
+              : `<span class="tier-badge" style="background:rgba(255,255,255,0.06);color:var(--muted);border:1px solid var(--border);">SCA Scan</span>`;
+            const nameCol = isNotif
+              ? r.app_name || r.package_name
+              : `${r.package_name}${r.package_version ? "==" + r.package_version : ""}`;
+            const scoreCol =
+              r.cvss_score !== null && r.cvss_score !== undefined
+                ? r.cvss_score
+                : "—";
+            return `
+        <tr>
+          <td>${sourceBadge}</td>
+          <td class="mono">${nameCol}</td>
+          <td class="mono">${r.vuln_id || "—"}</td>
+          <td class="mono">${scoreCol}</td>
+          <td><span class="tier-badge tier-${r.tier}">${r.tier.replace("_", " ")}</span></td>
+          <td><span class="status-pill ${r.risk_flag_status}">${r.risk_flag_status}${r.resolution ? " · " + r.resolution.replace("_", " ") : ""}</span></td>
+          <td style="max-width:240px;font-size:0.78rem;color:var(--muted)">${r.summary || ""}</td>
+          <td>${actionCell}</td>
+        </tr>`;
+          })
+          .join("");
+      }
+
+      async function loadAuditLog() {
+        try {
+          const res = await fetch("/audit-log", { headers: authHeaders() });
+          if (await handle401(res)) return;
+          if (!res.ok) throw new Error(await res.text());
+          const entries = await res.json();
+          const tbody = document.getElementById("audit-table-body");
+          if (!entries.length) {
+            tbody.innerHTML = `<tr><td colspan="3" class="empty">No audit entries yet.</td></tr>`;
+            return;
+          }
+          tbody.innerHTML = entries
+            .map(
+              (e) => `
+          <tr>
+            <td class="mono" style="font-size:0.72rem;color:var(--muted);">${new Date(e.created_at).toLocaleString()}</td>
+            <td class="mono">${e.actor || "system"}</td>
+            <td>${e.message}</td>
+          </tr>
+        `,
+            )
+            .join("");
+        } catch (e) {
+          document.getElementById("audit-table-body").innerHTML =
+            `<tr><td colspan="3" class="empty">Could not load audit log.</td></tr>`;
+        }
+      }
+
+      async function loadScanResults() {
+        try {
+          const res = await fetch("/scan/results", { headers: authHeaders() });
+          if (await handle401(res)) return;
+          if (!res.ok) throw new Error(await res.text());
+          renderScanTable(await res.json());
+        } catch (e) {
+          document.getElementById("scan-table-body").innerHTML =
+            `<tr><td colspan="8" class="empty">Could not load scan results — is the backend running?</td></tr>`;
+        }
+      }
+
+      async function runScan() {
+        const btn = document.getElementById("scan-btn");
+        btn.disabled = true;
+        btn.textContent = "Scanning via OSV.dev…";
+        try {
+          const res = await fetch("/scan/demo", {
+            method: "POST",
+            headers: authHeaders(),
+          });
+          if (await handle401(res)) return;
+          if (!res.ok) throw new Error(await res.text());
+          const results = await res.json();
+          showMsg(
+            "scan-msg",
+            `Scan complete — ${results.length} package(s) checked against live OSV.dev data.`,
+            false,
+          );
+          await loadScanResults();
+          await loadAnalytics();
+        } catch (e) {
+          showMsg("scan-msg", "Scan failed: " + e.message, true);
+        } finally {
+          btn.disabled = false;
+          btn.textContent = "Run Fixed-Payload Scan (OSV.dev, live)";
+        }
+      }
+
+      async function resolveFlag(flagId, action) {
+        try {
+          const res = await fetch(`/risk-flags/${flagId}/${action}`, {
+            method: "POST",
+            headers: authHeaders(),
+          });
+          if (await handle401(res)) return;
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.detail || `Could not ${action} this risk flag`);
+          }
+          showMsg(
+            "scan-msg",
+            `Risk flag ${action === "approve" ? "approved" : "denied"}. Employee dashboard updates automatically.`,
+            false,
+          );
+          await loadScanResults();
+          await loadAnalytics();
+        } catch (e) {
+          showMsg("scan-msg", e.message, true);
+        }
+      }
+
+      /* ---------------- Auto-approval rules ---------------- */
+      async function loadRules() {
+        try {
+          const res = await fetch("/rules", { headers: authHeaders() });
+          if (await handle401(res)) return;
+          if (!res.ok) throw new Error(await res.text());
+          renderRules(await res.json());
+        } catch (e) {
+          document.getElementById("rules-list").innerHTML =
+            `<div class="empty">Could not load rules.</div>`;
+        }
+      }
+
+      function renderRules(rules) {
+        const container = document.getElementById("rules-list");
+        const labels = {
+          not_risky: "Not Risky",
+          part_risky: "Part Risky",
+          high_risky: "High Risky",
+        };
+        container.innerHTML = rules
+          .map((r) => {
+            const locked = r.tier === "high_risky";
+            return `
+        <div class="rule-row ${locked ? "locked" : ""}">
+          <div>
+            <strong>${labels[r.tier]}</strong>
+            ${locked ? '<div style="font-size:0.72rem;color:var(--muted);margin-top:2px;">Always requires manual approval — cannot be changed</div>' : ""}
+          </div>
+          <label class="switch">
+            <input type="checkbox" ${r.can_auto_approve ? "checked" : ""} ${locked ? "disabled" : ""}
+                   onchange="updateRule('${r.tier}', this.checked)" />
+            <span class="slider"></span>
+          </label>
+        </div>`;
+          })
+          .join("");
+      }
+
+      async function updateRule(tier, canAutoApprove) {
+        try {
+          const res = await fetch("/rules", {
+            method: "PUT",
+            headers: authHeaders({ "Content-Type": "application/json" }),
+            body: JSON.stringify({ tier, can_auto_approve: canAutoApprove }),
+          });
+          if (await handle401(res)) return;
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.detail || "Update failed");
+          }
+          showMsg(
+            "rules-msg",
+            `Updated: ${tier.replace("_", " ")} auto-approve = ${canAutoApprove}`,
+            false,
+          );
+        } catch (e) {
+          showMsg("rules-msg", "Could not update rule: " + e.message, true);
+          loadRules();
+        }
+      }
+
+      /* ---------------- Employee & role management ---------------- */
+      async function loadEmployees() {
+        try {
+          const res = await fetch("/employees", { headers: authHeaders() });
+          if (await handle401(res)) return;
+          if (!res.ok) throw new Error(await res.text());
+          renderEmployeeTable(await res.json());
+        } catch (e) {
+          document.getElementById("employee-table-body").innerHTML =
+            `<tr><td colspan="4" class="empty">Could not load employees.</td></tr>`;
+        }
+      }
+
+      function renderEmployeeTable(employees) {
+        const tbody = document.getElementById("employee-table-body");
+        if (!employees.length) {
+          tbody.innerHTML = `<tr><td colspan="4" class="empty">No employees yet.</td></tr>`;
+          return;
+        }
+        tbody.innerHTML = employees
+          .map((e) => {
+            const isSelf = e.employee_id === employeeId;
+            return `
+        <tr>
+          <td class="mono">${e.employee_id}</td>
+          <td>${e.name}</td>
+          <td><span class="role-chip ${e.is_admin ? "admin" : "employee"}">${e.is_admin ? "Admin" : "Employee"}</span></td>
+          <td>
+            <div class="action-cell">
+              <button class="btn small secondary" onclick="toggleAdmin('${e.employee_id}', ${!e.is_admin})"
+                      ${isSelf && e.is_admin ? 'disabled title="Cannot revoke your own admin status"' : ""}>
+                ${e.is_admin ? "Revoke Admin" : "Make Admin"}
+              </button>
+              <button class="btn small danger-outline" onclick="removeEmployee('${e.employee_id}')"
+                      ${isSelf ? 'disabled title="Cannot remove your own account"' : ""}>
+                Remove
+              </button>
+            </div>
+          </td>
+        </tr>`;
+          })
+          .join("");
+      }
+
+      async function toggleAdmin(targetId, makeAdmin) {
+        try {
+          const res = await fetch(`/employees/${targetId}/admin`, {
+            method: "PUT",
+            headers: authHeaders({ "Content-Type": "application/json" }),
+            body: JSON.stringify({ is_admin: makeAdmin }),
+          });
+          if (await handle401(res)) return;
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.detail || "Could not update role");
+          }
+          showMsg(
+            "employee-msg",
+            `${targetId} is now ${makeAdmin ? "an Admin" : "an Employee"}.`,
+            false,
+          );
+          await loadEmployees();
+        } catch (e) {
+          showMsg("employee-msg", e.message, true);
+        }
+      }
+
+      async function removeEmployee(targetId) {
+        if (!confirm(`Remove employee "${targetId}"? This cannot be undone.`))
+          return;
+        try {
+          const res = await fetch(`/employees/${targetId}`, {
+            method: "DELETE",
+            headers: authHeaders(),
+          });
+          if (await handle401(res)) return;
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.detail || "Could not remove employee");
+          }
+          showMsg("employee-msg", `${targetId} removed.`, false);
+          await loadEmployees();
+        } catch (e) {
+          showMsg("employee-msg", e.message, true);
+        }
+      }
+
+      async function createEmployee() {
+        const employee_id = document.getElementById("emp-id").value.trim();
+        const name = document.getElementById("emp-name").value.trim();
+        const password = document.getElementById("emp-password").value;
+
+        if (!employee_id || !name || !password) {
+          showMsg("employee-msg", "All three fields are required.", true);
+          return;
+        }
+        try {
+          const res = await fetch("/employees", {
+            method: "POST",
+            headers: authHeaders({ "Content-Type": "application/json" }),
+            body: JSON.stringify({ employee_id, name, password }),
+          });
+          if (await handle401(res)) return;
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.detail || "Could not create employee");
+          }
+          const data = await res.json();
+          showMsg(
+            "employee-msg",
+            `Created ${data.employee_id} (${data.name})${data.is_admin ? " — promoted to admin (first employee for this org)" : ""}.`,
+            false,
+          );
+          document.getElementById("emp-id").value = "";
+          document.getElementById("emp-name").value = "";
+          document.getElementById("emp-password").value = "";
+          await loadEmployees();
+        } catch (e) {
+          showMsg("employee-msg", e.message, true);
+        }
+      }
+
+      /* ---------------- Init ---------------- */
+      initCharts();
+      loadAnalytics();
+      loadScanResults();
+      loadRules();
+      loadEmployees();
+      loadAuditLog();
+      setInterval(() => {
+        loadAnalytics();
+        loadScanResults();
+        loadAuditLog();
+      }, 10000);
+    </script>
+  </body>
+</html>

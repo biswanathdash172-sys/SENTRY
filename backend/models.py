@@ -2,13 +2,6 @@
 models.py
 ---------
 Lightweight in-memory data shapes for the SENTRY demo backend.
-
-CHANGED IN THIS REFACTOR:
-  - Removed: Org, AdminUser (old local-store version), AdminRegisterRequest,
-    AdminLoginRequest, AdminAuthResponse. Organization/employee identity now
-    lives in Supabase (see services/supabase_service.py) — this file no
-    longer models that data, it only models the JWT-claims shape returned
-    to routes after a successful Supabase-backed login.
 """
 
 from pydantic import BaseModel, Field
@@ -30,7 +23,7 @@ class Evidence(BaseModel):
     id: str = Field(default_factory=lambda: new_id("ev"))
     source_type: SourceType
     description: str
-    confidence: float  # 0.0 - 1.0
+    confidence: float
     timestamp: datetime = Field(default_factory=datetime.utcnow)
 
 
@@ -49,7 +42,7 @@ class AuditEntry(BaseModel):
 
 class Alert(BaseModel):
     id: str = Field(default_factory=lambda: new_id("alert"))
-    org_id: Optional[str] = None  # None = legacy/demo-seeded alert, visible to all
+    org_id: Optional[str] = None
     title: str
     severity: Severity
     status: Literal["open", "resolved"] = "open"
@@ -79,24 +72,21 @@ class ActionDecision(BaseModel):
 
 
 class IngestRequest(BaseModel):
-    """
-    Generic shape for all /ingest/* endpoints. Each connector-style route
-    (email/identity/network/endpoint) accepts this same shape and turns it
-    into a normal Evidence object, so it flows through the EXISTING
-    correlation_engine.correlate() unchanged — no separate ingestion path.
-    """
     description: str
     confidence: float = Field(ge=0.0, le=1.0, default=0.5)
     title_hint: Optional[str] = None
 
 
 # ---------------------------------------------------------------------------
-# Auth identity shape — NOT persisted anywhere in this file anymore.
-# Organizations and employees live in Supabase (services/supabase_service.py).
-# This is just the shape carried inside a decoded JWT's claims, returned by
-# routers/org_auth.get_current_admin() so existing org-gated routes in
-# main.py (GET /alerts, approve/deny, etc.) keep working unchanged.
+# Auth identity shape — carried inside a decoded JWT's claims.
+# RBAC UPDATE (Option A): is_admin now travels with every authenticated
+# request, set once at login time from Supabase's employees.is_admin
+# column (see supabase_service.verify_employee_login and
+# routers/org_auth.py's employee_login). Defaults to False so any code
+# path that forgets to set it explicitly fails CLOSED (non-admin), never
+# open — same fail-safe philosophy as risk_classifier.py.
 # ---------------------------------------------------------------------------
 class AdminUser(BaseModel):
     employee_id: str
     org_id: str
+    is_admin: bool = False
