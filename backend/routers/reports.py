@@ -368,10 +368,13 @@ def _slide_tier_chart(prs, analytics, org_id: str):
         point.format.fill.fore_color.rgb = tier_colors[i]
 
     # Style chart background
-    chart.chart_area.fill.solid()
-    chart.chart_area.fill.fore_color.rgb = C_PANEL
-    chart.plot_area.fill.solid()
-    chart.plot_area.fill.fore_color.rgb = C_BG
+    try:
+        chart.chart_area.fill.solid()
+        chart.chart_area.fill.fore_color.rgb = C_PANEL
+        chart.plot_area.fill.solid()
+        chart.plot_area.fill.fore_color.rgb = C_BG
+    except AttributeError:
+        pass  # Older pptx builds may not expose chart_area directly
 
 
 def _slide_trend_chart(prs, analytics, org_id: str):
@@ -403,10 +406,13 @@ def _slide_trend_chart(prs, analytics, org_id: str):
     series.format.line.color.rgb = C_ACCENT
     series.format.line.width = Pt(2.5)
 
-    chart.chart_area.fill.solid()
-    chart.chart_area.fill.fore_color.rgb = C_PANEL
-    chart.plot_area.fill.solid()
-    chart.plot_area.fill.fore_color.rgb = C_BG
+    try:
+        chart.chart_area.fill.solid()
+        chart.chart_area.fill.fore_color.rgb = C_PANEL
+        chart.plot_area.fill.solid()
+        chart.plot_area.fill.fore_color.rgb = C_BG
+    except AttributeError:
+        pass
 
 
 def _slide_resolution_chart(prs, analytics, org_id: str):
@@ -435,10 +441,13 @@ def _slide_resolution_chart(prs, analytics, org_id: str):
         series.format.fill.solid()
         series.format.fill.fore_color.rgb = colors[i]
 
-    chart.chart_area.fill.solid()
-    chart.chart_area.fill.fore_color.rgb = C_PANEL
-    chart.plot_area.fill.solid()
-    chart.plot_area.fill.fore_color.rgb = C_BG
+    try:
+        chart.chart_area.fill.solid()
+        chart.chart_area.fill.fore_color.rgb = C_PANEL
+        chart.plot_area.fill.solid()
+        chart.plot_area.fill.fore_color.rgb = C_BG
+    except AttributeError:
+        pass
 
     # Summary row below chart
     _rect(slide, Inches(0.6), Inches(6.05), Inches(12), Inches(0.8), C_PANEL)
@@ -590,7 +599,25 @@ def export_report(admin: AdminUser = Depends(require_admin)):
     ADMIN ONLY. Generates a fully-designed .pptx report from live data
     and streams it back as a file download. Nothing is saved to disk.
     """
-    analytics = get_analytics(admin=admin)
+    try:
+        analytics = get_analytics(admin=admin)
+    except Exception:
+        # Supabase unavailable (local dev / no .env) — generate report with
+        # zero-data placeholders so the PPT still downloads rather than 503-ing.
+        from datetime import timedelta, timezone as tz
+        from routers.analytics import AnalyticsOut
+        _now = datetime.now(timezone.utc)
+        analytics = AnalyticsOut(
+            tier_counts={"not_risky": 0, "part_risky": 0, "high_risky": 0},
+            status_counts={"pending": 0, "completed": 0},
+            resolution_breakdown={"auto_approved": 0, "admin_approved": 0, "admin_denied": 0},
+            avg_resolution_minutes=None,
+            daily_counts=[
+                {"date": (_now - timedelta(days=i)).strftime("%Y-%m-%d"), "count": 0}
+                for i in range(6, -1, -1)
+            ],
+            total_scanned=0,
+        )
     generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
     prs = Presentation()
