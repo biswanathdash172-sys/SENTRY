@@ -409,6 +409,10 @@
           text-overflow: ellipsis;
           white-space: nowrap;
         }
+      @keyframes pulse-dot {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50%       { opacity: 0.35; transform: scale(0.7); }
+      }
     </style>
   </head>
   <body>
@@ -508,6 +512,51 @@
             <canvas id="trend-chart"></canvas>
           </div>
         </div>
+      </div>
+
+      <!-- Live Notifications panel — shows only notification-sourced rows,
+           filtered client-side from /scan/results. Root cause (Flag 1):
+           the shared scan table renders only the first 5 rows total, so
+           notification rows get pushed off the bottom by SCA rows. This
+           dedicated panel always shows notifications regardless of how
+           many SCA rows are present. -->
+      <div class="card" id="notifications-card">
+        <h2>
+          <span>Live Notifications</span>
+          <span id="notif-live-badge" style="
+            display:inline-flex;align-items:center;gap:6px;
+            font-size:0.7rem;font-weight:700;
+            background:rgba(239,91,91,0.12);color:#ff8080;
+            border:1px solid rgba(239,91,91,0.3);
+            padding:3px 10px;border-radius:20px;letter-spacing:0.05em;
+          ">
+            <span id="notif-live-dot" style="
+              width:7px;height:7px;border-radius:50%;
+              background:#ff8080;display:inline-block;
+              animation:pulse-dot 1.4s ease-in-out infinite;
+            "></span>
+            LIVE · 3s
+          </span>
+          <span id="notif-count-badge" style="
+            font-size:0.72rem;font-weight:600;color:var(--muted);
+          "></span>
+        </h2>
+        <div class="msg" id="notif-msg"></div>
+        <table>
+          <thead>
+            <tr>
+              <th>Employee</th>
+              <th>App / Source</th>
+              <th>Tier</th>
+              <th>Status</th>
+              <th>Time</th>
+              <th>Notification Text</th>
+            </tr>
+          </thead>
+          <tbody id="notif-table-body">
+            <tr><td colspan="6" class="empty">Loading…</td></tr>
+          </tbody>
+        </table>
       </div>
 
       <!-- Scan engine + resolution actions -->
@@ -1047,10 +1096,82 @@
         } catch (e) { showMsg('whitelist-msg', e.message, true); }
       }
 
+      /* ---------------- Live Notifications panel (Flag 1 fix) ----------- */
+      // Root cause: /scan/results returns ALL rows (confirmed — no LIMIT bug).
+      // The shared scan table only renders the first 5 rows with no
+      // pagination, so notification rows get pushed off the bottom when SCA
+      // rows arrive first. Fix: dedicated panel that always filters and shows
+      // source_type==='notification' rows regardless of how many SCA rows exist.
+      let _lastNotifCount = -1;
+      async function loadNotifications() {
+        try {
+          const res = await fetch("/scan/results", { headers: authHeaders() });
+          if (await handle401(res)) return;
+          if (!res.ok) throw new Error(await res.text());
+          const all = await res.json();
+
+          // Filter to notification-sourced rows only
+          const notifs = all.filter(r => r.source_type === "notification");
+
+          // Update count badge
+          const countBadge = document.getElementById("notif-count-badge");
+          if (countBadge) {
+            countBadge.textContent = notifs.length
+              ? `${notifs.length} notification${notifs.length !== 1 ? "s" : ""} captured`
+              : "";
+          }
+
+          // Flash the LIVE dot green briefly when new notifications arrive
+          if (_lastNotifCount >= 0 && notifs.length > _lastNotifCount) {
+            const dot = document.getElementById("notif-live-dot");
+            if (dot) {
+              dot.style.background = "#22d3ee";
+              setTimeout(() => { dot.style.background = "#ff8080"; }, 800);
+            }
+          }
+          _lastNotifCount = notifs.length;
+
+          const tbody = document.getElementById("notif-table-body");
+          if (!tbody) return;
+
+          if (!notifs.length) {
+            tbody.innerHTML = `<tr><td colspan="6" class="empty">No notifications captured yet. Run the notification poller: <code>python services/notification_poller.py</code></td></tr>`;
+            return;
+          }
+
+          tbody.innerHTML = notifs.slice(0, 50).map(r => {
+            const tierClass = `tier-${r.tier}`;
+            const tierLabel = r.tier.replace("_", " ");
+            const statusClass = r.risk_flag_status;
+            const timeStr = r.summary
+              ? (r.summary.match(/arrived ([^)]+)\)/) || [])[1] || "—"
+              : "—";
+            // Extract notification text from summary (format: "OS notification from 'X': ... | Text: ...")
+            const textMatch = (r.summary || "").match(/\| Text: (.+)/);
+            const notifText = textMatch ? textMatch[1].slice(0, 80) : (r.summary || "").slice(0, 80);
+            const canAct = r.risk_flag_status === "pending" && r.risk_flag_id;
+            return `
+              <tr>
+                <td class="mono" style="font-size:0.75rem;">${r.employee_id || "—"}</td>
+                <td class="mono">${r.app_name || r.package_name || "—"}</td>
+                <td><span class="tier-badge ${tierClass}">${tierLabel}</span></td>
+                <td><span class="status-pill ${statusClass}">${r.risk_flag_status}</span></td>
+                <td style="font-size:0.72rem;color:var(--muted);white-space:nowrap;">${timeStr}</td>
+                <td style="font-size:0.78rem;color:var(--muted);max-width:260px;">${notifText}</td>
+              </tr>`;
+          }).join("");
+
+        } catch (e) {
+          const tbody = document.getElementById("notif-table-body");
+          if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="empty">Could not load notifications — is the backend running?</td></tr>`;
+        }
+      }
+
       /* ---------------- Init ---------------- */
       initCharts();
       loadAnalytics();
       loadScanResults();
+      loadNotifications();
       loadRules();
       loadEmailIntel();
       loadWhitelist();
@@ -1058,7 +1179,8 @@
         loadAnalytics();
         loadScanResults();
         loadEmailIntel();
-      }, 10000);
+        loadNotifications();
+      }, 3000);   // reduced from 10s → 3s per review notes
     </script>
   </body>
 </html>

@@ -302,6 +302,29 @@ def poll_once(service, token: str) -> None:
         confidence, reasons = score_email(sender, subject, body)
         logger.info(f"Scanned '{subject}' from {sender[:60]} — score={confidence}")
 
+        domain = sender.split("@")[-1].strip(">").strip() if "@" in sender else ""
+
+        # Write to email_cache so /emails/recent can serve this without
+        # opening its own Gmail API connection per request (Flag 2 fix).
+        try:
+            from services import email_cache
+            email_cache.write_emails([{
+                "id": email_data["id"],
+                "sender": sender,
+                "subject": subject,
+                "snippet": email_data.get("snippet", ""),
+                "date_iso": email_data.get("date_iso"),
+                "body_preview": body[:500],
+                "urls": email_data.get("urls", []),
+                "confidence": confidence,
+                "domain": domain,
+                "domain_trusted": False,   # domain_verifier is not available here without org_id
+                "domain_status": "Unknown",
+                "risk_reasons": reasons,
+            }])
+        except Exception as exc:
+            logger.warning(f"email_cache write failed (non-fatal): {exc}")
+
         if confidence >= 0.3:
             description = f"Email from '{sender}' subject '{subject}': " + "; ".join(reasons)
             post_ingest_email(
@@ -310,6 +333,7 @@ def poll_once(service, token: str) -> None:
                 confidence=confidence,
                 title_hint=f"Suspicious email: {subject[:80]}",
             )
+
 
 
 def main() -> None:
