@@ -83,9 +83,9 @@ app.mount("/assets", StaticFiles(directory=str(_ASSETS_DIR)), name="assets")
 
 @app.get("/", include_in_schema=False)
 def _serve_index_page():
-    login_path = _FRONTEND_DIR / "login.html"
-    if login_path.exists():
-        return FileResponse(str(login_path), media_type="text/html; charset=utf-8")
+    index_path = _FRONTEND_DIR / "index.html"
+    if index_path.exists():
+        return FileResponse(str(index_path), media_type="text/html; charset=utf-8")
     return {"detail": "SENTRY frontend index not found"}
 
 
