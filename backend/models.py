@@ -90,3 +90,7 @@ class AdminUser(BaseModel):
     employee_id: str
     org_id: str
     is_admin: bool = False
+    is_cyber_head: bool = False  # CYBER HEAD RBAC: true only for designated threat analysts;
+                                  # defaults False so any code path that forgets to set it
+                                  # fails CLOSED (no cross-org access), same fail-safe
+                                  # direction as is_admin above.

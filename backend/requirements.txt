@@ -16,4 +16,11 @@ supabase==2.7.4
 # prebuilt wheel for it (Windows/py3.13 often doesn't yet - this was
 # causing the "pg_config not found" build error).
 # psycopg2-binary==2.9.9
- 
+
+# --- Gmail API (OPTIONAL — only needed for Gmail API poller in gmail_poller.py)
+# The backend and dashboard degrade gracefully if these are not installed
+# (IMAP fallback is used automatically). Install only if you have credentials.json.
+# google-auth==2.35.0
+# google-auth-oauthlib==1.2.1
+# google-auth-httplib2==0.2.0
+# google-api-python-client==2.149.0

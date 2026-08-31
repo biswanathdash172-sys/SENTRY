@@ -151,6 +151,62 @@ def verify_org(req: OrgAccessRequest):
     return OrgAccessResponse(status="ok", org_id=org.org_id, org_name=org.org_name)
 
 
+# Sentinel used as the "employee_id" for an org-level (not per-employee)
+# login. Chosen to be impossible to collide with a real employee_id
+# (Supabase's employees.employee_id is admin-chosen text — this is
+# reserved and documented so no one ever creates a real employee with
+# this exact id). Self-action guards elsewhere (e.g. "can't remove your
+# own account") naturally never trigger for this sentinel, which is
+# correct: an org login isn't a row in the employees table at all.
+ORG_LOGIN_SENTINEL_EMPLOYEE_ID = "__ORG_ACCOUNT__"
+
+
+class OrgLoginRequest(BaseModel):
+    org_id: str
+    org_password: str
+
+
+@router.post("/org-login")
+def org_login(req: OrgLoginRequest):
+    """
+    Real Organization-level login (Item 3): verifies org_id + org_password
+    against Supabase exactly like /access/verify-org, but ALSO issues a
+    usable JWT — so the org itself (not any specific employee) can call
+    admin-gated endpoints like /employees directly. This is the new
+    unified-login path the main login page now offers alongside Employee
+    ID + password.
+
+    The issued token carries is_org=true and org_id, with NO employee_id
+    claim — get_current_admin() below maps this to an AdminUser with
+    employee_id=ORG_LOGIN_SENTINEL_EMPLOYEE_ID and is_admin=True, so all
+    existing employee-management/admin-gated routes work unchanged.
+    """
+    try:
+        org = verify_org_access(req.org_id, req.org_password)
+    except SupabaseNotConfigured as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    except SupabaseAuthError as exc:
+        raise HTTPException(status_code=401, detail=str(exc))
+
+    try:
+        ensure_default_rules(org.org_id)
+    except Exception as exc:
+        logger.warning(f"ensure_default_rules raised unexpectedly for org "
+                        f"'{org.org_id}' ({exc}) — continuing login anyway.")
+
+    token = create_access_token(
+        subject=org.org_id,
+        extra_claims={"org_id": org.org_id, "is_org": True},
+    )
+    return {
+        "status": "ok",
+        "org_id": org.org_id,
+        "org_name": org.org_name,
+        "is_org": True,
+        "token": token,
+    }
+
+
 # ---------------------------------------------------------------------------
 # Step 2 - Employee login
 # ---------------------------------------------------------------------------
@@ -166,12 +222,14 @@ def employee_login(employee_id: str = Form(...), password: str = Form(...)):
     # RBAC (Option A): is_admin is baked into the JWT at login time, sourced
     # directly from Supabase's employees.is_admin column — never trust a
     # client-supplied role, always re-derive it server-side from the DB.
+    # is_cyber_head follows the same pattern.
     token = create_access_token(
         subject=employee.employee_id,
         extra_claims={
             "org_id": employee.org_id,
             "employee_id": employee.employee_id,
             "is_admin": employee.is_admin,
+            "is_cyber_head": getattr(employee, "is_cyber_head", False),
         },
     )
     return {
@@ -179,6 +237,7 @@ def employee_login(employee_id: str = Form(...), password: str = Form(...)):
         "employee_id": employee.employee_id,
         "org_id": employee.org_id,
         "is_admin": employee.is_admin,
+        "is_cyber_head": getattr(employee, "is_cyber_head", False),
         "token": token,
     }
 
@@ -196,17 +255,28 @@ def get_current_admin(authorization: str | None = Header(default=None)) -> Admin
         raise HTTPException(status_code=401, detail=str(exc))
 
     org_id = payload.get("org_id")
+    if not org_id:
+        raise HTTPException(status_code=401, detail="Token missing org claim.")
+
+    # ORG-LEVEL LOGIN: no employee_id claim at all, just is_org=true.
+    # Mapped to a sentinel employee_id + is_admin=True so every existing
+    # admin-gated route (employees, scan, rules, analytics, reports)
+    # works for an org login without any route-level changes.
+    if payload.get("is_org"):
+        return AdminUser(employee_id=ORG_LOGIN_SENTINEL_EMPLOYEE_ID, org_id=org_id, is_admin=True)
+
     employee_id = payload.get("employee_id") or payload.get("sub")
-    if not org_id or not employee_id:
-        raise HTTPException(status_code=401, detail="Token missing org/employee claims.")
+    if not employee_id:
+        raise HTTPException(status_code=401, detail="Token missing employee claim.")
 
     # FAIL CLOSED: if an older token (issued before this RBAC update) has
     # no is_admin claim at all, default to False rather than trusting an
     # absence of the field as "admin". Same fail-safe direction as
     # risk_classifier.py's "unknown -> treat as the more restrictive case."
     is_admin = bool(payload.get("is_admin", False))
+    is_cyber_head = bool(payload.get("is_cyber_head", False))
 
-    return AdminUser(employee_id=employee_id, org_id=org_id, is_admin=is_admin)
+    return AdminUser(employee_id=employee_id, org_id=org_id, is_admin=is_admin, is_cyber_head=is_cyber_head)
 
 
 def require_admin(admin: AdminUser = Depends(get_current_admin)) -> AdminUser:
@@ -222,3 +292,17 @@ def require_admin(admin: AdminUser = Depends(get_current_admin)) -> AdminUser:
             detail="This action requires an organization admin account.",
         )
     return admin
+
+
+def require_cyber_head(caller: AdminUser = Depends(get_current_admin)) -> AdminUser:
+    """
+    Third-layer dependency for Cyber Head-only routes. Cyber Heads have
+    cross-org visibility — this must never be granted based on is_admin
+    alone. A Cyber Head who is ALSO an admin satisfies both.
+    """
+    if not caller.is_cyber_head:
+        raise HTTPException(
+            status_code=403,
+            detail="This endpoint requires Cyber Head access.",
+        )
+    return caller

@@ -230,3 +230,49 @@ def can_auto_approve(org_id: str, tier: RiskTier) -> bool:
         logger.warning(f"Could not check auto_approval_rules for org '{org_id}' "
                         f"tier '{tier.value}' ({exc}) — failing safe to manual approval.")
         return False
+
+
+# ---------------------------------------------------------------------------
+# 4-LEVEL DISPLAY SEVERITY (Low / Medium / High / Critical) — UI-facing only.
+#
+# WHY THIS IS SEPARATE FROM RiskTier/classify_confidence ABOVE: the 3-value
+# RiskTier drives the DB schema's CHECK constraints and the non-negotiable
+# auto-approval fail-safe (high_risky can never auto-approve). Changing
+# that to 4 values would mean an unreviewed migration + retesting every
+# fail-safe guarantee in this codebase. Instead, this is a pure display
+# refinement: it takes the SAME raw confidence score already computed by
+# score_notification() and buckets it more finely for the UI, WITHOUT
+# changing what gets stored or what auto-approval logic sees. A "Critical"
+# finding still stores as tier="high_risky" underneath — it is exactly as
+# fail-safe as any other high_risky finding, just labeled more precisely
+# for a human reading the dashboard.
+# ---------------------------------------------------------------------------
+LOW_CEILING = 0.29
+MEDIUM_CEILING = 0.59
+HIGH_CEILING = 0.84
+# anything above HIGH_CEILING -> "Critical"
+
+
+def get_display_severity(confidence: Optional[float]) -> str:
+    """
+    Maps a raw 0.0-1.0 confidence score to a 4-level display label. Same
+    fail-safe direction as everything else in this file: missing/invalid
+    input never claims to be "Low" — it's reported as "Critical" so a
+    human always sees the worst-case label when the system is uncertain.
+    """
+    if confidence is None:
+        return "Critical"
+    try:
+        score = float(confidence)
+    except (TypeError, ValueError):
+        return "Critical"
+    if not (0.0 <= score <= 1.0):
+        return "Critical"
+
+    if score <= LOW_CEILING:
+        return "Low"
+    if score <= MEDIUM_CEILING:
+        return "Medium"
+    if score <= HIGH_CEILING:
+        return "High"
+    return "Critical"

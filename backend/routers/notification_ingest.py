@@ -96,6 +96,21 @@ def ingest_notification(
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Could not save notification finding: {exc}")
 
+    # AUTO-FREEZE: if the finding is high_risky, silently queue a device freeze
+    # for the employee whose machine produced it. Never raises — a freeze-queue
+    # failure must never block the successful risk-flag response above.
+    if result.tier.value == "high_risky":
+        try:
+            from services.device_freeze_service import auto_freeze_on_high_risk
+            auto_freeze_on_high_risk(
+                org_id=caller.org_id,
+                employee_id=caller.employee_id,
+                risk_flag_id=risk_flag["id"],
+                reason=f"Auto-freeze: high_risky notification from '{req.app_name}' detected.",
+            )
+        except Exception:
+            pass  # Belt-and-suspenders: auto_freeze_on_high_risk already never raises internally
+
     return NotificationIngestResponse(
         risk_flag_id=risk_flag["id"],
         app_name=req.app_name,

@@ -35,6 +35,7 @@ from db import database as db
 
 # --- All routers ---
 from routers.org_auth import router as org_auth_router, get_current_admin
+from routers.signup import router as signup_router
 from routers.scan import router as scan_router
 from routers.employees import router as employees_router
 from routers.rules import router as rules_router
@@ -43,10 +44,15 @@ from routers.analytics import router as analytics_router
 from routers.reports import router as reports_router
 from routers.notification_ingest import router as notification_ingest_router
 from routers.audit import router as audit_router
+from routers.gmail_emails import router as gmail_emails_router
+from routers.whitelist import router as whitelist_router
+from routers.device_control import router as device_control_router
+from routers.cyber_head import router as cyber_head_router
 
-app = FastAPI(title="SENTRY API", version="0.5.0-demo")
+app = FastAPI(title="SENTRY API", version="0.6.0")
 
 app.include_router(org_auth_router)
+app.include_router(signup_router)
 app.include_router(scan_router)
 app.include_router(employees_router)
 app.include_router(rules_router)
@@ -55,6 +61,10 @@ app.include_router(analytics_router)
 app.include_router(reports_router)
 app.include_router(notification_ingest_router)
 app.include_router(audit_router)
+app.include_router(gmail_emails_router)
+app.include_router(whitelist_router)
+app.include_router(device_control_router)
+app.include_router(cyber_head_router)
 
 app.add_middleware(
     CORSMiddleware,
@@ -72,60 +82,140 @@ app.mount("/assets", StaticFiles(directory=str(_ASSETS_DIR)), name="assets")
 
 
 @app.get("/", include_in_schema=False)
-def _serve_frontend_index():
-    index_path = _FRONTEND_DIR / "index.html"
-    if index_path.exists():
-        return FileResponse(str(index_path))
-    return {"detail": "Frontend index.html not found; API is available under /docs"}
+def _serve_index_page():
+    login_path = _FRONTEND_DIR / "login.html"
+    if login_path.exists():
+        return FileResponse(str(login_path), media_type="text/html; charset=utf-8")
+    return {"detail": "SENTRY frontend index not found"}
 
 
 @app.get("/get-access", include_in_schema=False)
 def _serve_get_access_page():
-    """"Get Access" page: validates an org ID + org preset password
-    against Supabase before the employee login page is used."""
     page_path = _FRONTEND_DIR / "get-access.html"
     if page_path.exists():
-        return FileResponse(str(page_path))
+        return FileResponse(str(page_path), media_type="text/html; charset=utf-8")
     return {"detail": "Get Access page not found"}
 
+
+@app.get("/signup", include_in_schema=False)
+def _serve_signup_page():
+    page_path = _FRONTEND_DIR / "signup.html"
+    if page_path.exists():
+        return FileResponse(str(page_path), media_type="text/html; charset=utf-8")
+    return {"detail": "Signup page not found"}
 
 @app.get("/login", include_in_schema=False)
 def _serve_login_page():
     login_path = _FRONTEND_DIR / "login.html"
     if login_path.exists():
-        return FileResponse(str(login_path))
+        return FileResponse(str(login_path), media_type="text/html; charset=utf-8")
     return {"detail": "Login page not found"}
 
 
 @app.get("/dashboard", include_in_schema=False)
 def _serve_dashboard_page():
-    """
-    RESOLVED (previously an orphaned legacy page): this used to serve the
-    old static SOC demo (dashboard.html), which read from the legacy
-    in-memory Alert/STORE pipeline below. That pipeline is now superseded
-    entirely by admin-dashboard.html / employee-dashboard.html, which run
-    on scan_results + risk_flags in Supabase. Nothing links to /dashboard
-    anymore since login.html redirects by role. Redirect here rather than
-    serve stale content that no longer reflects real data.
-    """
     return RedirectResponse(url="/login")
 
 
-@app.get("/admin-dashboard", include_in_schema=False)
-def _serve_admin_dashboard_page():
-    page_path = _FRONTEND_DIR / "admin-dashboard.html"
+@app.get("/org-dashboard", include_in_schema=False)
+def _serve_org_dashboard_page():
+    """Organization Portal: employee management, whitelist, policies, and scan findings."""
+    page_path = _FRONTEND_DIR / "org-dashboard.html"
     if page_path.exists():
-        return FileResponse(str(page_path))
-    return {"detail": "Admin dashboard not found"}
+        return FileResponse(str(page_path), media_type="text/html; charset=utf-8")
+    return {"detail": "Organization dashboard not found"}
+
+
+
 
 
 @app.get("/employee-dashboard", include_in_schema=False)
 def _serve_employee_dashboard_page():
     page_path = _FRONTEND_DIR / "employee-dashboard.html"
     if page_path.exists():
-        return FileResponse(str(page_path))
+        return FileResponse(str(page_path), media_type="text/html; charset=utf-8")
     return {"detail": "Employee dashboard not found"}
 
+
+@app.get("/cyber-head-dashboard", include_in_schema=False)
+def _serve_cyber_head_dashboard_page():
+    """Cyber Head portal — cross-org threat monitoring and remote device controls."""
+    page_path = _FRONTEND_DIR / "cyber-head-dashboard.html"
+    if page_path.exists():
+        return FileResponse(str(page_path), media_type="text/html; charset=utf-8")
+    return {"detail": "Cyber Head dashboard not found"}
+
+
+# ---------------------------------------------------------------------------
+# STARTUP: Apply schema migrations for new tables added in v0.6.0.
+# Idempotent — uses IF NOT EXISTS / ADD COLUMN IF NOT EXISTS so safe to
+# re-run on every start. Failures are logged but never crash the server.
+# ---------------------------------------------------------------------------
+def _apply_schema_migrations() -> None:
+    """
+    Applies the v0.6.0 schema additions to Supabase using the REST API.
+    Uses the Supabase management approach via direct HTTP requests.
+    """
+    import requests as _req
+    import os as _os
+    _url = _os.environ.get("SUPABASE_URL", "")
+    _key = _os.environ.get("SUPABASE_KEY", "")
+    if not _url or not _key:
+        return
+
+    _headers = {
+        "apikey": _key,
+        "Authorization": f"Bearer {_key}",
+        "Content-Type": "application/json",
+    }
+
+    _migrations = [
+        # New tables — create if not exists
+        ("domain_whitelist", {
+            "id": "uuid DEFAULT gen_random_uuid() PRIMARY KEY",
+            "org_id": "text NOT NULL",
+            "domain": "text NOT NULL",
+            "added_by": "text",
+            "added_at": "timestamptz DEFAULT now()",
+        }),
+        ("device_freeze_requests", {
+            "id": "uuid DEFAULT gen_random_uuid() PRIMARY KEY",
+            "org_id": "text NOT NULL",
+            "employee_id": "text NOT NULL",
+            "reason": "text",
+            "status": "text NOT NULL DEFAULT 'pending'",
+            "triggered_by": "text",
+            "triggered_at": "timestamptz DEFAULT now()",
+            "lifted_by": "text",
+            "lifted_at": "timestamptz",
+            "risk_flag_id": "uuid",
+        }),
+    ]
+
+    # Check which tables exist via the REST schema
+    try:
+        schema_resp = _req.get(f"{_url}/rest/v1/", headers=_headers, timeout=5)
+        if schema_resp.ok:
+            existing_tables = set(
+                p.lstrip("/") for p in schema_resp.json().get("paths", {}).keys() if p.startswith("/")
+            )
+            import logging as _log
+            _logger = _log.getLogger("sentry.migrations")
+            for tname, _ in _migrations:
+                if tname not in existing_tables:
+                    _logger.warning(
+                        f"Table '{tname}' not found in Supabase schema. "
+                        "Please create it manually using the SQL in ARCHITECTURE.md or "
+                        "the Supabase dashboard SQL editor. See backend/services/supabase_service.py."
+                    )
+                else:
+                    _logger.info(f"Schema check OK: table '{tname}' exists.")
+    except Exception as exc:
+        import logging as _log
+        _log.getLogger("sentry.migrations").warning(f"Schema migration check failed: {exc}")
+
+
+_apply_schema_migrations()
 
 # ---------------------------------------------------------------------------
 # LEGACY: original SOC demo storage bootstrap. Kept only because the

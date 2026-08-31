@@ -140,24 +140,19 @@ def score_message(sender: str, subject: str, body: str) -> tuple[float, list[str
 
 
 def get_admin_token() -> str:
+    # FIX: was calling /admin/login (doesn't exist) — correct endpoint is /login
+    # which accepts employee_id + password as form data (see routers/org_auth.py)
     resp = requests.post(
-        f"{API_BASE}/admin/login",
-        json={"username": ADMIN_USERNAME, "password": ADMIN_PASSWORD},
+        f"{API_BASE}/login",
+        data={"employee_id": ADMIN_USERNAME, "password": ADMIN_PASSWORD},
         timeout=10,
     )
     resp.raise_for_status()
     body = resp.json()
-    # accept common token field names
-    for key in ("access_token", "token", "accessToken", "jwt", "accessToken"):
+    for key in ("token", "access_token", "accessToken", "jwt"):
         if key in body:
             return body[key]
-    # some endpoints nest token under data or return the entire admin object — be defensive
-    if isinstance(body, dict):
-        if "data" in body and isinstance(body["data"], dict):
-            for key in ("access_token", "token", "accessToken", "jwt"):
-                if key in body["data"]:
-                    return body["data"][key]
-    raise RuntimeError("Could not extract token from admin/login response")
+    raise RuntimeError(f"Could not extract token from /login response: {list(body.keys())}")
 
 
 
@@ -192,6 +187,20 @@ def poll_once(imap: imaplib.IMAP4_SSL, token: str) -> None:
         logger.info("No new mail.")
         return
 
+    # Import domain verifier for sender whitelist checking (org_id needed — derive from token)
+    _org_id = None
+    try:
+        import sys, os
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+        # Decode org_id from token without importing org_auth (avoids circular import)
+        import base64, json as _json
+        parts = token.split(".")
+        if len(parts) == 3:
+            payload_b64 = parts[1] + "=" * (-len(parts[1]) % 4)
+            _org_id = _json.loads(base64.urlsafe_b64decode(payload_b64)).get("org_id")
+    except Exception:
+        pass
+
     for msg_id in ids:
         status, msg_data = imap.fetch(msg_id, "(RFC822)")
         if status != "OK" or not msg_data or not msg_data[0]:
@@ -205,6 +214,20 @@ def poll_once(imap: imaplib.IMAP4_SSL, token: str) -> None:
 
         confidence, reasons = score_message(sender, subject, body)
         logger.info(f"Scanned '{subject}' from {sender} — score={confidence}")
+
+        # DOMAIN VERIFICATION: boost confidence if sender is not whitelisted
+        if _org_id:
+            try:
+                import sys, os as _os
+                sys.path.insert(0, _os.path.join(_os.path.dirname(__file__), ".."))
+                from services.domain_verifier import verify_email_sender
+                verify = verify_email_sender(sender, _org_id)
+                if not verify.trusted:
+                    confidence = round(min(confidence + 0.2, 0.97), 3)
+                    reasons.append(f"Sender domain '{verify.domain}' not in org trusted whitelist (+0.2 boost).")
+                    logger.info(f"  Domain '{verify.domain}' untrusted — boosted confidence to {confidence}")
+            except Exception as exc:
+                logger.warning(f"Domain verification skipped: {exc}")
 
         if confidence >= 0.3:
             description = (
