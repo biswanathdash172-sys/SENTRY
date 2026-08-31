@@ -452,6 +452,8 @@
   }
   .toast.show { opacity: 1; transform: translateY(0); }
 
+  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
   /* ── Compact Stat Cards ── */
   .stat-card {
     padding: 20px 24px;
@@ -883,12 +885,25 @@
 
 <!-- ── DETAILED INVESTIGATION SECTION HEADER ── -->
 <div class="alert-stream-outer">
-<div class="alert-stream-section-header" id="investigation-section" style="padding: 32px 28px 12px; position: relative; z-index: 10;">
-  <h2 style="font-family: var(--display); font-size: 1.4rem; font-weight: 800; color: #ffffff; display: flex; align-items: center; gap: 10px;">
-    <i data-lucide="scan-eye" style="color: var(--accent-cyan); width: 22px; height: 22px;"></i>
-    Live Alert Stream &amp; Investigation
-  </h2>
-  <span style="font-size: 0.85rem; color: var(--muted);">Correlated logs, active playbooks, and identity/media provenance</span>
+<div class="alert-stream-section-header" id="investigation-section" style="padding: 32px 28px 12px; position: relative; z-index: 10; display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+  <div>
+    <h2 style="font-family: var(--display); font-size: 1.4rem; font-weight: 800; color: #ffffff; display: flex; align-items: center; gap: 10px;">
+      <i data-lucide="scan-eye" style="color: var(--accent-cyan); width: 22px; height: 22px;"></i>
+      Live Alert Stream &amp; Investigation
+    </h2>
+    <span style="font-size: 0.85rem; color: var(--muted);">Correlated logs, active playbooks, and identity/media provenance</span>
+  </div>
+  <button id="export-ppt-btn" onclick="exportPPT()" style="
+    display: flex; align-items: center; gap: 8px;
+    background: var(--accent); color: #fff;
+    border: none; border-radius: 8px; padding: 10px 18px;
+    font-size: 0.85rem; font-weight: 600; cursor: pointer;
+    white-space: nowrap; flex-shrink: 0;
+    transition: opacity 0.2s;
+  ">
+    <i data-lucide="presentation" style="width:15px;height:15px;"></i>
+    Export PPT Report
+  </button>
 </div>
 
 <!-- ── 3-COLUMN LAYOUT ───────────────────────────────────────── -->
@@ -1068,6 +1083,50 @@ async function fetchAlerts(){
   }catch(e){
     document.getElementById("api-status").textContent = "○ backend unreachable — start uvicorn on :8000";
     document.getElementById("api-status").style.color = "var(--danger)";
+  }
+}
+
+async function exportPPT() {
+  const btn = document.getElementById("export-ppt-btn");
+  const token = sessionStorage.getItem("sentry_token");
+  if (!token) { showToast("Not logged in — cannot export."); return; }
+
+  btn.disabled = true;
+  btn.style.opacity = "0.6";
+  btn.innerHTML = `<i data-lucide="loader" style="width:15px;height:15px;animation:spin 1s linear infinite;"></i> Generating…`;
+  lucide.createIcons();
+
+  try {
+    const res = await fetch(`${API}/reports/export`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!res.ok) {
+      const err = await res.text();
+      showToast(`Export failed: ${res.status}`);
+      console.error("PPT export error:", err);
+      return;
+    }
+    // Trigger browser download
+    const blob = await res.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement("a");
+    const cd   = res.headers.get("Content-Disposition") || "";
+    const match = cd.match(/filename="?([^"]+)"?/);
+    a.download = match ? match[1] : "SENTRY-Report.pptx";
+    a.href = url;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    showToast("PPT report downloaded ✓");
+  } catch(e) {
+    showToast("Export failed — backend unreachable.");
+    console.error(e);
+  } finally {
+    btn.disabled = false;
+    btn.style.opacity = "1";
+    btn.innerHTML = `<i data-lucide="presentation" style="width:15px;height:15px;"></i> Export PPT Report`;
+    lucide.createIcons();
   }
 }
 
