@@ -144,6 +144,22 @@ def build_attack_chain(events: List[SignalEvent]) -> List[str]:
     return chain
 
 
+def build_attack_chain_structured(events: List[SignalEvent]) -> List[dict]:
+    if not events:
+        return []
+    
+    ordered = sorted(events, key=lambda e: e.timestamp)
+    return [
+        {
+            'step': i,
+            'source': ev.source_type,
+            'event': ev.description,
+            'evidence_id': ev.id
+        }
+        for i, ev in enumerate(ordered, start=1)
+    ]
+
+
 @dataclass
 class CorrelatedIncident:
     id: str
@@ -152,6 +168,7 @@ class CorrelatedIncident:
     confidence: float
     signals: List[SignalEvent]
     attack_chain: List[str]
+    attack_chain_structured: List[dict] = field(default_factory=list)
 
 
 def correlate(events: List[SignalEvent], title_hint: str = "Correlated Incident") -> CorrelatedIncident:
@@ -172,4 +189,5 @@ def correlate(events: List[SignalEvent], title_hint: str = "Correlated Incident"
         confidence=confidence,
         signals=events,
         attack_chain=build_attack_chain(events),
+        attack_chain_structured=build_attack_chain_structured(events),
     )

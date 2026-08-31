@@ -25,30 +25,40 @@ class Evidence(BaseModel):
     description: str
     confidence: float
     timestamp: datetime = Field(default_factory=datetime.utcnow)
-
+    impact: Optional[str] = None
+    provenance_label: Optional[str] = None
+    forensics_label: Optional[str] = None
 
 class PlaybookAction(BaseModel):
     id: str = Field(default_factory=lambda: new_id("act"))
     label: str
     risk_level: RiskLevel
     mode: ActionMode = "manual"
-
+    decision: Optional['ActionDecision'] = None
 
 class AuditEntry(BaseModel):
     id: str = Field(default_factory=lambda: new_id("audit"))
     timestamp: datetime = Field(default_factory=datetime.utcnow)
     message: str
-
+    incident_id: Optional[str] = None
+    risk: Optional[str] = None
+    action: Optional[str] = None
+    decision: Optional[str] = None
+    actor: Optional[str] = None
+    execution_result: Optional[str] = None
+    reference_id: Optional[str] = None
 
 class Alert(BaseModel):
     id: str = Field(default_factory=lambda: new_id("alert"))
     org_id: Optional[str] = None
     title: str
     severity: Severity
+    risk_explanation: Optional[str] = None
     status: Literal["open", "resolved"] = "open"
     created_at: datetime = Field(default_factory=datetime.utcnow)
     evidence: List[Evidence] = []
     attack_chain: List[str] = []
+    attack_chain_structured: List[dict] = []
     playbook: List[PlaybookAction] = []
     audit_log: List[AuditEntry] = []
 
@@ -65,11 +75,21 @@ class MediaVerifyResult(BaseModel):
     signer: Optional[str] = None
     deepfake_likelihood: float
     verdict: Literal["authentic", "suspicious", "deepfake", "unsigned"]
+    provenance_label: Optional[str] = None
+    forensics_label: Optional[str] = None
 
 
 class ActionDecision(BaseModel):
     approved_by: Optional[str] = "analyst_demo_user"
-
+    action: Optional[str] = None
+    risk: Optional[str] = None
+    action_impact: Optional[str] = None
+    automation_allowed: Optional[bool] = None
+    approval_required: Optional[bool] = None
+    decision: Optional[str] = None
+    reason: Optional[str] = None
+    policy_source: Optional[str] = None
+    status: Optional[str] = None
 
 class IngestRequest(BaseModel):
     description: str

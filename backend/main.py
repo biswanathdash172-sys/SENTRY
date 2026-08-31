@@ -34,7 +34,7 @@ from demo_data import seed_alerts
 from db import database as db
 
 # --- All routers ---
-from routers.org_auth import router as org_auth_router, get_current_admin
+from routers.org_auth import router as org_auth_router, get_current_admin, require_admin
 from routers.signup import router as signup_router
 from routers.scan import router as scan_router
 from routers.employees import router as employees_router
@@ -284,37 +284,72 @@ def get_alert(alert_id: str, admin: AdminUser = Depends(get_current_admin)):
 
 @app.post("/alerts/{alert_id}/approve", response_model=Alert)
 def approve_action(alert_id: str, action_id: str, decision: ActionDecision | None = None,
-                    admin: AdminUser = Depends(get_current_admin)):
+                    admin: AdminUser = Depends(require_admin)):
     alert = _get_org_alert_or_404(alert_id, admin)
     action = next((a for a in alert.playbook if a.id == action_id), None)
     if not action:
         raise HTTPException(status_code=404, detail=f"Action '{action_id}' not found on alert")
+        
+    from services.risk_actions_state import ALERT_ACTION_ALLOWED_TRANSITIONS
+    if "approved" not in ALERT_ACTION_ALLOWED_TRANSITIONS.get(action.mode, set()):
+        raise HTTPException(status_code=400, detail=f"Invalid transition from {action.mode} to approved")
+        
     action.mode = "approved"
-    who = (decision.approved_by if decision else None) or admin.employee_id
-    alert.audit_log.append(AuditEntry(message=f"Action '{action.label}' APPROVED by {who}."))
+    who = admin.employee_id
+    alert.audit_log.append(AuditEntry(
+        message=f"Action '{action.label}' APPROVED by {who}.",
+        incident_id=alert_id,
+        risk=action.risk_level,
+        action=action.label,
+        decision="APPROVED",
+        actor=who,
+        execution_result="success",
+        reference_id=action.id
+    ))
     db.save_alert(alert)
     return alert
 
 
 @app.post("/alerts/{alert_id}/deny", response_model=Alert)
 def deny_action(alert_id: str, action_id: str, decision: ActionDecision | None = None,
-                 admin: AdminUser = Depends(get_current_admin)):
+                 admin: AdminUser = Depends(require_admin)):
     alert = _get_org_alert_or_404(alert_id, admin)
     action = next((a for a in alert.playbook if a.id == action_id), None)
     if not action:
         raise HTTPException(status_code=404, detail=f"Action '{action_id}' not found on alert")
+        
+    from services.risk_actions_state import ALERT_ACTION_ALLOWED_TRANSITIONS
+    if "denied" not in ALERT_ACTION_ALLOWED_TRANSITIONS.get(action.mode, set()):
+        raise HTTPException(status_code=400, detail=f"Invalid transition from {action.mode} to denied")
+        
     action.mode = "denied"
-    who = (decision.approved_by if decision else None) or admin.employee_id
-    alert.audit_log.append(AuditEntry(message=f"Action '{action.label}' DENIED by {who}."))
+    who = admin.employee_id
+    alert.audit_log.append(AuditEntry(
+        message=f"Action '{action.label}' DENIED by {who}.",
+        incident_id=alert_id,
+        risk=action.risk_level,
+        action=action.label,
+        decision="DENIED",
+        actor=who,
+        execution_result="success",
+        reference_id=action.id
+    ))
     db.save_alert(alert)
     return alert
 
 
 @app.post("/alerts/{alert_id}/resolve", response_model=Alert)
-def resolve_alert(alert_id: str, admin: AdminUser = Depends(get_current_admin)):
+def resolve_alert(alert_id: str, admin: AdminUser = Depends(require_admin)):
     alert = _get_org_alert_or_404(alert_id, admin)
     alert.status = "resolved"
-    alert.audit_log.append(AuditEntry(message="Alert manually marked resolved by analyst."))
+    alert.audit_log.append(AuditEntry(
+        message="Alert manually marked resolved by analyst.",
+        incident_id=alert_id,
+        decision="RESOLVED",
+        actor=admin.employee_id,
+        execution_result="success",
+        reference_id=alert_id
+    ))
     db.save_alert(alert)
     return alert
 
@@ -347,6 +382,7 @@ def _ingest(source_type: str, req: IngestRequest, default_title: str,
             org_id=org_id,
             title=correlated["title"],
             severity=correlated["severity"],
+            risk_explanation=correlated.get("risk_explanation"),
             evidence=correlated["evidence"],
             attack_chain=correlated["attack_chain"],
             playbook=playbook_engine.generate_playbook(evidence, correlated["severity"]),
@@ -441,6 +477,7 @@ def simulate_alert(scenario: str = "deepfake_wire_fraud"):
     alert = Alert(
         title=correlated["title"],
         severity=correlated["severity"],
+        risk_explanation=correlated.get("risk_explanation"),
         evidence=correlated["evidence"],
         attack_chain=correlated["attack_chain"],
         playbook=playbook_engine.generate_playbook(evidence, correlated["severity"]),

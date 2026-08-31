@@ -36,6 +36,22 @@ def build_attack_chain(evidence: List[Evidence]) -> List[str]:
     return chain
 
 
+def build_attack_chain_structured(evidence: List[Evidence]) -> List[dict]:
+    if not evidence:
+        return []
+    
+    ordered = sorted(evidence, key=lambda e: e.timestamp)
+    return [
+        {
+            'step': i,
+            'source': ev.source_type,
+            'event': ev.description,
+            'evidence_id': ev.id
+        }
+        for i, ev in enumerate(ordered, start=1)
+    ]
+
+
 def combined_confidence(evidence: List[Evidence]) -> float:
     if not evidence:
         return 0.0
@@ -55,11 +71,30 @@ def severity_from_confidence(confidence: float) -> str:
     return "low"
 
 
+def classify_evidence_impact(evidence: Evidence) -> str:
+    if evidence.confidence >= 0.7:
+        return "High"
+    if evidence.confidence >= 0.4:
+        return "Medium"
+    return "Low"
+
+def explain_risk(evidence: List[Evidence], severity: str) -> str:
+    factors = ", ".join(f"{e.source_type}({e.impact})" for e in evidence)
+    return f"Risk = {severity.upper()} because of {factors}"
+
 def correlate(evidence: List[Evidence], title_hint: str = "Correlated Alert") -> dict:
+    for ev in evidence:
+        ev.impact = classify_evidence_impact(ev)
+        
     confidence = combined_confidence(evidence)
+    severity = severity_from_confidence(confidence)
+    risk_explanation = explain_risk(evidence, severity)
+    
     return {
         "title": title_hint,
-        "severity": severity_from_confidence(confidence),
+        "severity": severity,
+        "risk_explanation": risk_explanation,
         "evidence": evidence,
         "attack_chain": build_attack_chain(evidence),
+        "attack_chain_structured": build_attack_chain_structured(evidence)
     }

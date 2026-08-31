@@ -17,8 +17,7 @@ Stage 3 — genuinely optional, not a corner that was cut under pressure.
 """
 
 from typing import List
-from correlation.rules_engine import SignalEvent, build_attack_chain, combined_confidence
-
+from correlation.rules_engine import SignalEvent, build_attack_chain, build_attack_chain_structured, combined_confidence
 
 def explain_incident(
     events: List[SignalEvent],
@@ -62,4 +61,5 @@ def explain_chain_and_summary(events: List[SignalEvent], severity: str, title: s
     return {
         "summary": explain_incident(events, severity, title),
         "steps": build_attack_chain(events),
+        "steps_structured": build_attack_chain_structured(events),
     }

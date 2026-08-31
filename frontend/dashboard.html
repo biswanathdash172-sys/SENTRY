@@ -1094,6 +1094,7 @@ function renderAlertList(){
         <div class="alert-title">${a.title}</div>
         <span class="sev sev-${a.severity}">${a.severity}</span>
       </div>
+      ${a.risk_explanation ? `<div style="font-size:10px;color:var(--muted);margin-top:6px;margin-bottom:6px;line-height:1.3;">${escapeHtml(a.risk_explanation)}</div>` : ''}
       <div class="alert-meta">
         ${a.status === 'resolved' ? `<span class="status-resolved">✓ resolved</span>` : ''}
         <span style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-left:auto;">${sourceType}</span>
@@ -1115,13 +1116,30 @@ function renderDetail(alert){
   const mediaEvidence = alert.evidence.filter(e => e.source_type === "media");
   const center = document.getElementById("center-col");
 
-  /* Attack chain as timeline */
-  const chainHtml = alert.attack_chain.map((step, i) => `
-    <div class="chain-step">
-      <div class="chain-dot">${i + 1}</div>
-      <div class="chain-content">${escapeHtml(step)}</div>
-    </div>
-  `).join("");
+  let chainHtml = "";
+  if (alert.attack_chain_structured && alert.attack_chain_structured.length > 0) {
+    chainHtml = `<div style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 8px; align-items: center;">` + 
+      alert.attack_chain_structured.map((step, i) => `
+        <div style="min-width: 140px; background: var(--bg-card); border: 1px solid var(--border); padding: 10px; border-radius: 8px; flex-shrink: 0;">
+          <div style="font-size: 10px; color: var(--muted); text-transform: uppercase; margin-bottom: 4px;">Step ${step.step}: ${escapeHtml(step.source)}</div>
+          <div style="font-size: 12px;">${escapeHtml(step.event)}</div>
+        </div>
+        ${i < alert.attack_chain_structured.length - 1 ? `<i data-lucide="arrow-right" style="width:16px;height:16px;color:var(--muted);flex-shrink:0;"></i>` : ''}
+      `).join("") + 
+      `<i data-lucide="arrow-right" style="width:16px;height:16px;color:var(--muted);flex-shrink:0;"></i>
+       <div style="min-width: 140px; background: rgba(225, 29, 72, 0.1); border: 1px solid var(--danger); padding: 10px; border-radius: 8px; flex-shrink: 0;">
+         <div style="font-size: 10px; color: var(--danger); text-transform: uppercase; margin-bottom: 4px;">Incident</div>
+         <div style="font-size: 12px; color: var(--danger);">${escapeHtml(alert.title)}</div>
+       </div>
+      </div>`;
+  } else {
+    chainHtml = alert.attack_chain.map((step, i) => `
+      <div class="chain-step">
+        <div class="chain-dot">${i + 1}</div>
+        <div class="chain-content">${escapeHtml(step)}</div>
+      </div>
+    `).join("");
+  }
 
   /* Media verification items */
   const mediaHtml = mediaEvidence.length ? `
@@ -1137,8 +1155,17 @@ function renderDetail(alert){
           <div class="media-evidence-item">
             <div class="media-verdict-icon ${vt}">${verdictEmoji(vt)}</div>
             <div class="media-text">
-              <div class="media-desc">${escapeHtml(e.description)}</div>
-              <div class="media-row">
+              <div class="media-desc" style="font-weight: 600; margin-bottom: 8px;">Media Analysis</div>
+              <div class="media-row" style="margin-bottom: 4px; display: flex; justify-content: space-between;">
+                <span style="color: var(--muted); font-size: 11px; text-transform: uppercase;">Digital Provenance:</span>
+                <span style="font-size: 11px; color: ${e.provenance_label === 'Verified' ? 'var(--accent-cyan)' : 'var(--danger)'};">${escapeHtml(e.provenance_label || 'Unknown')}</span>
+              </div>
+              <div class="media-row" style="margin-bottom: 4px; display: flex; justify-content: space-between;">
+                <span style="color: var(--muted); font-size: 11px; text-transform: uppercase;">Media Forensics:</span>
+                <span style="font-size: 11px; color: ${e.forensics_label === 'Normal' ? 'var(--accent-cyan)' : (e.forensics_label === 'Suspicious' ? 'var(--danger)' : 'var(--warn)')};">${escapeHtml(e.forensics_label || 'Unknown')}</span>
+              </div>
+              <div class="media-row" style="margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border-subtle); display: flex; justify-content: space-between;">
+                <span style="color: var(--muted); font-size: 11px; text-transform: uppercase;">Overall Verdict:</span>
                 <span class="verdict-badge verdict-${vt === 'deepfake' ? 'deepfake' : vt === 'authentic' ? 'authentic' : 'suspicious'}">${vt}</span>
               </div>
             </div>
@@ -1159,6 +1186,9 @@ function renderDetail(alert){
           </div>
           <div class="action-body">
             <div class="action-label">${escapeHtml(act.label)}</div>
+            ${act.decision ? `<div class="action-decision-info" style="font-size: 0.75rem; color: var(--muted); margin-top: 2px;">
+              ${act.decision.risk} RISK &rarr; ${act.decision.automation_allowed ? 'AUTOMATION ALLOWED' : 'AUTOMATION BLOCKED'} &rarr; ${act.decision.approval_required ? 'HUMAN AUTHORIZATION REQUIRED' : 'NO APPROVAL NEEDED'}
+            </div>` : ''}
             <span class="risk-tag risk-${act.risk_level}">${act.risk_level} risk</span>
           </div>
           ${act.mode === "manual" ? `
@@ -1203,12 +1233,24 @@ function renderDetail(alert){
 
   const auditHtml = alert.audit_log.slice().reverse().map(entry => {
     const inits = initials(entry.message).toUpperCase().slice(0,2);
+    
+    let msgHtml = `<div class="audit-msg">${escapeHtml(entry.message)}</div>`;
+    if (entry.decision && entry.actor && entry.execution_result) {
+        msgHtml = `<div class="audit-msg" style="font-family: monospace; font-size: 0.75rem; background: var(--card-bg); border: 1px solid var(--border); padding: 6px; border-radius: 4px;">
+            ${escapeHtml(entry.incident_id || 'UNKNOWN')} &rarr; 
+            ${escapeHtml(entry.decision)} &rarr; 
+            ${escapeHtml(entry.actor)} &rarr; 
+            ${escapeHtml(entry.action || 'ACTION')} &rarr; 
+            ${escapeHtml(entry.execution_result)}
+        </div>`;
+    }
+
     return `
     <div class="audit-entry">
       <div class="audit-dot">${inits}</div>
       <div class="audit-body">
-        <div class="audit-msg">${escapeHtml(entry.message)}</div>
-        <div class="audit-ts">${relativeTime(entry.timestamp)} · ${new Date(entry.timestamp).toLocaleTimeString()}</div>
+        ${msgHtml}
+        <div class="audit-ts">${relativeTime(entry.timestamp)} &middot; ${new Date(entry.timestamp).toLocaleTimeString()}</div>
       </div>
     </div>`;
   }).join("");

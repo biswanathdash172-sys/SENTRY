@@ -73,6 +73,14 @@ def _resolve_flag(flag_id: str, admin: AdminUser, resolution: str) -> RiskFlagAc
 
     flag = _get_flag_or_404(client, flag_id, admin.org_id)
 
+    from services.risk_actions_state import ALLOWED_TRANSITIONS
+
+    if resolution not in ALLOWED_TRANSITIONS.get(flag.get("status", "pending"), set()):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid transition from {flag.get('status')} to {resolution}"
+        )
+
     if flag["status"] == "completed":
         raise HTTPException(
             status_code=400,
@@ -108,6 +116,12 @@ def _resolve_flag(flag_id: str, admin: AdminUser, resolution: str) -> RiskFlagAc
             "risk_flag_id": flag_id,
             "message": f"Risk flag {verb} by {admin.employee_id} (tier={flag['tier']}).",
             "actor": admin.employee_id,
+            "incident_id": flag_id,
+            "risk": flag["tier"],
+            "action": f"risk_flag_{verb.lower()}",
+            "decision": verb,
+            "execution_result": "success",
+            "reference_id": flag_id,
         }).execute()
     except Exception:
         # Audit log write failure must NEVER roll back or block the actual

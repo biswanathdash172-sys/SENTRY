@@ -48,11 +48,25 @@ _ACTION_TEMPLATES = _load_action_templates()
 
 
 @dataclass
+class ActionDecision:
+    approved_by: str = "analyst_demo_user"
+    action: str = None
+    risk: str = None
+    action_impact: str = None
+    automation_allowed: bool = None
+    approval_required: bool = None
+    decision: str = None
+    reason: str = None
+    policy_source: str = None
+    status: str = None
+
+@dataclass
 class PlaybookAction:
     label: str
     risk_level: str  # "low" | "high"
     mode: str  # "auto" | "manual"
     id: str = ""
+    decision: ActionDecision = None
 
 
 def classify_risk(label: str) -> str:
@@ -81,7 +95,6 @@ def generate_playbook(events: List[SignalEvent], severity: str) -> List[Playbook
     import uuid
 
     labels: List[str] = []
-
     if _has_source(events, "email"):
         labels += ["Quarantine suspicious email", "Block sender domain"]
     if _has_source(events, "endpoint"):
@@ -107,7 +120,68 @@ def generate_playbook(events: List[SignalEvent], severity: str) -> List[Playbook
     for label in unique_labels:
         risk = classify_risk(label)
         mode = "auto" if risk == "low" else "manual"
+        
+        decision = ActionDecision(
+            risk=risk,
+            automation_allowed=(mode == 'auto'),
+            approval_required=(mode == 'manual'),
+            decision='AUTO_EXECUTED' if mode == 'auto' else 'MANUAL_REQUIRED',
+            policy_source='ACTION_RISK_TABLE'
+        )
+        
         playbook.append(
-            PlaybookAction(id=f"act_{uuid.uuid4().hex[:8]}", label=label, risk_level=risk, mode=mode)
+            PlaybookAction(id=f"act_{uuid.uuid4().hex[:8]}", label=label, risk_level=risk, mode=mode, decision=decision)
+        )
+    return playbook
+
+
+def generate_playbook_matrix(events: List[SignalEvent], severity: str) -> List[PlaybookAction]:
+    """
+    Alternate implementation of generate_playbook using the declarative PLAYBOOK_DECISION_MATRIX
+    rather than hardcoded imperative if/else branches.
+    """
+    import uuid
+    labels: List[str] = []
+    
+    PLAYBOOK_DECISION_MATRIX = [
+        {"source": "email", "severity": None, "actions": ["Quarantine suspicious email", "Block sender domain"]},
+        {"source": "endpoint", "severity": None, "actions": ["Isolate endpoint from network"]},
+        {"source": "media", "severity": None, "actions": ["Flag media as unverified", "Revoke signing credential"]},
+        {"source": "identity", "severity": None, "actions": ["Force password reset (all sessions)"]},
+        {"source": None, "severity": ["high", "critical"], "actions": ["Notify security team"]},
+        {"source": None, "severity": ["critical"], "actions": ["Suspend user account", "Freeze pending wire transfer", "Escalate to legal/compliance"]},
+    ]
+
+    for rule in PLAYBOOK_DECISION_MATRIX:
+        match = False
+        if rule.get("source"):
+            if _has_source(events, rule["source"]):
+                match = True
+        elif rule.get("severity"):
+            if severity in rule["severity"]:
+                match = True
+                
+        if match:
+            labels.extend(rule["actions"])
+
+    # de-dupe while preserving order
+    seen = set()
+    unique_labels = [l for l in labels if not (l in seen or seen.add(l))]
+
+    playbook: List[PlaybookAction] = []
+    for label in unique_labels:
+        risk = classify_risk(label)
+        mode = "auto" if risk == "low" else "manual"
+        
+        decision = ActionDecision(
+            risk=risk,
+            automation_allowed=(mode == 'auto'),
+            approval_required=(mode == 'manual'),
+            decision='AUTO_EXECUTED' if mode == 'auto' else 'MANUAL_REQUIRED',
+            policy_source='PLAYBOOK_DECISION_MATRIX'
+        )
+        
+        playbook.append(
+            PlaybookAction(id=f"act_{uuid.uuid4().hex[:8]}", label=label, risk_level=risk, mode=mode, decision=decision)
         )
     return playbook

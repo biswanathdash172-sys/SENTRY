@@ -27,44 +27,57 @@ def _heuristic_deepfake_score(filename: str) -> float:
     return round(min(1.0, base + bias), 3)
 
 
+def provenance_label(r: MediaVerifyResult) -> str:
+    return 'Verified' if r.signature_valid else 'Not verified'
+
+def forensics_label(r: MediaVerifyResult) -> str:
+    if r.deepfake_likelihood >= 0.7:
+        return 'Suspicious'
+    elif r.deepfake_likelihood >= 0.3:
+        return 'Uncertain'
+    return 'Normal'
+
+
 def verify_media(req: MediaVerifyRequest) -> MediaVerifyResult:
     signer = SIGNED_REGISTRY.get(req.filename.lower())
     signature_valid = signer is not None
 
+    result = None
     if req.force_verdict == "authentic":
-        return MediaVerifyResult(
+        result = MediaVerifyResult(
             filename=req.filename, signature_valid=True,
             signer=req.claimed_sender or "Verified signer",
             deepfake_likelihood=0.03, verdict="authentic",
         )
-    if req.force_verdict == "deepfake":
-        return MediaVerifyResult(
+    elif req.force_verdict == "deepfake":
+        result = MediaVerifyResult(
             filename=req.filename, signature_valid=False, signer=None,
             deepfake_likelihood=0.94, verdict="deepfake",
         )
-    if req.force_verdict == "unsigned":
-        return MediaVerifyResult(
+    elif req.force_verdict == "unsigned":
+        result = MediaVerifyResult(
             filename=req.filename, signature_valid=False, signer=None,
             deepfake_likelihood=0.22, verdict="unsigned",
         )
-
-    score = _heuristic_deepfake_score(req.filename)
-    if signature_valid and score < 0.3:
-        verdict = "authentic"
-    elif score >= 0.7:
-        verdict = "deepfake"
-    elif not signature_valid:
-        verdict = "unsigned"
     else:
-        verdict = "suspicious"
+        score = _heuristic_deepfake_score(req.filename)
+        if signature_valid and score < 0.3:
+            verdict = "authentic"
+        elif score >= 0.7:
+            verdict = "deepfake"
+        elif not signature_valid:
+            verdict = "unsigned"
+        else:
+            verdict = "suspicious"
 
-    return MediaVerifyResult(
-        filename=req.filename,
-        signature_valid=signature_valid,
-        signer=signer,
-        deepfake_likelihood=score,
-        verdict=verdict,
-    )
+        result = MediaVerifyResult(
+            filename=req.filename, signature_valid=signature_valid,
+            signer=signer, deepfake_likelihood=score, verdict=verdict,
+        )
+        
+    result.provenance_label = provenance_label(result)
+    result.forensics_label = forensics_label(result)
+    return result
 
 
 def result_to_evidence(result: MediaVerifyResult) -> Evidence:
@@ -79,4 +92,10 @@ def result_to_evidence(result: MediaVerifyResult) -> Evidence:
         )
         confidence = max(result.deepfake_likelihood, 0.3 if not result.signature_valid else 0.0)
 
-    return Evidence(source_type="media", description=desc, confidence=confidence)
+    return Evidence(
+        source_type="media", 
+        description=desc, 
+        confidence=confidence,
+        provenance_label=result.provenance_label,
+        forensics_label=result.forensics_label
+    )

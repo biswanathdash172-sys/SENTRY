@@ -6,7 +6,7 @@ Decides recommended response actions for an alert and classifies each as
 """
 
 from typing import List
-from models import PlaybookAction, Evidence
+from models import PlaybookAction, Evidence, ActionDecision
 
 ACTION_RISK_TABLE = {
     "Quarantine suspicious email": "low",
@@ -53,5 +53,53 @@ def generate_playbook(evidence: List[Evidence], severity: str) -> List[PlaybookA
     for label in unique_actions:
         risk = ACTION_RISK_TABLE.get(label, "high")
         mode = "auto" if risk == "low" else "manual"
-        playbook.append(PlaybookAction(label=label, risk_level=risk, mode=mode))
+        
+        decision = ActionDecision(
+            risk=risk,
+            automation_allowed=(mode == 'auto'),
+            approval_required=(mode == 'manual'),
+            decision='AUTO_EXECUTED' if mode == 'auto' else 'MANUAL_REQUIRED',
+            policy_source='ACTION_RISK_TABLE'
+        )
+        playbook.append(PlaybookAction(label=label, risk_level=risk, mode=mode, decision=decision))
+    return playbook
+
+
+def generate_playbook_matrix(evidence: List[Evidence], severity: str) -> List[PlaybookAction]:
+    """
+    Alternate implementation of generate_playbook using the declarative PLAYBOOK_DECISION_MATRIX
+    rather than hardcoded imperative if/else branches.
+    """
+    actions: List[str] = []
+
+    from services.playbook_matrix import PLAYBOOK_DECISION_MATRIX
+
+    for rule in PLAYBOOK_DECISION_MATRIX:
+        match = False
+        if rule.get("source"):
+            if _has_source(evidence, rule["source"]):
+                match = True
+        elif rule.get("severity"):
+            if severity in rule["severity"]:
+                match = True
+                
+        if match:
+            actions.extend(rule["actions"])
+
+    seen = set()
+    unique_actions = [a for a in actions if not (a in seen or seen.add(a))]
+
+    playbook: List[PlaybookAction] = []
+    for label in unique_actions:
+        risk = ACTION_RISK_TABLE.get(label, "high")
+        mode = "auto" if risk == "low" else "manual"
+        
+        decision = ActionDecision(
+            risk=risk,
+            automation_allowed=(mode == 'auto'),
+            approval_required=(mode == 'manual'),
+            decision='AUTO_EXECUTED' if mode == 'auto' else 'MANUAL_REQUIRED',
+            policy_source='PLAYBOOK_DECISION_MATRIX'
+        )
+        playbook.append(PlaybookAction(label=label, risk_level=risk, mode=mode, decision=decision))
     return playbook

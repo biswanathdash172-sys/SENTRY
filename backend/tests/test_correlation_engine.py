@@ -119,7 +119,7 @@ class TestCorrelate:
     def test_returns_expected_shape(self):
         ev = [make_evidence()]
         result = ce.correlate(ev, title_hint="My Alert")
-        assert set(result.keys()) == {"title", "severity", "evidence", "attack_chain"}
+        assert set(result.keys()) == {"title", "severity", "evidence", "attack_chain", "attack_chain_structured", "risk_explanation"}
         assert result["title"] == "My Alert"
         assert result["evidence"] == ev
 
