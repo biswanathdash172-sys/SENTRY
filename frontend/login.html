@@ -2,8 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SENTRY | Employee Sign In</title>
+  <title>SENTRY | Sign In</title>
   <meta name="description" content="Sign in to SENTRY with your organization-issued Employee ID." />
   <style>
     @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
@@ -27,17 +28,15 @@
       display: block;
     }
 
-    /* Right-side card wrapper — fixed, vertically centered */
     .card-wrapper {
       position: fixed;
       top: 47%;
       right: 14%;
       transform: translateY(-50%);
       z-index: 1;
-      width: 380px;
+      width: 390px;
     }
 
-    /* Page header above the card */
     .page-header {
       margin-bottom: 20px;
       text-align: left;
@@ -55,7 +54,6 @@
       margin-top: 4px;
     }
 
-    /* Dark overlay on top of background image */
     body::before {
       content: '';
       position: fixed;
@@ -65,7 +63,6 @@
       pointer-events: none;
     }
 
-    /* Card entrance animation */
     @keyframes cardFadeIn {
       from { opacity: 0; transform: translateY(20px); }
       to   { opacity: 1; transform: translateY(0); }
@@ -75,23 +72,22 @@
       position: relative;
       z-index: 1;
       width: 100%;
-      max-width: 380px;
-      background: rgba(16, 20, 46, 0.55);
+      max-width: 390px;
+      background: rgba(16, 20, 46, 0.65);
       backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
       border: 1px solid rgba(59, 91, 255, 0.25);
       border-radius: 16px;
-      padding: 36px 32px;
+      padding: 34px 30px;
       box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 40px rgba(34,211,238,0.08);
       animation: cardFadeIn 0.8s cubic-bezier(0.16,1,0.3,1) forwards;
-      opacity: 0;
     }
 
     .brand {
       display: flex;
       align-items: center;
       gap: 10px;
-      margin-bottom: 24px;
+      margin-bottom: 20px;
     }
 
     .brand span {
@@ -113,7 +109,7 @@
     p.sub {
       font-size: 0.85rem;
       color: var(--muted);
-      margin-bottom: 24px;
+      margin-bottom: 22px;
       line-height: 1.5;
     }
     label {
@@ -123,7 +119,7 @@
       color: var(--muted);
       margin-bottom: 6px;
     }
-    .field { margin-bottom: 18px; }
+    .field { margin-bottom: 16px; }
     input {
       width: 100%;
       background: rgba(0,0,0,0.35);
@@ -160,6 +156,7 @@
       text-align: center;
       font-size: 0.82rem;
       color: var(--muted);
+      line-height: 1.6;
     }
     .footer a { color: var(--accent-2); text-decoration: none; font-weight: 600; }
   </style>
@@ -180,30 +177,30 @@
         <span>SENTRY</span>
       </div>
 
-      <h1>Employee Sign In</h1>
-      <p class="sub">Use the Employee ID and password your organization gave you.</p>
+      <h1>Portal Sign In</h1>
+      <p class="sub">Sign in with your Organization-issued Employee ID and password.</p>
 
       <form id="login-form">
         <div class="field">
           <label for="employee-id">Employee ID</label>
-          <input type="text" id="employee-id" placeholder="e.g. EMP-0231" required autocomplete="username" />
+          <input type="text" id="employee-id" placeholder="e.g. EMP-0001" required autocomplete="username" />
         </div>
         <div class="field">
           <label for="password">Password</label>
-          <input type="password" id="password" placeholder="••••••••" required autocomplete="current-password" />
+          <input type="password" id="password" placeholder="Password" required autocomplete="current-password" />
         </div>
         <button type="submit" id="submit-btn">Sign In</button>
         <div class="error" id="error-message"></div>
       </form>
 
       <div class="footer">
-        Organization not connected yet? <a href="/get-access">Get Access</a>
+        Don't have an account? <a href="/signup">Sign Up</a>
       </div>
     </div>
   </div>
 
   <script>
-    const API_BASE ="";
+    const API_BASE = "";
     const form = document.getElementById("login-form");
     const submitBtn = document.getElementById("submit-btn");
     const errorEl = document.getElementById("error-message");
@@ -216,7 +213,7 @@
       const password = document.getElementById("password").value;
 
       submitBtn.disabled = true;
-      submitBtn.textContent = "Signing in…";
+      submitBtn.textContent = "Signing in...";
 
       try {
         const body = new URLSearchParams();
@@ -239,7 +236,19 @@
         sessionStorage.setItem("sentry_org_id", data.org_id);
         sessionStorage.setItem("sentry_employee_id", data.employee_id);
         sessionStorage.setItem("sentry_is_admin", data.is_admin ? "true" : "false");
-        window.location.href = data.is_admin ? "/admin-dashboard" : "/employee-dashboard";
+        sessionStorage.setItem("sentry_is_cyber_head", data.is_cyber_head ? "true" : "false");
+
+        // Role-based destination routing:
+        // 1. Cyber Head -> /cyber-head-dashboard
+        // 2. Org Admin  -> /org-dashboard
+        // 3. Employee   -> /employee-dashboard
+        if (data.is_cyber_head) {
+          window.location.href = "/cyber-head-dashboard";
+        } else if (data.is_admin) {
+          window.location.href = "/org-dashboard";
+        } else {
+          window.location.href = "/employee-dashboard";
+        }
       } catch (err) {
         errorEl.textContent = err.message || "Sign in failed.";
         errorEl.style.display = "block";

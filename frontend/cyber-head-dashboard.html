@@ -400,6 +400,15 @@
           grid-template-columns: 1fr;
         }
       }
+        .card h2,
+        .stat-label,
+        .stat-value,
+        th,
+        td {
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
     </style>
   </head>
   <body>
@@ -425,11 +434,11 @@
           />
         </svg>
         <span>SENTRY</span>
-        <span class="tag">ADMIN CONSOLE</span>
+        <span class="tag">CYBER HEAD</span>
       </div>
       <div class="who">
         <span id="who-label">—</span>
-        <a class="signout" onclick="signOut()">Sign out</a>
+          <button class="btn small" onclick="signOut()">Sign out</button>
       </div>
     </header>
 
@@ -454,7 +463,14 @@
         </div>
       </div>
 
-      <div class="card">
+        <!-- =================== AUTO‑APPROVAL POLICIES =================== -->
+        <div class="card" id="policy-card">
+          <h2>Auto‑Approval Policies</h2>
+          <div class="rules-list" id="rules-list">
+            <!-- Rule rows will be injected here -->
+          </div>
+        </div>
+        <div class="card">
         <h2>
           Organizational Analytics — Live
           <button
@@ -507,6 +523,7 @@
           <thead>
             <tr>
               <th>Source</th>
+              <th>Employee</th>
               <th>Package / App</th>
               <th>Vuln ID</th>
               <th>CVSS/Score</th>
@@ -518,81 +535,13 @@
           </thead>
           <tbody id="scan-table-body">
             <tr>
-              <td colspan="8" class="empty">Loading…</td>
+              <td colspan="9" class="empty">Loading…</td>
             </tr>
           </tbody>
         </table>
       </div>
 
-      <!-- Audit log -->
-      <div class="card">
-        <h2>Audit Log</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>Time</th>
-              <th>Actor</th>
-              <th>Message</th>
-            </tr>
-          </thead>
-          <tbody id="audit-table-body">
-            <tr>
-              <td colspan="3" class="empty">Loading…</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <!-- Auto-approval rules -->
-      <div class="card">
-        <h2>Auto-Approval Rules (org-defined, runtime)</h2>
-        <div class="rules-list" id="rules-list">
-          <div class="empty">Loading…</div>
-        </div>
-        <div class="msg" id="rules-msg"></div>
-      </div>
-
-      <!-- Employee & role management -->
-      <div class="card">
-        <h2>Employee & Role Management</h2>
-        <div class="form-row">
-          <div class="field">
-            <label for="emp-id">Employee ID</label>
-            <input type="text" id="emp-id" placeholder="EMP-0231" />
-          </div>
-          <div class="field">
-            <label for="emp-name">Name</label>
-            <input type="text" id="emp-name" placeholder="Jane Doe" />
-          </div>
-          <div class="field">
-            <label for="emp-password">Password</label>
-            <input type="password" id="emp-password" placeholder="••••••••" />
-          </div>
-          <button class="btn" onclick="createEmployee()">
-            Create Employee
-          </button>
-        </div>
-        <div class="msg" id="employee-msg"></div>
-
-        <table style="margin-top: 20px">
-          <thead>
-            <tr>
-              <th>Employee ID</th>
-              <th>Name</th>
-              <th>Role</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody id="employee-table-body">
-            <tr>
-              <td colspan="4" class="empty">Loading…</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </main>
-
-    <script>
+      <script>
       const token = sessionStorage.getItem("sentry_token");
       const isAdmin = sessionStorage.getItem("sentry_is_admin") === "true";
       const employeeId = sessionStorage.getItem("sentry_employee_id");
@@ -801,6 +750,7 @@
             return `
         <tr>
           <td>${sourceBadge}</td>
+          <td class="mono" style="font-size:0.75rem;">${r.employee_id || "—"}</td>
           <td class="mono">${nameCol}</td>
           <td class="mono">${r.vuln_id || "—"}</td>
           <td class="mono">${scoreCol}</td>
@@ -965,126 +915,136 @@
         }
       }
 
-      /* ---------------- Employee & role management ---------------- */
-      async function loadEmployees() {
+      let fullEmails = [];
+      async function loadEmailIntel() {
         try {
-          const res = await fetch("/employees", { headers: authHeaders() });
+          const res = await fetch('/emails/recent?max_results=50', { headers: authHeaders() });
           if (await handle401(res)) return;
           if (!res.ok) throw new Error(await res.text());
-          renderEmployeeTable(await res.json());
+          fullEmails = await res.json();
+          const tbody = document.getElementById('email-table-body');
+          if (!fullEmails.length) {
+            tbody.innerHTML = `<tr><td colspan="6" class="empty">No emails fetched.</td></tr>`;
+            return;
+          }
+          tbody.innerHTML = fullEmails.slice(0, 5).map(e => {
+            const domainBadge = e.domain_trusted
+              ? `<span class="tier-badge tier-not_risky">Trusted</span>`
+              : `<span class="tier-badge tier-high_risky">Unknown</span>`;
+            const scoreColor = e.confidence >= 0.7 ? 'var(--err)' : e.confidence >= 0.4 ? 'var(--pending)' : 'var(--ok)';
+            const time = e.date_iso ? new Date(e.date_iso).toLocaleString() : '-';
+            return `<tr>
+              <td class="mono" style="font-size:0.75rem;">${e.sender.slice(0, 30)}</td>
+              <td style="font-size:0.78rem;">${e.subject.slice(0, 40)}</td>
+              <td>${domainBadge}</td>
+              <td><span style="color:${scoreColor};font-weight:700;">${(e.confidence * 100).toFixed(0)}%</span></td>
+              <td style="font-size:0.72rem;color:var(--muted);">${time}</td>
+              <td>
+                ${!e.domain_trusted ? `<button class="btn small" onclick="addDomainQuick('${e.sender.split('@')[1]}')">Trust Domain</button>` : ''}
+              </td>
+            </tr>`;
+          }).join('');
         } catch (e) {
-          document.getElementById("employee-table-body").innerHTML =
-            `<tr><td colspan="4" class="empty">Could not load employees.</td></tr>`;
+          document.getElementById('email-table-body').innerHTML = `<tr><td colspan="6" class="empty">Could not load emails.</td></tr>`;
         }
       }
 
-      function renderEmployeeTable(employees) {
-        const tbody = document.getElementById("employee-table-body");
-        if (!employees.length) {
-          tbody.innerHTML = `<tr><td colspan="4" class="empty">No employees yet.</td></tr>`;
-          return;
-        }
-        tbody.innerHTML = employees
-          .map((e) => {
-            const isSelf = e.employee_id === employeeId;
-            return `
-        <tr>
-          <td class="mono">${e.employee_id}</td>
-          <td>${e.name}</td>
-          <td><span class="role-chip ${e.is_admin ? "admin" : "employee"}">${e.is_admin ? "Admin" : "Employee"}</span></td>
-          <td>
-            <div class="action-cell">
-              <button class="btn small secondary" onclick="toggleAdmin('${e.employee_id}', ${!e.is_admin})"
-                      ${isSelf && e.is_admin ? 'disabled title="Cannot revoke your own admin status"' : ""}>
-                ${e.is_admin ? "Revoke Admin" : "Make Admin"}
-              </button>
-              <button class="btn small danger-outline" onclick="removeEmployee('${e.employee_id}')"
-                      ${isSelf ? 'disabled title="Cannot remove your own account"' : ""}>
-                Remove
-              </button>
-            </div>
-          </td>
-        </tr>`;
-          })
-          .join("");
+      function openEmailModal() {
+        document.getElementById('email-modal').style.display = 'flex';
+        const tbody = document.getElementById('email-modal-body');
+        tbody.innerHTML = fullEmails.map(e => {
+          const domainBadge = e.domain_trusted ? `<span class="tier-badge tier-not_risky">Trusted</span>` : `<span class="tier-badge tier-high_risky">Unknown</span>`;
+          const scoreColor = e.confidence >= 0.7 ? 'var(--err)' : e.confidence >= 0.4 ? 'var(--pending)' : 'var(--ok)';
+          const time = e.date_iso ? new Date(e.date_iso).toLocaleString() : '-';
+          return `<tr>
+            <td class="mono" style="font-size:0.75rem;">${e.sender}</td>
+            <td style="font-size:0.78rem;">${e.subject}</td>
+            <td>${domainBadge}</td>
+            <td><span style="color:${scoreColor};font-weight:700;">${(e.confidence * 100).toFixed(0)}%</span></td>
+            <td style="font-size:0.72rem;color:var(--muted);">${time}</td>
+          </tr>`;
+        }).join('');
+      }
+      function closeEmailModal() {
+        document.getElementById('email-modal').style.display = 'none';
       }
 
-      async function toggleAdmin(targetId, makeAdmin) {
+      async function loadWhitelist() {
         try {
-          const res = await fetch(`/employees/${targetId}/admin`, {
-            method: "PUT",
-            headers: authHeaders({ "Content-Type": "application/json" }),
-            body: JSON.stringify({ is_admin: makeAdmin }),
+          const res = await fetch('/whitelist/domains', { headers: authHeaders() });
+          if (await handle401(res)) return;
+          if (!res.ok) throw new Error(await res.text());
+          const domains = await res.json();
+          const container = document.getElementById('whitelist-list');
+          if (!domains.length) {
+            container.innerHTML = `<div class="empty">No trusted domains yet. Add one above.</div>`;
+            return;
+          }
+          container.innerHTML = domains.map(d => `
+            <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(0,0,0,0.2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;">
+              <span style="font-family:'Fira Code',monospace;font-size:0.85rem;color:var(--ok);">@${d.domain}</span>
+              <button class="btn small danger-outline" onclick="removeDomain('${d.domain}')">Remove</button>
+            </div>`).join('');
+        } catch (e) {
+          document.getElementById('whitelist-list').innerHTML = `<div class="empty">Could not load whitelist.</div>`;
+        }
+      }
+
+      async function addDomainQuick(domain) {
+        document.getElementById('new-domain').value = domain;
+        await addDomain();
+      }
+
+      async function addDomain() {
+        const domain = document.getElementById('new-domain').value.trim();
+        if (!domain) { showMsg('whitelist-msg', 'Enter a domain name.', true); return; }
+        try {
+          const res = await fetch('/whitelist/domains', {
+            method: 'POST',
+            headers: authHeaders({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify({ domain }),
           });
           if (await handle401(res)) return;
-          if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            throw new Error(err.detail || "Could not update role");
-          }
-          showMsg(
-            "employee-msg",
-            `${targetId} is now ${makeAdmin ? "an Admin" : "an Employee"}.`,
-            false,
-          );
-          await loadEmployees();
-        } catch (e) {
-          showMsg("employee-msg", e.message, true);
-        }
+          if (!res.ok) throw new Error("Failed to add domain");
+          document.getElementById('new-domain').value = '';
+          showMsg('whitelist-msg', `'${domain}' added to trusted whitelist.`, false);
+          await loadWhitelist();
+          await loadEmailIntel();
+        } catch (e) { showMsg('whitelist-msg', e.message, true); }
       }
 
-      async function removeEmployee(targetId) {
-        if (!confirm(`Remove employee "${targetId}"? This cannot be undone.`))
+      async function autoAddDomains() {
+        const safeEmails = fullEmails.filter(e => e.confidence < 0.2 && !e.domain_trusted);
+        const domains = [...new Set(safeEmails.map(e => e.sender.split('@')[1]))];
+        if (!domains.length) {
+          showMsg('whitelist-msg', 'No new safe domains found to auto-add.', false);
           return;
-        try {
-          const res = await fetch(`/employees/${targetId}`, {
-            method: "DELETE",
-            headers: authHeaders(),
-          });
-          if (await handle401(res)) return;
-          if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            throw new Error(err.detail || "Could not remove employee");
-          }
-          showMsg("employee-msg", `${targetId} removed.`, false);
-          await loadEmployees();
-        } catch (e) {
-          showMsg("employee-msg", e.message, true);
         }
+        let added = 0;
+        for (const d of domains) {
+          try {
+            await fetch('/whitelist/domains', {
+              method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ domain: d })
+            });
+            added++;
+          } catch(e) {}
+        }
+        showMsg('whitelist-msg', `Auto-added ${added} safe domains.`, false);
+        await loadWhitelist();
+        await loadEmailIntel();
       }
 
-      async function createEmployee() {
-        const employee_id = document.getElementById("emp-id").value.trim();
-        const name = document.getElementById("emp-name").value.trim();
-        const password = document.getElementById("emp-password").value;
-
-        if (!employee_id || !name || !password) {
-          showMsg("employee-msg", "All three fields are required.", true);
-          return;
-        }
+      async function removeDomain(domain) {
+        if (!confirm(`Remove '${domain}' from trusted whitelist?`)) return;
         try {
-          const res = await fetch("/employees", {
-            method: "POST",
-            headers: authHeaders({ "Content-Type": "application/json" }),
-            body: JSON.stringify({ employee_id, name, password }),
+          const res = await fetch(`/whitelist/domains/${encodeURIComponent(domain)}`, {
+            method: 'DELETE', headers: authHeaders(),
           });
           if (await handle401(res)) return;
-          if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            throw new Error(err.detail || "Could not create employee");
-          }
-          const data = await res.json();
-          showMsg(
-            "employee-msg",
-            `Created ${data.employee_id} (${data.name})${data.is_admin ? " — promoted to admin (first employee for this org)" : ""}.`,
-            false,
-          );
-          document.getElementById("emp-id").value = "";
-          document.getElementById("emp-name").value = "";
-          document.getElementById("emp-password").value = "";
-          await loadEmployees();
-        } catch (e) {
-          showMsg("employee-msg", e.message, true);
-        }
+          showMsg('whitelist-msg', `'${domain}' removed.`, false);
+          await loadWhitelist();
+          await loadEmailIntel();
+        } catch (e) { showMsg('whitelist-msg', e.message, true); }
       }
 
       /* ---------------- Init ---------------- */
@@ -1092,12 +1052,12 @@
       loadAnalytics();
       loadScanResults();
       loadRules();
-      loadEmployees();
-      loadAuditLog();
+      loadEmailIntel();
+      loadWhitelist();
       setInterval(() => {
         loadAnalytics();
         loadScanResults();
-        loadAuditLog();
+        loadEmailIntel();
       }, 10000);
     </script>
   </body>

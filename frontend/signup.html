@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SENTRY | Sign Up</title>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Orbitron:wght@700;800&display=swap");
+      :root {
+        --bg: #0a0e27;
+        --panel: #10142e;
+        --accent: #3b5bff;
+        --accent-2: #22d3ee;
+        --border: rgba(255, 255, 255, 0.08);
+        --text: #ffffff;
+        --muted: #94a3b8;
+        --err: #ff6b6b;
+        --ok: #22d3ee;
+      }
+      * { box-sizing: border-box; margin: 0; padding: 0; font-family: "Inter", sans-serif; }
+      body { background: var(--bg); color: var(--text); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+      .container { width: 100%; max-width: 480px; }
+      .brand { text-align: center; margin-bottom: 32px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+      .brand svg { filter: drop-shadow(0 0 12px rgba(34, 211, 238, 0.3)); }
+      .brand span.title { font-family: "Orbitron", sans-serif; font-size: 1.8rem; font-weight: 800; letter-spacing: 0.15em; background: linear-gradient(135deg, var(--accent), var(--accent-2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+      .brand p { color: var(--muted); font-size: 0.9rem; }
+
+      /* Tab switcher */
+      .tabs { display: flex; background: rgba(0,0,0,0.25); border: 1px solid var(--border); border-radius: 12px; padding: 4px; margin-bottom: 24px; gap: 4px; }
+      .tab-btn { flex: 1; background: transparent; color: var(--muted); border: none; border-radius: 8px; padding: 11px; font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+      .tab-btn.active { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; }
+      .tab-btn:hover:not(.active) { color: var(--text); background: rgba(255,255,255,0.05); }
+
+      .card { background: var(--panel); border: 1px solid var(--border); border-radius: 16px; padding: 36px; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4); }
+      .card h1 { font-size: 1.2rem; font-weight: 600; margin-bottom: 6px; text-align: center; }
+      .card .subtitle { text-align: center; color: var(--muted); font-size: 0.85rem; margin-bottom: 28px; }
+
+      .form-section { display: none; }
+      .form-section.active { display: block; }
+
+      .field { margin-bottom: 18px; }
+      .field label { display: block; font-size: 0.83rem; color: var(--muted); margin-bottom: 7px; font-weight: 500; }
+      .field input { width: 100%; background: rgba(0, 0, 0, 0.2); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; color: var(--text); font-size: 0.95rem; outline: none; transition: border-color 0.2s; }
+      .field input:focus { border-color: var(--accent-2); }
+
+      button.submit-btn { width: 100%; background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: white; border: none; border-radius: 8px; padding: 14px; font-size: 0.95rem; font-weight: 600; cursor: pointer; transition: opacity 0.2s, transform 0.1s; margin-top: 6px; }
+      button.submit-btn:hover { opacity: 0.9; }
+      button.submit-btn:active { transform: translateY(1px); }
+      button.submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+      .msg-area { min-height: 24px; font-size: 0.85rem; margin-top: 14px; text-align: center; border-radius: 8px; }
+      .msg-area.error { color: var(--err); background: rgba(255,107,107,0.08); border: 1px solid rgba(255,107,107,0.25); padding: 10px; display: block; }
+      .msg-area.success { color: var(--ok); background: rgba(34,211,238,0.08); border: 1px solid rgba(34,211,238,0.25); padding: 10px; display: block; }
+
+      .footer { margin-top: 28px; text-align: center; font-size: 0.85rem; color: var(--muted); }
+      .footer a { color: var(--accent-2); text-decoration: none; font-weight: 500; }
+      .footer a:hover { text-decoration: underline; }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="brand">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#22D3EE" stroke-width="2">
+          <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5" />
+          <circle cx="12" cy="12" r="3.5" fill="#22D3EE" fill-opacity="0.25" stroke="#22D3EE" stroke-width="1.5" />
+        </svg>
+        <span class="title">SENTRY</span>
+        <p>Register for access to the SOC Platform</p>
+      </div>
+
+      <!-- Tab switcher — NO role dropdown -->
+      <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('org')">Register Organisation</button>
+        <button class="tab-btn" onclick="switchTab('emp')">Add Employee</button>
+      </div>
+
+      <div class="card">
+
+        <!-- === ORGANISATION FORM === -->
+        <div class="form-section active" id="section-org">
+          <h1>Register Organisation</h1>
+          <p class="subtitle">Create a new organisation account</p>
+          <form id="org-form" onsubmit="submitOrg(event)">
+            <div class="field">
+              <label for="org-user-id">Organisation ID</label>
+              <input type="text" id="org-user-id" placeholder="e.g. ACME-01" required />
+            </div>
+            <div class="field">
+              <label for="org-name">Organisation Name</label>
+              <input type="text" id="org-name" placeholder="e.g. Acme Corp" required />
+            </div>
+            <div class="field">
+              <label for="org-password">Password</label>
+              <input type="password" id="org-password" required />
+            </div>
+            <button type="submit" class="submit-btn" id="org-btn">Create Organisation</button>
+            <div class="msg-area" id="org-msg"></div>
+          </form>
+        </div>
+
+        <!-- === EMPLOYEE FORM === -->
+        <div class="form-section" id="section-emp">
+          <h1>Add Employee</h1>
+          <p class="subtitle">Register an employee under an existing organisation</p>
+          <form id="emp-form" onsubmit="submitEmp(event)">
+            <div class="field">
+              <label for="emp-org-id">Organisation ID</label>
+              <input type="text" id="emp-org-id" placeholder="e.g. ACME-01" required />
+            </div>
+            <div class="field">
+              <label for="emp-user-id">Employee ID</label>
+              <input type="text" id="emp-user-id" placeholder="e.g. EMP-0231" required />
+            </div>
+            <div class="field">
+              <label for="emp-name">Full Name</label>
+              <input type="text" id="emp-name" placeholder="e.g. Jane Doe" required />
+            </div>
+            <div class="field">
+              <label for="emp-password">Password</label>
+              <input type="password" id="emp-password" required />
+            </div>
+            <button type="submit" class="submit-btn" id="emp-btn">Add Employee</button>
+            <div class="msg-area" id="emp-msg"></div>
+          </form>
+        </div>
+
+      </div><!-- /.card -->
+
+      <div class="footer">
+        Already have an account? <a href="/login">Sign In</a>
+      </div>
+    </div>
+
+    <script>
+      function switchTab(tab) {
+        document.querySelectorAll('.tab-btn').forEach((b, i) => {
+          b.classList.toggle('active', (i === 0 && tab === 'org') || (i === 1 && tab === 'emp'));
+        });
+        document.getElementById('section-org').classList.toggle('active', tab === 'org');
+        document.getElementById('section-emp').classList.toggle('active', tab === 'emp');
+      }
+
+      function showMsg(id, text, isError) {
+        const el = document.getElementById(id);
+        el.textContent = text;
+        el.className = 'msg-area ' + (isError ? 'error' : 'success');
+        if (!isError) {
+          setTimeout(() => { el.className = 'msg-area'; el.textContent = ''; }, 4000);
+        }
+      }
+
+      async function submitOrg(e) {
+        e.preventDefault();
+        const btn = document.getElementById('org-btn');
+        btn.disabled = true;
+        btn.textContent = 'Creating...';
+        try {
+          const res = await fetch('/signup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              role: 'organization',
+              user_id: document.getElementById('org-user-id').value.trim(),
+              name: document.getElementById('org-name').value.trim(),
+              password: document.getElementById('org-password').value,
+              org_id: null,
+            }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.detail || 'Registration failed');
+          showMsg('org-msg', data.message, false);
+          document.getElementById('org-form').reset();
+          setTimeout(() => { window.location.href = '/login'; }, 2000);
+        } catch (err) {
+          showMsg('org-msg', err.message, true);
+        } finally {
+          btn.disabled = false;
+          btn.textContent = 'Create Organisation';
+        }
+      }
+
+      async function submitEmp(e) {
+        e.preventDefault();
+        const btn = document.getElementById('emp-btn');
+        btn.disabled = true;
+        btn.textContent = 'Adding...';
+        try {
+          const res = await fetch('/signup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              role: 'employee',
+              user_id: document.getElementById('emp-user-id').value.trim(),
+              name: document.getElementById('emp-name').value.trim(),
+              password: document.getElementById('emp-password').value,
+              org_id: document.getElementById('emp-org-id').value.trim(),
+            }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.detail || 'Registration failed');
+          showMsg('emp-msg', data.message, false);
+          document.getElementById('emp-form').reset();
+          setTimeout(() => { window.location.href = '/login'; }, 2000);
+        } catch (err) {
+          showMsg('emp-msg', err.message, true);
+        } finally {
+          btn.disabled = false;
+          btn.textContent = 'Add Employee';
+        }
+      }
+    </script>
+  </body>
+</html>

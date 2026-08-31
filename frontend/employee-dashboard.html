@@ -2,14 +2,11 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>SENTRY | My Risk Status</title>
-    <meta
-      name="description"
-      content="Employee view: status of risk items associated with your account."
-    />
+    <title>SENTRY | Employee Risk Status</title>
     <style>
-      @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap");
+      @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fira+Code:wght@400;500&family=Orbitron:wght@700;800&display=swap");
 
       :root {
         --bg: #0a0e27;
@@ -50,6 +47,14 @@
         gap: 10px;
         font-weight: 800;
         letter-spacing: 0.1em;
+      }
+      .brand span.title {
+        font-family: "Orbitron", sans-serif;
+        font-size: 1.1rem;
+        background: linear-gradient(135deg, var(--accent), var(--accent-2));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
       }
       .brand span.tag {
         font-size: 0.7rem;
@@ -170,49 +175,55 @@
   <body>
     <header>
       <div class="brand">
-        <svg
-          width="20"
-          height="20"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="#22D3EE"
-          stroke-width="2"
-        >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#22D3EE" stroke-width="2">
           <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5" />
-          <circle
-            cx="12"
-            cy="12"
-            r="3.5"
-            fill="#22D3EE"
-            fill-opacity="0.25"
-            stroke="#22D3EE"
-            stroke-width="1.5"
-          />
+          <circle cx="12" cy="12" r="3.5" fill="#22D3EE" fill-opacity="0.25" stroke="#22D3EE" stroke-width="1.5" />
         </svg>
-        <span>SENTRY</span>
+        <span class="title">SENTRY</span>
         <span class="tag">EMPLOYEE VIEW</span>
       </div>
       <div class="who">
-        <span id="who-label">—</span>
+        <span id="who-label">-</span>
         <a class="signout" onclick="signOut()">Sign out</a>
       </div>
     </header>
 
     <main>
+      <!-- DEVICE FREEZE STATUS BANNER -->
+      <div id="freeze-banner-active" style="display:none;background:rgba(239,91,91,0.15);border:1px solid rgba(239,91,91,0.5);border-radius:12px;padding:18px 22px;margin-bottom:28px;color:#ff8080;">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div style="font-weight:800;font-size:1.1rem;">[LOCKED]</div>
+          <div>
+            <div style="font-weight:700;font-size:0.95rem;">Your device has been flagged for security review</div>
+            <div id="freeze-reason" style="font-size:0.8rem;margin-top:4px;color:rgba(255,128,128,0.85);"></div>
+            <div style="font-size:0.75rem;margin-top:2px;color:rgba(255,128,128,0.65);">Please contact your organization security administrator for assistance.</div>
+          </div>
+        </div>
+      </div>
+
+      <div id="freeze-banner-pending" style="display:none;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.35);border-radius:12px;padding:16px 22px;margin-bottom:28px;color:var(--pending);">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div style="font-weight:800;font-size:1.1rem;">[!]</div>
+          <div>
+            <div style="font-weight:700;font-size:0.9rem;">Security review pending for your device</div>
+            <div style="font-size:0.75rem;margin-top:2px;">Your security team has initiated an automated review. No action is required from you.</div>
+          </div>
+        </div>
+      </div>
+
       <h1>My Risk Status</h1>
       <p class="sub">
-        This shows only the status of risk items associated with your account.
-        Full details are reviewed and managed by your organization's security
-        team.
+        This shows the status of risk findings associated with your account and workstation.
+        Full details are reviewed and managed by your organization security team.
       </p>
 
       <div class="error-banner" id="error-banner"></div>
       <div class="flag-list" id="flag-list">
-        <div class="empty">Loading…</div>
+        <div class="empty">Loading...</div>
       </div>
 
       <div class="note">
-        Status meanings — <strong>Pending</strong>: awaiting review by your
+        Status meanings - <strong>Pending</strong>: awaiting review by your
         organization. <strong>Completed</strong>: reviewed and resolved by your
         organization or auto-cleared per policy. No further action is needed
         from you for either state.
@@ -264,9 +275,7 @@
           const flags = await res.json();
           renderFlags(flags);
         } catch (e) {
-          showError(
-            "Could not load your risk status — is the backend running?",
-          );
+          showError("Could not load your risk status. Ensure the backend is active.");
           document.getElementById("flag-list").innerHTML = "";
         }
       }
@@ -274,26 +283,50 @@
       function renderFlags(flags) {
         const list = document.getElementById("flag-list");
         if (!flags.length) {
-          list.innerHTML = `<div class="empty">No risk items associated with your account right now.</div>`;
+          list.innerHTML = `<div class="empty">No risk findings associated with your account.</div>`;
           return;
         }
         list.innerHTML = flags
-          .map(
-            (f) => `
-        <div class="flag-row">
-          <div class="flag-left">
-            <span class="flag-id">${f.id}</span>
-            <span class="flag-time">${relativeTime(f.created_at)}</span>
-          </div>
-          <span class="status-badge status-${f.status}">${f.status}</span>
-        </div>
-      `,
-          )
-          .join("");
+          .map(f => `
+            <div class="flag-row">
+              <div class="flag-left">
+                <span class="flag-id">${f.id}</span>
+                <span class="flag-time">${relativeTime(f.created_at)}</span>
+              </div>
+              <span class="status-badge status-${f.status}">${f.status}</span>
+            </div>
+          `).join("");
+      }
+
+      async function checkFreezeStatus() {
+        try {
+          const res = await fetch("/device/freeze-status", {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (!res.ok) return;
+          const data = await res.json();
+          const activeBanner = document.getElementById("freeze-banner-active");
+          const pendingBanner = document.getElementById("freeze-banner-pending");
+          const reasonEl = document.getElementById("freeze-reason");
+
+          if (data.frozen && data.status === "active") {
+            reasonEl.textContent = data.reason || "Device flagged for security lockdown.";
+            activeBanner.style.display = "block";
+            pendingBanner.style.display = "none";
+          } else if (data.frozen && data.status === "pending") {
+            activeBanner.style.display = "none";
+            pendingBanner.style.display = "block";
+          } else {
+            activeBanner.style.display = "none";
+            pendingBanner.style.display = "none";
+          }
+        } catch (e) {}
       }
 
       loadMyFlags();
+      checkFreezeStatus();
       setInterval(loadMyFlags, 8000);
+      setInterval(checkFreezeStatus, 30000);
     </script>
   </body>
 </html>

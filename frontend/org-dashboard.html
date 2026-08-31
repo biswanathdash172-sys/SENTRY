@@ -1,0 +1,696 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SENTRY | Organization Portal</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fira+Code:wght@400;500&family=Orbitron:wght@700;800&display=swap");
+
+      :root {
+        --bg: #0a0e27;
+        --panel: #10142e;
+        --accent: #3b5bff;
+        --accent-2: #22d3ee;
+        --border: rgba(255, 255, 255, 0.08);
+        --text: #ffffff;
+        --muted: #94a3b8;
+        --ok: #22d3ee;
+        --pending: #f59e0b;
+        --err: #ff6b6b;
+        --not-risky: #22d3ee;
+        --part-risky: #f59e0b;
+        --high-risky: #ef5b5b;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        font-family: "Inter", sans-serif;
+      }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        min-height: 100vh;
+      }
+
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 16px 32px;
+        border-bottom: 1px solid var(--border);
+        background: rgba(16, 20, 46, 0.75);
+        backdrop-filter: blur(12px);
+        position: sticky;
+        top: 0;
+        z-index: 10;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-weight: 800;
+        letter-spacing: 0.1em;
+      }
+      .brand span.title {
+        font-family: "Orbitron", sans-serif;
+        font-size: 1.2rem;
+        background: linear-gradient(135deg, var(--accent), var(--accent-2));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+      .brand span.tag {
+        font-size: 0.68rem;
+        font-weight: 700;
+        color: var(--accent-2);
+        letter-spacing: 0.06em;
+        background: rgba(34, 211, 238, 0.1);
+        padding: 3px 10px;
+        border-radius: 20px;
+        border: 1px solid rgba(34, 211, 238, 0.3);
+      }
+      .who {
+        font-size: 0.85rem;
+        color: var(--muted);
+        display: flex;
+        align-items: center;
+        gap: 16px;
+      }
+      .signout {
+        color: var(--accent-2);
+        text-decoration: none;
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      main {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 32px 24px 80px;
+        display: flex;
+        flex-direction: column;
+        gap: 28px;
+      }
+
+      .stats-row {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 16px;
+      }
+      .stat-box {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 18px 20px;
+      }
+      .stat-label {
+        font-size: 0.7rem;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin-bottom: 6px;
+      }
+      .stat-value {
+        font-size: 1.8rem;
+        font-weight: 800;
+      }
+      .stat-box.not-risky .stat-value { color: var(--not-risky); }
+      .stat-box.part-risky .stat-value { color: var(--part-risky); }
+      .stat-box.high-risky .stat-value { color: var(--high-risky); }
+      .stat-box.total .stat-value { color: var(--accent-2); }
+
+      .charts-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+      }
+      .chart-card {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 20px;
+      }
+      .chart-title {
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin-bottom: 14px;
+      }
+
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 24px;
+      }
+      .card h2 {
+        font-size: 0.8rem;
+        font-weight: 800;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--accent-2);
+        margin-bottom: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+
+      .form-row {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr) auto;
+        gap: 12px;
+        align-items: flex-end;
+      }
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .field label {
+        font-size: 0.72rem;
+        font-weight: 600;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      .field input, .field select {
+        background: rgba(0, 0, 0, 0.35);
+        border: 1px solid var(--border);
+        color: var(--text);
+        padding: 10px 14px;
+        border-radius: 8px;
+        font-size: 0.88rem;
+        outline: none;
+        transition: border-color 0.2s;
+      }
+      .field input:focus, .field select:focus {
+        border-color: var(--accent-2);
+      }
+
+      .btn {
+        background: linear-gradient(135deg, var(--accent), var(--accent-2));
+        color: #fff;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 8px;
+        font-weight: 700;
+        font-size: 0.85rem;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: opacity 0.2s;
+      }
+      .btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      .btn.small {
+        padding: 5px 12px;
+        font-size: 0.72rem;
+      }
+      .btn.approve {
+        background: linear-gradient(135deg, #16a34a, var(--accent-2));
+      }
+      .btn.deny {
+        background: rgba(239, 91, 91, 0.15);
+        color: #ff8080;
+        border: 1px solid rgba(239, 91, 91, 0.35);
+      }
+      .btn.danger-outline {
+        background: transparent;
+        border: 1px solid rgba(239, 91, 91, 0.4);
+        color: #ff8080;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.82rem;
+      }
+      th, td {
+        text-align: left;
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--border);
+        vertical-align: middle;
+      }
+      th {
+        color: var(--muted);
+        font-weight: 600;
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      td.mono {
+        font-family: "Fira Code", monospace;
+        font-size: 0.78rem;
+      }
+
+      .tier-badge {
+        font-family: "Fira Code", monospace;
+        font-size: 0.7rem;
+        font-weight: 700;
+        padding: 3px 10px;
+        border-radius: 20px;
+        text-transform: uppercase;
+        white-space: nowrap;
+      }
+      .tier-not_risky {
+        background: rgba(34, 211, 238, 0.12);
+        color: var(--not-risky);
+        border: 1px solid rgba(34, 211, 238, 0.3);
+      }
+      .tier-part_risky {
+        background: rgba(245, 158, 11, 0.12);
+        color: var(--part-risky);
+        border: 1px solid rgba(245, 158, 11, 0.3);
+      }
+      .tier-high_risky {
+        background: rgba(239, 91, 91, 0.12);
+        color: var(--high-risky);
+        border: 1px solid rgba(239, 91, 91, 0.3);
+      }
+
+      .role-chip {
+        font-family: "Fira Code", monospace;
+        font-size: 0.7rem;
+        font-weight: 700;
+        padding: 3px 10px;
+        border-radius: 20px;
+        text-transform: uppercase;
+        white-space: nowrap;
+      }
+      .role-chip.admin {
+        background: rgba(59, 91, 255, 0.15);
+        color: #93a5ff;
+        border: 1px solid rgba(59, 91, 255, 0.35);
+      }
+      .role-chip.employee {
+        background: rgba(255, 255, 255, 0.06);
+        color: var(--muted);
+        border: 1px solid var(--border);
+      }
+
+      .msg {
+        font-size: 0.8rem;
+        padding: 10px 14px;
+        border-radius: 8px;
+        margin-top: 12px;
+        display: none;
+      }
+      .msg.success {
+        background: rgba(34, 211, 238, 0.1);
+        border: 1px solid rgba(34, 211, 238, 0.3);
+        color: var(--ok);
+        display: block;
+      }
+      .msg.error {
+        background: rgba(255, 107, 107, 0.1);
+        border: 1px solid rgba(255, 107, 107, 0.3);
+        color: var(--err);
+        display: block;
+      }
+      .empty {
+        text-align: center;
+        color: var(--muted);
+        padding: 30px;
+        font-size: 0.85rem;
+      }
+
+      @media (max-width: 900px) {
+        .stats-row { grid-template-columns: repeat(2, 1fr); }
+        .charts-row { grid-template-columns: 1fr; }
+        .form-row { grid-template-columns: 1fr; }
+      }
+        .card h2,
+        .stat-label,
+        .stat-value,
+        th,
+        td {
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="brand">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#22D3EE" stroke-width="2">
+          <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5" />
+          <circle cx="12" cy="12" r="3.5" fill="#22D3EE" fill-opacity="0.25" stroke="#22D3EE" stroke-width="1.5" />
+        </svg>
+        <span class="title">SENTRY</span>
+        <span class="tag">ORGANIZATION PORTAL</span>
+      </div>
+      <div class="who">
+        <span id="who-label">-</span>
+        <button class="btn small" onclick="signOut()">Sign out</button>
+      </div>
+    </header>
+
+    <main>
+      <!-- Employee Management (Organization Core) -->
+      <div class="card">
+        <h2>Organization Employee Management</h2>
+        <div class="form-row">
+          <div class="field">
+            <label for="emp-id">Employee ID</label>
+            <input type="text" id="emp-id" placeholder="EMP-0231" />
+          </div>
+          <div class="field">
+            <label for="emp-name">Full Name</label>
+            <input type="text" id="emp-name" placeholder="Jane Doe" />
+          </div>
+          <div class="field">
+            <label for="emp-password">Password</label>
+            <input type="password" id="emp-password" placeholder="Password" />
+          </div>
+          <button class="btn" onclick="createEmployee()">Create Employee</button>
+        </div>
+        <div class="msg" id="employee-msg"></div>
+
+        <table style="margin-top: 20px">
+          <thead>
+            <tr>
+              <th>Employee ID</th>
+              <th>Name</th>
+              <th>Role</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="employee-table-body">
+            <tr><td colspan="4" class="empty">Loading employee directory...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Remote Device Controls (Organization Scope) -->
+      <div class="card">
+        <h2>Remote Device Controls</h2>
+        <div class="msg" id="device-msg"></div>
+        <table style="margin-top:8px;">
+          <thead>
+            <tr>
+              <th>Employee ID</th>
+              <th>Device Status</th>
+              <th>Lock Reason</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="device-table-body">
+            <tr><td colspan="4" class="empty">Loading device controls...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Audit Log -->
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <h2>Organization Audit Trail</h2>
+          <button class="btn small" onclick="openAuditModal()">See More</button>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Timestamp</th>
+              <th>Actor</th>
+              <th>Message</th>
+            </tr>
+          </thead>
+          <tbody id="audit-table-body">
+            <tr><td colspan="3" class="empty">Loading audit log...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </main>
+
+    <!-- Audit Modal -->
+    <div id="audit-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:100;align-items:center;justify-content:center;padding:20px;">
+      <div class="card" style="width:100%;max-width:800px;max-height:80vh;display:flex;flex-direction:column;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+          <h2>Full Audit Trail</h2>
+          <button class="btn small danger-outline" onclick="closeAuditModal()">Close</button>
+        </div>
+        <div style="overflow-y:auto;flex:1;">
+          <table>
+            <thead>
+              <tr>
+                <th>Timestamp</th>
+                <th>Actor</th>
+                <th>Message</th>
+              </tr>
+            </thead>
+            <tbody id="audit-modal-body">
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const token = sessionStorage.getItem("sentry_token");
+      const isAdmin = sessionStorage.getItem("sentry_is_admin") === "true";
+      const employeeId = sessionStorage.getItem("sentry_employee_id");
+      const orgId = sessionStorage.getItem("sentry_org_id") || "";
+
+      if (!token) { window.location.href = "/login"; }
+      if (!isAdmin) { window.location.href = "/employee-dashboard"; }
+
+      document.getElementById("who-label").textContent = employeeId
+        ? `Org Admin: ${employeeId}${orgId ? " (" + orgId + ")" : ""}`
+        : "";
+
+      function signOut() {
+        sessionStorage.clear();
+        window.location.href = "/login";
+      }
+      function authHeaders(extra = {}) {
+        return { Authorization: `Bearer ${token}`, ...extra };
+      }
+      function showMsg(elId, text, isError) {
+        const el = document.getElementById(elId);
+        if (!el) return;
+        el.textContent = text;
+        el.className = "msg " + (isError ? "error" : "success");
+        setTimeout(() => { el.className = "msg"; }, 5000);
+      }
+      async function handle401(res) {
+        if (res.status === 401) { sessionStorage.clear(); window.location.href = "/login"; return true; }
+        if (res.status === 403) { window.location.href = "/employee-dashboard"; return true; }
+        return false;
+      }
+
+      /* ---- Employee Management ---- */
+      async function loadEmployees() {
+        try {
+          const res = await fetch("/employees", { headers: authHeaders() });
+          if (await handle401(res)) return;
+          if (!res.ok) throw new Error(await res.text());
+          const emps = await res.json();
+          const tbody = document.getElementById("employee-table-body");
+          if (!emps.length) {
+            tbody.innerHTML = `<tr><td colspan="4" class="empty">No employees registered in this organisation.</td></tr>`;
+            return;
+          }
+          tbody.innerHTML = emps.map(emp => {
+            const roleBadge = emp.is_admin
+              ? `<span class="role-chip admin">Admin</span>`
+              : `<span class="role-chip employee">Employee</span>`;
+            const toggleBtn = emp.is_admin
+              ? `<button class="btn small danger-outline" onclick="setAdminStatus('${emp.employee_id}', false)">Revoke Admin</button>`
+              : `<button class="btn small" onclick="setAdminStatus('${emp.employee_id}', true)">Make Admin</button>`;
+            const delBtn = `<button class="btn small danger-outline" style="margin-left:6px;" onclick="deleteEmployee('${emp.employee_id}')">Remove</button>`;
+            return `<tr>
+              <td class="mono">${emp.employee_id}</td>
+              <td>${emp.name || emp.display_name || "-"}</td>
+              <td>${roleBadge}</td>
+              <td>${toggleBtn}${delBtn}</td>
+            </tr>`;
+          }).join("");
+        } catch (e) {
+          document.getElementById("employee-table-body").innerHTML =
+            `<tr><td colspan="4" class="empty">Could not load employees: ${e.message}</td></tr>`;
+        }
+      }
+
+      async function createEmployee() {
+        const empId = document.getElementById("emp-id").value.trim();
+        const name = document.getElementById("emp-name").value.trim();
+        const password = document.getElementById("emp-password").value;
+        if (!empId || !name || !password) {
+          showMsg("employee-msg", "All fields are required.", true); return;
+        }
+        try {
+          const res = await fetch("/employees", {
+            method: "POST",
+            headers: authHeaders({ "Content-Type": "application/json" }),
+            body: JSON.stringify({ employee_id: empId, name, password }),
+          });
+          if (await handle401(res)) return;
+          if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.detail || "Failed to create employee."); }
+          document.getElementById("emp-id").value = "";
+          document.getElementById("emp-name").value = "";
+          document.getElementById("emp-password").value = "";
+          showMsg("employee-msg", `Employee ${empId} created successfully.`, false);
+          await loadEmployees();
+          await loadDeviceControls();
+        } catch (e) { showMsg("employee-msg", e.message, true); }
+      }
+
+      async function setAdminStatus(empId, makeAdmin) {
+        try {
+          // Correct endpoint: PUT /employees/{id}/admin
+          const res = await fetch(`/employees/${encodeURIComponent(empId)}/admin`, {
+            method: "PUT",
+            headers: authHeaders({ "Content-Type": "application/json" }),
+            body: JSON.stringify({ is_admin: makeAdmin }),
+          });
+          if (await handle401(res)) return;
+          if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.detail || "Failed to update role."); }
+          showMsg("employee-msg", `Updated role for ${empId}.`, false);
+          await loadEmployees();
+        } catch (e) { showMsg("employee-msg", e.message, true); }
+      }
+
+      async function deleteEmployee(empId) {
+        if (!confirm(`Are you sure you want to remove employee ${empId}?`)) return;
+        try {
+          const res = await fetch(`/employees/${encodeURIComponent(empId)}`, {
+            method: "DELETE", headers: authHeaders(),
+          });
+          if (await handle401(res)) return;
+          if (!res.ok && res.status !== 204) { const err = await res.json().catch(() => ({})); throw new Error(err.detail || "Failed to delete employee."); }
+          showMsg("employee-msg", `Employee ${empId} removed.`, false);
+          await loadEmployees();
+          await loadDeviceControls();
+        } catch (e) { showMsg("employee-msg", e.message, true); }
+      }
+
+      /* ---- Remote Device Controls ---- */
+      async function loadDeviceControls() {
+        try {
+          const [devRes, empRes] = await Promise.all([
+            fetch("/device/all-freeze-status", { headers: authHeaders() }),
+            fetch("/employees", { headers: authHeaders() }),
+          ]);
+          const employees = empRes.ok ? await empRes.json() : [];
+          let frozenMap = {};
+          if (devRes.ok) {
+            const freezes = await devRes.json();
+            freezes.forEach(f => { frozenMap[f.employee_id] = f; });
+          }
+          const tbody = document.getElementById("device-table-body");
+          if (!employees.length) {
+            tbody.innerHTML = `<tr><td colspan="4" class="empty">No employees registered.</td></tr>`;
+            return;
+          }
+          tbody.innerHTML = employees.map(emp => {
+            const freeze = frozenMap[emp.employee_id];
+            const isFrozen = freeze && freeze.status === "active";
+            const statusBadge = isFrozen
+              ? `<span class="tier-badge tier-high_risky">FROZEN</span>`
+              : `<span class="tier-badge tier-not_risky">Active</span>`;
+            const reason = freeze ? (freeze.reason || "-").slice(0, 60) : "-";
+            const freezeBtn = isFrozen
+              ? `<button class="btn small approve" onclick="unfreezeDevice('${emp.employee_id}')">Lift Freeze</button>`
+              : `<button class="btn small deny" onclick="freezeDevice('${emp.employee_id}')">Lock Device</button>`;
+            return `<tr>
+              <td class="mono">${emp.employee_id}</td>
+              <td>${statusBadge}</td>
+              <td style="font-size:0.75rem;color:var(--muted);">${reason}</td>
+              <td>${freezeBtn}</td>
+            </tr>`;
+          }).join("");
+        } catch (e) {
+          document.getElementById("device-table-body").innerHTML =
+            `<tr><td colspan="4" class="empty">Could not load device controls: ${e.message}</td></tr>`;
+        }
+      }
+
+      async function freezeDevice(empId) {
+        const reason = prompt(`Reason for locking device ${empId}:`, "Security review") || "Administrative lock";
+        try {
+          const res = await fetch(`/device/freeze/${encodeURIComponent(empId)}`, {
+            method: "POST",
+            headers: authHeaders({ "Content-Type": "application/json" }),
+            body: JSON.stringify({ reason }),
+          });
+          if (await handle401(res)) return;
+          if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.detail || "Lock failed."); }
+          showMsg("device-msg", `Device locked for ${empId}.`, false);
+          await loadDeviceControls();
+        } catch (e) { showMsg("device-msg", e.message, true); }
+      }
+
+      async function unfreezeDevice(empId) {
+        if (!confirm(`Lift lockdown for ${empId}?`)) return;
+        try {
+          const res = await fetch(`/device/unfreeze/${encodeURIComponent(empId)}`, {
+            method: "POST", headers: authHeaders(),
+          });
+          if (await handle401(res)) return;
+          if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.detail || "Lift failed."); }
+          showMsg("device-msg", `Device lock lifted for ${empId}.`, false);
+          await loadDeviceControls();
+        } catch (e) { showMsg("device-msg", e.message, true); }
+      }
+
+      /* ---- Audit Log ---- */
+      let fullAuditLogs = [];
+      function openAuditModal() {
+        document.getElementById("audit-modal").style.display = "flex";
+        const tbody = document.getElementById("audit-modal-body");
+        tbody.innerHTML = fullAuditLogs.map(l => {
+          const time = l.created_at ? new Date(l.created_at).toLocaleString() : "-";
+          return `<tr>
+            <td style="font-size:0.75rem;color:var(--muted);">${time}</td>
+            <td class="mono" style="font-size:0.75rem;">${l.employee_id || "-"}</td>
+            <td style="font-size:0.8rem;">${l.message}</td>
+          </tr>`;
+        }).join("");
+      }
+      function closeAuditModal() {
+        document.getElementById("audit-modal").style.display = "none";
+      }
+      async function loadAuditLog() {
+        try {
+          const res = await fetch("/audit-log", { headers: authHeaders() });
+          if (await handle401(res)) return;
+          if (!res.ok) return;
+          fullAuditLogs = await res.json();
+          const tbody = document.getElementById("audit-table-body");
+          if (!fullAuditLogs.length) {
+            tbody.innerHTML = `<tr><td colspan="3" class="empty">No audit entries yet.</td></tr>`;
+            return;
+          }
+          tbody.innerHTML = fullAuditLogs.slice(0, 5).map(l => {
+            const time = l.created_at ? new Date(l.created_at).toLocaleString() : "-";
+            return `<tr>
+              <td style="font-size:0.75rem;color:var(--muted);">${time}</td>
+              <td class="mono" style="font-size:0.75rem;">${l.employee_id || "-"}</td>
+              <td style="font-size:0.8rem;">${l.message}</td>
+            </tr>`;
+          }).join("");
+        } catch (e) { console.error("Audit log error:", e); }
+      }
+
+      /* ---- Init ---- */
+      loadEmployees();
+      loadDeviceControls();
+      loadAuditLog();
+
+      setInterval(() => {
+        loadDeviceControls();
+        loadAuditLog();
+      }, 15000);
+    </script>
+  </body>
+</html>
