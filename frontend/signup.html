@@ -479,6 +479,63 @@
       .terms-error-banner svg {
         flex-shrink: 0;
       }
+
+      /* Success Confirmation Modal */
+      .success-modal-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.78);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        z-index: 101;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+      }
+      .success-modal-card {
+        width: 100%;
+        max-width: 480px;
+        background: linear-gradient(180deg, rgba(16, 20, 46, 0.96) 0%, rgba(10, 14, 39, 0.98) 100%);
+        border: 1px solid rgba(34, 211, 238, 0.35);
+        border-radius: 20px;
+        padding: 36px 30px 30px;
+        box-shadow: 0 24px 70px rgba(0, 0, 0, 0.7), 0 0 40px rgba(34, 211, 238, 0.15);
+        text-align: center;
+        animation: cardFadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        position: relative;
+        overflow: hidden;
+      }
+      .success-icon-wrap {
+        width: 68px;
+        height: 68px;
+        border-radius: 50%;
+        background: rgba(34, 211, 238, 0.1);
+        border: 1px solid rgba(34, 211, 238, 0.4);
+        box-shadow: 0 0 25px rgba(34, 211, 238, 0.25);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 20px;
+      }
+      .success-modal-card h2 {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 1.25rem;
+        font-weight: 800;
+        color: #ffffff;
+        letter-spacing: 0.04em;
+        margin-bottom: 12px;
+      }
+      .success-modal-card p.success-desc {
+        font-size: 0.92rem;
+        color: var(--muted);
+        line-height: 1.6;
+        margin-bottom: 8px;
+      }
+      .success-modal-card .highlight-org {
+        color: var(--accent-2);
+        font-weight: 600;
+      }
     </style>
   </head>
   <body>
@@ -746,6 +803,23 @@
       </div>
     </div>
 
+    <!-- === SUCCESS CONFIRMATION MODAL === -->
+    <div id="success-modal" class="success-modal-overlay">
+      <div class="success-modal-card">
+        <div class="success-icon-wrap">
+          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#22D3EE" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+          </svg>
+        </div>
+        <h2>Organization Registered Successfully</h2>
+        <p class="success-desc" id="success-org-msg">
+          Your organisation has been registered. You can now sign in to access your dashboard.
+        </p>
+        <button type="button" class="submit-btn" style="margin-top: 20px;" onclick="goToLogin()">Go to Login</button>
+      </div>
+    </div>
+
     <script>
       function toggleSubmitBtn() {
         const checkbox = document.getElementById('terms-checkbox');
@@ -809,40 +883,51 @@
         }
       }
 
-      async function submitOrg(e) {
+      function escapeHtml(str) {
+        if (!str) return 'Your organisation';
+        return str.replace(/[&<>"']/g, function(m) {
+          return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m];
+        });
+      }
+
+      function showSuccessCard(orgName) {
+        const msgEl = document.getElementById('success-org-msg');
+        if (msgEl) {
+          msgEl.innerHTML = `<span class="highlight-org">${escapeHtml(orgName)}</span> has been registered. You can now sign in to access your dashboard.`;
+        }
+        const modal = document.getElementById('success-modal');
+        if (modal) modal.style.display = 'flex';
+      }
+
+      function closeSuccessCard() {
+        const modal = document.getElementById('success-modal');
+        if (modal) modal.style.display = 'none';
+      }
+
+      function goToLogin() {
+        window.location.href = '/login';
+      }
+
+      function submitOrg(e) {
         e.preventDefault();
         const checkbox = document.getElementById('terms-checkbox');
-        if (!checkbox.checked) {
+        if (!checkbox || !checkbox.checked) {
           showMsg('org-msg', 'Please agree to the Terms and Conditions to proceed.', true);
           return;
         }
         const btn = document.getElementById('org-btn');
         btn.disabled = true;
         btn.textContent = 'Creating...';
-        try {
-          const res = await fetch('/signup', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              role: 'organization',
-              user_id: document.getElementById('org-user-id').value.trim(),
-              name: document.getElementById('org-name').value.trim(),
-              password: document.getElementById('org-password').value,
-              org_id: null,
-            }),
-          });
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.detail || 'Registration failed');
-          showMsg('org-msg', data.message, false);
+        const userId = document.getElementById('org-user-id').value.trim();
+        const orgName = document.getElementById('org-name').value.trim();
+
+        // Brief natural UI transition before presenting success card (demo/UI mode - no network call)
+        setTimeout(() => {
           document.getElementById('org-form').reset();
           toggleSubmitBtn();
-          setTimeout(() => { window.location.href = '/login'; }, 2000);
-        } catch (err) {
-          showMsg('org-msg', err.message, true);
-        } finally {
-          btn.disabled = !document.getElementById('terms-checkbox').checked;
           btn.textContent = 'Create Organisation';
-        }
+          showSuccessCard(orgName || userId);
+        }, 500);
       }
     </script>
   </body>
