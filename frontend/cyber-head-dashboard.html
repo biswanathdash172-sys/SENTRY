@@ -716,65 +716,12 @@
         </div>
       </div>
 
-      <!-- 2-Column Section: Auto-Approval Policies & Domain Whitelist -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        
-        <!-- Auto-Approval Policies Card -->
-        <div class="table-card p-6 flex flex-col" id="policy-card">
-          <div class="flex justify-between items-center mb-4">
-            <div>
-              <h3 class="font-headline-md text-on-surface text-lg font-bold flex items-center gap-2">
-                <span class="material-symbols-outlined text-accent-cyan text-[20px]">verified_user</span>
-                Auto‑Approval Policies
-              </h3>
-              <p class="font-body-md text-on-surface-variant text-xs">Configure automated decision thresholds for risk tiers</p>
-            </div>
-          </div>
-          <div class="flex-1 flex flex-col justify-center space-y-3 mt-2" id="rules-list">
-            <div class="empty">Loading auto-approval policies…</div>
-          </div>
-        </div>
-
-        <!-- Trusted Sender Domains (Whitelist) Card -->
-        <div class="table-card p-6 flex flex-col" id="whitelist-card">
-          <div class="flex justify-between items-center mb-4">
-            <div>
-              <h3 class="font-headline-md text-on-surface text-lg font-bold flex items-center gap-2">
-                <span class="material-symbols-outlined text-accent-cyan text-[20px]">shield</span>
-                Trusted Sender Domains (Whitelist)
-              </h3>
-              <p class="font-body-md text-on-surface-variant text-xs">Manage trusted sender domain whitelist</p>
-            </div>
-          </div>
-          <div class="flex gap-2 items-end mb-4 flex-wrap">
-            <div class="field flex-1 min-w-[200px]">
-              <label for="new-domain">Add Trusted Domain</label>
-              <input type="text" id="new-domain" placeholder="e.g. partner-corp.com" autocomplete="off" />
-            </div>
-            <button class="btn" onclick="addDomain()">Add</button>
-            <button class="btn secondary" onclick="autoAddDomains()" title="Auto-add safe domains from recent emails">Auto-Add Safe</button>
-          </div>
-          <div class="msg" id="whitelist-msg"></div>
-          <div id="whitelist-list" class="flex-1 overflow-y-auto max-h-56 space-y-2 mt-1">
-            <div class="empty">Loading whitelist…</div>
-          </div>
-        </div>
-
-      </div>
-
-      <!-- Live Email Intelligence Section -->
-      <div class="table-card p-6 flex flex-col" id="email-intel-card">
-        <div class="flex justify-between items-center mb-4">
-          <div>
-            <h3 class="font-headline-md text-on-surface text-lg font-bold flex items-center gap-2">
-              <span class="material-symbols-outlined text-accent-cyan text-[20px]">mail</span>
-              Live Email Intelligence
-            </h3>
-            <p class="font-body-md text-on-surface-variant text-xs">Monitored email streams, sender authenticity & confidence metrics</p>
-          </div>
-          <button class="btn secondary small" onclick="openEmailModal()">
-            <span class="material-symbols-outlined text-[15px]">visibility</span>
-            See More
+      <!-- Scan engine + resolution actions -->
+      <div class="card">
+        <h2>
+          Unified Threat Feed (SCA Scans & Live Notifications)
+          <button class="btn" id="scan-btn" onclick="runScan()">
+            Run Fixed-Payload Scan (OSV.dev, live)
           </button>
         </div>
         <div id="email-banner" style="display:none;background:rgba(239,91,91,0.12);border:1px solid rgba(239,91,91,0.35);color:#ff8080;padding:12px 16px;border-radius:10px;margin-bottom:16px;font-size:0.85rem;"></div>
@@ -1150,32 +1097,32 @@
       }
     }
 
-    async function runScan() {
-      const btn = document.getElementById("scan-btn");
-      btn.disabled = true;
-      btn.textContent = "Scanning via OSV.dev…";
-      try {
-        const res = await fetch("/scan/demo", {
-          method: "POST",
-          headers: authHeaders(),
-        });
-        if (await handle401(res)) return;
-        if (!res.ok) throw new Error(await res.text());
-        const results = await res.json();
-        showMsg(
-          "scan-msg",
-          `Scan complete — ${results.length} package(s) checked against live OSV.dev data.`,
-          false,
-        );
-        await loadScanResults();
-        await loadAnalytics();
-      } catch (e) {
-        showMsg("scan-msg", "Scan failed: " + e.message, true);
-      } finally {
-        btn.disabled = false;
-        btn.innerHTML = `<span class="material-symbols-outlined text-[15px]">radar</span> Run Fixed Scan`;
+      async function runScan() {
+        const btn = document.getElementById("scan-btn");
+        btn.disabled = true;
+        btn.textContent = "Scanning via OSV.dev…";
+        try {
+          const res = await fetch("/scan/demo", {
+            method: "POST",
+            headers: authHeaders(),
+          });
+          if (await handle401(res)) return;
+          if (!res.ok) throw new Error(await res.text());
+          const results = await res.json();
+          showMsg(
+            "scan-msg",
+            `Scan complete — ${results.length} package(s) checked against live OSV.dev data.`,
+            false,
+          );
+          await loadScanResults();
+          await loadAnalytics();
+        } catch (e) {
+          showMsg("scan-msg", "Scan failed: " + e.message, true);
+        } finally {
+          btn.disabled = false;
+          btn.textContent = "Run Fixed-Payload Scan (OSV.dev, live)";
+        }
       }
-    }
 
     async function resolveFlag(flagId, action) {
       try {

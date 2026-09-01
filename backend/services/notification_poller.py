@@ -56,14 +56,14 @@ FLOW:
   6. Track the highest Id seen so re-runs never reprocess old notifications.
 
 Env vars required (same names/pattern as backend/.env.example):
-  SENTRY_API_BASE           default: http://localhost:8000
-  SENTRY_ADMIN_USERNAME     -> the EMPLOYEE_ID this machine's user logs in
+  SENTRY_API_BASE              default: http://localhost:8000
+  SENTRY_EMPLOYEE_USERNAME  -> the EMPLOYEE_ID this machine's user logs in
                                as. Does NOT need to be an admin account —
                                each employee should run this poller logged
                                in as THEMSELVES, so risk_flags.employee_id
                                correctly traces back to the real affected
                                employee (see routers/notification_ingest.py).
-  SENTRY_ADMIN_PASSWORD     -> that employee's password
+  SENTRY_EMPLOYEE_PASSWORD  -> that employee's password
   NOTIFICATION_POLL_INTERVAL_SECONDS   default: 30
 """
 
@@ -91,8 +91,8 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [notif-poller] %(mes
 logger = logging.getLogger("sentry.notification_poller")
 
 API_BASE = os.environ.get("SENTRY_API_BASE", "http://localhost:8000")
-ADMIN_USERNAME = os.environ.get("SENTRY_ADMIN_USERNAME", "")
-ADMIN_PASSWORD = os.environ.get("SENTRY_ADMIN_PASSWORD", "")
+ADMIN_USERNAME = os.environ.get("SENTRY_EMPLOYEE_USERNAME", "") or os.environ.get("SENTRY_ADMIN_USERNAME", "")
+ADMIN_PASSWORD = os.environ.get("SENTRY_EMPLOYEE_PASSWORD", "") or os.environ.get("SENTRY_ADMIN_PASSWORD", "")
 POLL_INTERVAL_SECONDS = int(os.environ.get("NOTIFICATION_POLL_INTERVAL_SECONDS", "30"))
 
 STATE_FILE = Path(__file__).resolve().parent / ".notification_poller_state.json"
@@ -387,7 +387,7 @@ def poll_once(token: str, state: dict) -> dict:
 
 def main() -> None:
     missing = [name for name, val in [
-        ("SENTRY_ADMIN_USERNAME", ADMIN_USERNAME), ("SENTRY_ADMIN_PASSWORD", ADMIN_PASSWORD),
+        ("SENTRY_EMPLOYEE_USERNAME", ADMIN_USERNAME), ("SENTRY_EMPLOYEE_PASSWORD", ADMIN_PASSWORD),
     ] if not val]
     if missing:
         logger.error(f"Missing required env vars: {', '.join(missing)}. See module docstring.")

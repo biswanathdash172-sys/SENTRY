@@ -28,9 +28,9 @@ IMAP FALLBACK:
 
 Env vars (same as email_poller.py — no new vars needed unless using a
 different account):
-  IMAP_USER         — the Gmail address to monitor
-  SENTRY_API_BASE   — backend API base URL
-  SENTRY_ADMIN_USERNAME / SENTRY_ADMIN_PASSWORD  — for JWT token
+  IMAP_USER                     — the Gmail address to monitor
+  SENTRY_API_BASE               — backend API base URL
+  SENTRY_EMPLOYEE_USERNAME / SENTRY_EMPLOYEE_PASSWORD  — for JWT token
   GMAIL_POLL_INTERVAL_SECONDS  — default 30
 """
 
@@ -54,8 +54,8 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [gmail-poller] %(mes
 logger = logging.getLogger("sentry.gmail_poller")
 
 API_BASE = os.environ.get("SENTRY_API_BASE", "http://localhost:8000")
-ADMIN_USERNAME = os.environ.get("SENTRY_ADMIN_USERNAME", "")
-ADMIN_PASSWORD = os.environ.get("SENTRY_ADMIN_PASSWORD", "")
+ADMIN_USERNAME = os.environ.get("SENTRY_EMPLOYEE_USERNAME", "") or os.environ.get("SENTRY_ADMIN_USERNAME", "")
+ADMIN_PASSWORD = os.environ.get("SENTRY_EMPLOYEE_PASSWORD", "") or os.environ.get("SENTRY_ADMIN_PASSWORD", "")
 GMAIL_USER = os.environ.get("IMAP_USER", "")
 POLL_INTERVAL = int(os.environ.get("GMAIL_POLL_INTERVAL_SECONDS", "30"))
 
@@ -343,8 +343,8 @@ def main() -> None:
         return
 
     missing = [name for name, val in [
-        ("SENTRY_ADMIN_USERNAME", ADMIN_USERNAME),
-        ("SENTRY_ADMIN_PASSWORD", ADMIN_PASSWORD),
+        ("SENTRY_EMPLOYEE_USERNAME", ADMIN_USERNAME),
+        ("SENTRY_EMPLOYEE_PASSWORD", ADMIN_PASSWORD),
     ] if not val]
     if missing:
         logger.error(f"Missing env vars: {', '.join(missing)}")

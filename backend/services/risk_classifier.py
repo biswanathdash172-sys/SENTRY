@@ -247,8 +247,8 @@ def can_auto_approve(org_id: str, tier: RiskTier) -> bool:
 # fail-safe as any other high_risky finding, just labeled more precisely
 # for a human reading the dashboard.
 # ---------------------------------------------------------------------------
-LOW_CEILING = 0.29
-MEDIUM_CEILING = 0.59
+LOW_CEILING = NOT_RISKY_CONFIDENCE_CEILING
+MEDIUM_CEILING = PART_RISKY_CONFIDENCE_CEILING
 HIGH_CEILING = 0.84
 # anything above HIGH_CEILING -> "Critical"
 

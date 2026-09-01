@@ -16,10 +16,10 @@ HOW TO RUN:
   python services/device_agent.py
 
 REQUIRED ENV:
-  SENTRY_API_BASE          — backend URL (default: http://localhost:8000)
-  SENTRY_ADMIN_USERNAME    — employee's own Employee ID (not "admin" — each
-                             employee runs this as themselves)
-  SENTRY_ADMIN_PASSWORD    — that employee's password
+  SENTRY_API_BASE             — backend URL (default: http://localhost:8000)
+  SENTRY_EMPLOYEE_USERNAME    — employee's own Employee ID (not "admin" — each
+                                employee runs this as themselves)
+  SENTRY_EMPLOYEE_PASSWORD    — that employee's password
 
 POLLING INTERVAL:
   FREEZE_POLL_INTERVAL_SECONDS (default: 30)
@@ -53,8 +53,8 @@ logging.basicConfig(
 logger = logging.getLogger("sentry.device_agent")
 
 API_BASE = os.environ.get("SENTRY_API_BASE", "http://localhost:8000")
-EMPLOYEE_USERNAME = os.environ.get("SENTRY_ADMIN_USERNAME", "")
-EMPLOYEE_PASSWORD = os.environ.get("SENTRY_ADMIN_PASSWORD", "")
+EMPLOYEE_USERNAME = os.environ.get("SENTRY_EMPLOYEE_USERNAME", "") or os.environ.get("SENTRY_ADMIN_USERNAME", "")
+EMPLOYEE_PASSWORD = os.environ.get("SENTRY_EMPLOYEE_PASSWORD", "") or os.environ.get("SENTRY_ADMIN_PASSWORD", "")
 POLL_INTERVAL = int(os.environ.get("FREEZE_POLL_INTERVAL_SECONDS", "30"))
 
 _IS_WINDOWS = platform.system() == "Windows"
@@ -119,7 +119,7 @@ def main() -> None:
 
     if not EMPLOYEE_USERNAME or not EMPLOYEE_PASSWORD:
         logger.error(
-            "SENTRY_ADMIN_USERNAME and SENTRY_ADMIN_PASSWORD must be set in .env. "
+            "SENTRY_EMPLOYEE_USERNAME and SENTRY_EMPLOYEE_PASSWORD must be set in .env. "
             "Each employee should set these to their OWN credentials."
         )
         sys.exit(1)

@@ -31,10 +31,10 @@ Env vars required:
   IMAP_APP_PASSWORD      a Gmail App Password (NOT the normal account
                           password — requires 2FA enabled on the account;
                           generate at https://myaccount.google.com/apppasswords)
-  SENTRY_API_BASE         default: http://localhost:8000
-  SENTRY_ADMIN_USERNAME   the pre-created admin's username
-  SENTRY_ADMIN_PASSWORD   the pre-created admin's password
-  POLL_INTERVAL_SECONDS   default: 30
+  SENTRY_API_BASE          default: http://localhost:8000
+  SENTRY_EMPLOYEE_USERNAME the employee's own username (not shared admin)
+  SENTRY_EMPLOYEE_PASSWORD the employee's own password
+  POLL_INTERVAL_SECONDS    default: 30
 """
 
 from __future__ import annotations
@@ -62,8 +62,8 @@ IMAP_HOST = os.environ.get("IMAP_HOST", "imap.gmail.com")
 IMAP_USER = os.environ.get("IMAP_USER", "")
 IMAP_APP_PASSWORD = os.environ.get("IMAP_APP_PASSWORD", "")
 API_BASE = os.environ.get("SENTRY_API_BASE", "http://localhost:8000")
-ADMIN_USERNAME = os.environ.get("SENTRY_ADMIN_USERNAME", "")
-ADMIN_PASSWORD = os.environ.get("SENTRY_ADMIN_PASSWORD", "")
+ADMIN_USERNAME = os.environ.get("SENTRY_EMPLOYEE_USERNAME", "") or os.environ.get("SENTRY_ADMIN_USERNAME", "")
+ADMIN_PASSWORD = os.environ.get("SENTRY_EMPLOYEE_PASSWORD", "") or os.environ.get("SENTRY_ADMIN_PASSWORD", "")
 POLL_INTERVAL_SECONDS = int(os.environ.get("POLL_INTERVAL_SECONDS", "30"))
 
 # Very small, explainable heuristics — intentionally simple (rule-based,
@@ -282,7 +282,7 @@ def poll_once(imap: imaplib.IMAP4_SSL, token: str) -> None:
 def main() -> None:
     missing = [name for name, val in [
         ("IMAP_USER", IMAP_USER), ("IMAP_APP_PASSWORD", IMAP_APP_PASSWORD),
-        ("SENTRY_ADMIN_USERNAME", ADMIN_USERNAME), ("SENTRY_ADMIN_PASSWORD", ADMIN_PASSWORD),
+        ("SENTRY_EMPLOYEE_USERNAME", ADMIN_USERNAME), ("SENTRY_EMPLOYEE_PASSWORD", ADMIN_PASSWORD),
     ] if not val]
     if missing:
         logger.error(f"Missing required env vars: {', '.join(missing)}. See module docstring.")

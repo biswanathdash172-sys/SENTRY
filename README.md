@@ -116,7 +116,15 @@ The architecture relies on the concept that the **Media Integrity Agent is a plu
       python db/seed_org.py
       ```
 
-   4. Start the backend and log in via the `POST /login` route or the frontend login page.
+   4. **Managing Roles via CLI:**
+      To grant or revoke the "Cyber Head" role (which enables specific dashboard views and permissions) for an employee, use the CLI tool:
+
+      ```powershell
+      python cli.py set-cyber-head <employee_id> --enable
+      python cli.py set-cyber-head <employee_id> --disable
+      ```
+
+   5. Start the backend and log in via the `POST /login` route or the frontend login page.
 
    If you prefer the simpler built-in demo auth (PBKDF2 + builtin JWT), the code is under `backend/auth.py` and `backend/routers/auth.py`. The repository should keep only one auth system to avoid confusion — if you want me to switch the app to the simpler auth or remove the alternative code, I can do that for you.
 

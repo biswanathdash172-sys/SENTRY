@@ -37,7 +37,7 @@ def get_audit_log(admin: AdminUser = Depends(require_admin), limit: int = 100):
 
     rows = (
         client.table("scan_audit_log")
-        .select("id, message, actor, employee_id, created_at")
+        .select("id, message, actor, created_at, risk_flag_id")
         .eq("org_id", admin.org_id)
         .order("created_at", desc=True)
         .limit(min(limit, 500))

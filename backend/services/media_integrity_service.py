@@ -11,6 +11,7 @@ from models import MediaVerifyRequest, MediaVerifyResult, Evidence
 
 SIGNED_REGISTRY = {
     "quarterly_update_signed.mp4": "CFO Office (verified)",
+    "board_memo_q3_signed.pdf": "General Counsel (verified)",
 }
 
 

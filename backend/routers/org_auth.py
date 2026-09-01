@@ -58,7 +58,13 @@ router = APIRouter(tags=["org-auth"])
 # ---------------------------------------------------------------------------
 # Minimal stdlib HS256 JWT (no PyJWT/jose dependency needed)
 # ---------------------------------------------------------------------------
-JWT_SECRET = os.environ.get("JWT_SECRET", "sentry-demo-insecure-secret-change-me")
+JWT_SECRET = os.environ.get("JWT_SECRET")
+if not JWT_SECRET:
+    if os.environ.get("DEMO_MODE", "").lower() == "true":
+        logger.warning("JWT_SECRET not set. Falling back to insecure key because DEMO_MODE=true.")
+        JWT_SECRET = "sentry-demo-insecure-secret-change-me"
+    else:
+        raise RuntimeError("JWT_SECRET environment variable must be set in production. Use DEMO_MODE=true to bypass locally.")
 JWT_EXPIRY_SECONDS = int(os.environ.get("JWT_EXPIRY_SECONDS", str(24 * 60 * 60)))
 
 

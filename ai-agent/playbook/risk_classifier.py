@@ -85,74 +85,27 @@ def _has_source(events: List[SignalEvent], source_type: str) -> bool:
     return any(e.source_type == source_type for e in events)
 
 
+def _load_decision_matrix() -> List[Dict[str, Any]]:
+    path = os.path.join(os.path.dirname(__file__), "decision_matrix.json")
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return []
+
+_DECISION_MATRIX = _load_decision_matrix()
+
 def generate_playbook(events: List[SignalEvent], severity: str) -> List[PlaybookAction]:
     """
     Builds a recommended action list from the signal mix + severity,
-    identical logic to backend/services/playbook_engine.py's
-    generate_playbook(), but reading risk levels from action_templates.json
-    instead of an inline Python dict.
+    reading declarative rules from decision_matrix.json and risk levels
+    from action_templates.json.
     """
     import uuid
 
-    labels: List[str] = []
-    if _has_source(events, "email"):
-        labels += ["Quarantine suspicious email", "Block sender domain"]
-    if _has_source(events, "endpoint"):
-        labels.append("Isolate endpoint from network")
-    if _has_source(events, "media"):
-        labels.append("Flag media as unverified")
-        labels.append("Revoke signing credential")
-    if _has_source(events, "identity"):
-        labels.append("Force password reset (all sessions)")
-
-    if severity in ("high", "critical"):
-        labels.append("Notify security team")
-    if severity == "critical":
-        labels.append("Suspend user account")
-        labels.append("Freeze pending wire transfer")
-        labels.append("Escalate to legal/compliance")
-
-    # de-dupe while preserving order
-    seen = set()
-    unique_labels = [l for l in labels if not (l in seen or seen.add(l))]
-
-    playbook: List[PlaybookAction] = []
-    for label in unique_labels:
-        risk = classify_risk(label)
-        mode = "auto" if risk == "low" else "manual"
-        
-        decision = ActionDecision(
-            risk=risk,
-            automation_allowed=(mode == 'auto'),
-            approval_required=(mode == 'manual'),
-            decision='AUTO_EXECUTED' if mode == 'auto' else 'MANUAL_REQUIRED',
-            policy_source='ACTION_RISK_TABLE'
-        )
-        
-        playbook.append(
-            PlaybookAction(id=f"act_{uuid.uuid4().hex[:8]}", label=label, risk_level=risk, mode=mode, decision=decision)
-        )
-    return playbook
-
-
-def generate_playbook_matrix(events: List[SignalEvent], severity: str) -> List[PlaybookAction]:
-    """
-    Alternate implementation of generate_playbook using the declarative PLAYBOOK_DECISION_MATRIX
-    rather than hardcoded imperative if/else branches.
-    """
-    import uuid
     labels: List[str] = []
     
-    PLAYBOOK_DECISION_MATRIX = [
-        {"source": "email", "severity": None, "actions": ["Quarantine suspicious email", "Block sender domain"]},
-        {"source": "endpoint", "severity": None, "actions": ["Isolate endpoint from network"]},
-        {"source": "media", "severity": None, "actions": ["Flag media as unverified", "Revoke signing credential"]},
-        {"source": "identity", "severity": None, "actions": ["Force password reset (all sessions)"]},
-        {"source": None, "severity": ["high", "critical"], "actions": ["Notify security team"]},
-        {"source": None, "severity": ["critical"], "actions": ["Suspend user account", "Freeze pending wire transfer", "Escalate to legal/compliance"]},
-    ]
-
-    for rule in PLAYBOOK_DECISION_MATRIX:
+    for rule in _DECISION_MATRIX:
         match = False
         if rule.get("source"):
             if _has_source(events, rule["source"]):

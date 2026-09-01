@@ -263,7 +263,7 @@ def health():
 def list_alerts(
     source_type: str | None = None,
     status: str | None = None,
-    admin: AdminUser = Depends(get_current_admin),
+    admin: AdminUser = Depends(require_admin),
 ):
     alerts = sorted(STORE.values(), key=lambda a: a.created_at, reverse=True)
     alerts = [a for a in alerts if a.org_id is None or str(a.org_id) == str(admin.org_id)]
@@ -412,31 +412,27 @@ def _optional_admin(authorization: str | None = None) -> AdminUser | None:
 
 
 @app.post("/ingest/email", response_model=Alert)
-def ingest_email(req: IngestRequest, authorization: str | None = Header(default=None)):
-    admin = _optional_admin(authorization)
+def ingest_email(req: IngestRequest, admin: AdminUser = Depends(get_current_admin)):
     return _ingest("email", req, default_title="Suspicious email signal (ingested)",
-                    org_id=admin.org_id if admin else None)
+                    org_id=admin.org_id)
 
 
 @app.post("/ingest/identity", response_model=Alert)
-def ingest_identity(req: IngestRequest, authorization: str | None = Header(default=None)):
-    admin = _optional_admin(authorization)
+def ingest_identity(req: IngestRequest, admin: AdminUser = Depends(get_current_admin)):
     return _ingest("identity", req, default_title="Identity/login signal (ingested)",
-                    org_id=admin.org_id if admin else None)
+                    org_id=admin.org_id)
 
 
 @app.post("/ingest/network", response_model=Alert)
-def ingest_network(req: IngestRequest, authorization: str | None = Header(default=None)):
-    admin = _optional_admin(authorization)
+def ingest_network(req: IngestRequest, admin: AdminUser = Depends(get_current_admin)):
     return _ingest("network", req, default_title="Network signal (ingested)",
-                    org_id=admin.org_id if admin else None)
+                    org_id=admin.org_id)
 
 
 @app.post("/ingest/endpoint", response_model=Alert)
-def ingest_endpoint(req: IngestRequest, authorization: str | None = Header(default=None)):
-    admin = _optional_admin(authorization)
+def ingest_endpoint(req: IngestRequest, admin: AdminUser = Depends(get_current_admin)):
     return _ingest("endpoint", req, default_title="Endpoint signal (ingested)",
-                    org_id=admin.org_id if admin else None)
+                    org_id=admin.org_id)
 
 
 # ---------------------------------------------------------------------------
@@ -444,7 +440,7 @@ def ingest_endpoint(req: IngestRequest, authorization: str | None = Header(defau
 # notification pipelines)
 # ---------------------------------------------------------------------------
 @app.post("/alerts/simulate", response_model=Alert)
-def simulate_alert(scenario: str = "deepfake_wire_fraud"):
+def simulate_alert(scenario: str = "deepfake_wire_fraud", admin: AdminUser = Depends(get_current_admin)):
     if scenario == "deepfake_wire_fraud":
         media_result = media_integrity_service.verify_media(
             MediaVerifyRequest(filename="urgent_cfo_deepfake_request.mp4", force_verdict="deepfake")
@@ -475,6 +471,7 @@ def simulate_alert(scenario: str = "deepfake_wire_fraud"):
 
     correlated = correlation_engine.correlate(evidence, title_hint=title_hint)
     alert = Alert(
+        org_id=admin.org_id,
         title=correlated["title"],
         severity=correlated["severity"],
         risk_explanation=correlated.get("risk_explanation"),
