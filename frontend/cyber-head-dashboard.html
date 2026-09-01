@@ -1,598 +1,933 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>SENTRY | Admin — Risk & Scan Console</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
-      @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap");
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SENTRY | Cyber Head Portal</title>
+  <!-- Lucide Icons CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.396.0/dist/umd/lucide.min.js"></script>
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Orbitron:wght@700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
 
-      :root {
-        --bg: #0a0e27;
-        --panel: #10142e;
-        --accent: #3b5bff;
-        --accent-2: #22d3ee;
-        --border: rgba(255, 255, 255, 0.08);
-        --text: #ffffff;
-        --muted: #94a3b8;
-        --ok: #22d3ee;
-        --pending: #f59e0b;
-        --err: #ff6b6b;
-        --not-risky: #22d3ee;
-        --part-risky: #f59e0b;
-        --high-risky: #ef5b5b;
-      }
-      * {
-        box-sizing: border-box;
-        margin: 0;
-        padding: 0;
-        font-family: "Inter", sans-serif;
-      }
-      body {
-        background: var(--bg);
-        color: var(--text);
-        min-height: 100vh;
-      }
-
-      header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 16px 32px;
-        border-bottom: 1px solid var(--border);
-        background: rgba(16, 20, 46, 0.7);
-        backdrop-filter: blur(12px);
-        position: sticky;
-        top: 0;
-        z-index: 10;
-      }
-      .brand {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        font-weight: 800;
-        letter-spacing: 0.1em;
-      }
-      .brand span.tag {
-        font-size: 0.68rem;
-        font-weight: 600;
-        color: var(--accent-2);
-        letter-spacing: 0.05em;
-        background: rgba(34, 211, 238, 0.1);
-        padding: 3px 10px;
-        border-radius: 20px;
-        border: 1px solid rgba(34, 211, 238, 0.3);
-      }
-      .who {
-        font-size: 0.85rem;
-        color: var(--muted);
-        display: flex;
-        align-items: center;
-        gap: 14px;
-      }
-      .signout {
-        color: var(--accent-2);
-        text-decoration: none;
-        font-weight: 600;
-        cursor: pointer;
-      }
-
-      main {
-        max-width: 1180px;
-        margin: 0 auto;
-        padding: 32px 24px 80px;
-        display: flex;
-        flex-direction: column;
-        gap: 32px;
-      }
-
-      .card {
-        background: var(--panel);
-        border: 1px solid var(--border);
-        border-radius: 16px;
-        padding: 24px;
-      }
-      .card h2 {
-        font-size: 0.78rem;
-        font-weight: 800;
-        letter-spacing: 0.1em;
-        text-transform: uppercase;
-        color: var(--accent-2);
-        margin-bottom: 18px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-        flex-wrap: wrap;
-      }
-
-      .btn {
-        background: linear-gradient(135deg, var(--accent), var(--accent-2));
-        color: #fff;
-        border: none;
-        padding: 10px 20px;
-        border-radius: 8px;
-        font-weight: 700;
-        font-size: 0.85rem;
-        cursor: pointer;
-        white-space: nowrap;
-      }
-      .btn:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-      }
-      .btn.secondary {
-        background: rgba(255, 255, 255, 0.06);
-        border: 1px solid var(--border);
-      }
-      .btn.small {
-        padding: 6px 14px;
-        font-size: 0.75rem;
-      }
-      .btn.approve {
-        background: linear-gradient(135deg, #16a34a, var(--accent-2));
-      }
-      .btn.deny {
-        background: rgba(239, 91, 91, 0.15);
-        color: #ff8080;
-        border: 1px solid rgba(239, 91, 91, 0.35);
-      }
-      .btn.deny:hover {
-        background: var(--high-risky);
-        color: #fff;
-      }
-      .btn.danger-outline {
-        background: transparent;
-        border: 1px solid rgba(239, 91, 91, 0.4);
-        color: #ff8080;
-      }
-
-      /* Stats row */
-      .stats-row {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 16px;
-      }
-      .stat-box {
-        background: var(--panel);
-        border: 1px solid var(--border);
-        border-radius: 14px;
-        padding: 18px 20px;
-      }
-      .stat-label {
-        font-size: 0.7rem;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        color: var(--muted);
-        margin-bottom: 8px;
-      }
-      .stat-value {
-        font-size: 1.9rem;
-        font-weight: 800;
-      }
-      .stat-box.not-risky .stat-value {
-        color: var(--not-risky);
-      }
-      .stat-box.part-risky .stat-value {
-        color: var(--part-risky);
-      }
-      .stat-box.high-risky .stat-value {
-        color: var(--high-risky);
-      }
-      .stat-box.avg-time .stat-value {
-        color: var(--text);
-        font-size: 1.5rem;
-      }
-
-      .charts-row {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 20px;
-      }
-      canvas {
-        max-height: 220px;
-      }
-
-      table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 0.82rem;
-      }
-      th,
-      td {
-        text-align: left;
-        padding: 10px 12px;
-        border-bottom: 1px solid var(--border);
-        vertical-align: middle;
-      }
-      th {
-        color: var(--muted);
-        font-weight: 600;
-        font-size: 0.72rem;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-      }
-      td.mono {
-        font-family: "Fira Code", monospace;
-        font-size: 0.78rem;
-      }
-      .tier-badge {
-        font-family: "Fira Code", monospace;
-        font-size: 0.7rem;
-        font-weight: 700;
-        padding: 3px 10px;
-        border-radius: 20px;
-        text-transform: uppercase;
-        white-space: nowrap;
-      }
-      .tier-not_risky {
-        background: rgba(34, 211, 238, 0.12);
-        color: var(--not-risky);
-        border: 1px solid rgba(34, 211, 238, 0.3);
-      }
-      .tier-part_risky {
-        background: rgba(245, 158, 11, 0.12);
-        color: var(--part-risky);
-        border: 1px solid rgba(245, 158, 11, 0.3);
-      }
-      .tier-high_risky {
-        background: rgba(239, 91, 91, 0.12);
-        color: var(--high-risky);
-        border: 1px solid rgba(239, 91, 91, 0.3);
-      }
-      .status-pill {
-        font-size: 0.72rem;
-        font-weight: 700;
-        color: var(--muted);
-        white-space: nowrap;
-      }
-      .status-pill.completed {
-        color: var(--ok);
-      }
-      .status-pill.pending {
-        color: var(--pending);
-      }
-      .action-cell {
-        display: flex;
-        gap: 6px;
-      }
-
-      .form-row {
-        display: grid;
-        grid-template-columns: 1fr 1fr 1fr auto;
-        gap: 12px;
-        align-items: end;
-      }
-      .field label {
-        display: block;
-        font-size: 0.72rem;
-        color: var(--muted);
-        margin-bottom: 6px;
-      }
-      .field input {
-        width: 100%;
-        background: rgba(0, 0, 0, 0.3);
-        border: 1px solid var(--border);
-        color: var(--text);
-        padding: 10px 12px;
-        border-radius: 8px;
-        font-size: 0.85rem;
-        outline: none;
-      }
-      .field input:focus {
-        border-color: var(--accent-2);
-      }
-
-      .rules-list {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-      }
-      .rule-row {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        background: rgba(0, 0, 0, 0.2);
-        border: 1px solid var(--border);
-        border-radius: 10px;
-        padding: 12px 16px;
-      }
-      .rule-row.locked {
-        opacity: 0.55;
-      }
-      .switch {
-        position: relative;
-        display: inline-block;
-        width: 44px;
-        height: 24px;
-      }
-      .switch input {
-        opacity: 0;
-        width: 0;
-        height: 0;
-      }
-      .slider {
-        position: absolute;
-        cursor: pointer;
-        inset: 0;
-        background: rgba(255, 255, 255, 0.1);
-        border: 1px solid var(--border);
-        transition: 0.2s;
-        border-radius: 24px;
-      }
-      .slider:before {
-        position: absolute;
-        content: "";
-        height: 16px;
-        width: 16px;
-        left: 3px;
-        bottom: 3px;
-        background: var(--accent-2);
-        transition: 0.2s;
-        border-radius: 50%;
-      }
-      input:checked + .slider {
-        background: rgba(59, 91, 255, 0.4);
-      }
-      input:checked + .slider:before {
-        transform: translateX(20px);
-      }
-      input:disabled + .slider {
-        cursor: not-allowed;
-        opacity: 0.4;
-      }
-
-      .role-chip {
-        font-size: 0.68rem;
-        font-weight: 700;
-        padding: 3px 10px;
-        border-radius: 20px;
-        text-transform: uppercase;
-        white-space: nowrap;
-      }
-      .role-chip.admin {
-        background: rgba(59, 91, 255, 0.15);
-        color: #93a5ff;
-        border: 1px solid rgba(59, 91, 255, 0.35);
-      }
-      .role-chip.employee {
-        background: rgba(255, 255, 255, 0.06);
-        color: var(--muted);
-        border: 1px solid var(--border);
-      }
-
-      .msg {
-        font-size: 0.8rem;
-        padding: 10px 14px;
-        border-radius: 8px;
-        margin-top: 12px;
-        display: none;
-      }
-      .msg.success {
-        background: rgba(34, 211, 238, 0.1);
-        border: 1px solid rgba(34, 211, 238, 0.3);
-        color: var(--ok);
-        display: block;
-      }
-      .msg.error {
-        background: rgba(255, 107, 107, 0.1);
-        border: 1px solid rgba(255, 107, 107, 0.3);
-        color: var(--err);
-        display: block;
-      }
-
-      .empty {
-        text-align: center;
-        color: var(--muted);
-        padding: 30px;
-        font-size: 0.85rem;
-      }
-
-      @media (max-width: 900px) {
-        .stats-row {
-          grid-template-columns: repeat(2, 1fr);
-        }
-        .charts-row {
-          grid-template-columns: 1fr;
-        }
-        .form-row {
-          grid-template-columns: 1fr;
+  <script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "background": "var(--bg-base)",
+            "glass-fill": "var(--bg-panel-glass)",
+            "glass-border": "var(--border-subtle)",
+            "primary": "var(--accent-blue)",
+            "secondary": "var(--accent-cyan)",
+            "on-surface": "var(--text-primary)",
+            "on-surface-variant": "var(--text-secondary)",
+            "status-critical": "var(--danger)",
+            "accent-gold": "var(--warn)",
+            "tertiary": "var(--accent-cyan)",
+            "error": "var(--danger)",
+            "warn": "var(--warn)",
+            "low": "var(--accent-cyan)",
+            "surface-container-highest": "rgba(255, 255, 255, 0.05)",
+            "surface-bright": "rgba(255, 255, 255, 0.08)",
+            "primary-container": "var(--accent-blue)",
+            "on-primary-container": "#ffffff",
+          },
+          borderRadius: {
+            "DEFAULT": "0.125rem",
+            "lg": "0.25rem",
+            "xl": "0.5rem",
+            "full": "0.75rem"
+          },
+          spacing: {
+            "panel-padding": "24px",
+            "base": "8px",
+            "margin-desktop": "40px",
+            "margin-mobile": "16px",
+            "gutter": "24px"
+          },
+          fontFamily: {
+            "body-lg": ["Inter", "sans-serif"],
+            "headline-lg": ["Plus Jakarta Sans", "sans-serif"],
+            "body-md": ["Inter", "sans-serif"],
+            "label-sm": ["Inter", "sans-serif"],
+            "label-md": ["Inter", "sans-serif"],
+            "headline-md": ["Plus Jakarta Sans", "sans-serif"],
+            "display-lg": ["Plus Jakarta Sans", "sans-serif"],
+            "headline-lg-mobile": ["Plus Jakarta Sans", "sans-serif"],
+            "mono": ["Fira Code", "monospace"]
+          }
         }
       }
-        .card h2,
-        .stat-label,
-        .stat-value,
-        th,
-        td {
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-    </style>
-  </head>
-  <body>
-    <header>
-      <div class="brand">
-        <svg
-          width="20"
-          height="20"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="#22D3EE"
-          stroke-width="2"
-        >
-          <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5" />
-          <circle
-            cx="12"
-            cy="12"
-            r="3.5"
-            fill="#22D3EE"
-            fill-opacity="0.25"
-            stroke="#22D3EE"
-            stroke-width="1.5"
-          />
+    }
+  </script>
+
+  <style>
+    /* SENTRY Design Tokens */
+    :root {
+      --bg-base: #0A0E27;
+      --bg-panel: #10142E;
+      --bg-panel-glass: rgba(16, 20, 46, 0.65);
+      --bg-card: #10142E;
+      --accent-gradient: linear-gradient(135deg, #3B5BFF 0%, #22D3EE 100%);
+      --accent-blue: #3B5BFF;
+      --accent-primary: #3B5BFF;
+      --accent-cyan: #22D3EE;
+      --accent-glow: rgba(59, 91, 255, 0.25);
+      --accent-border: rgba(59, 91, 255, 0.3);
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      
+      --text-primary: #FFFFFF;
+      --text-secondary: #94A3B8;
+      --text-muted: #64748B;
+
+      --card-shadow: 0 10px 40px rgba(59, 91, 255, 0.1);
+      --card-hover-shadow: 0 20px 50px rgba(34, 211, 238, 0.2);
+      
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-display: 'Plus Jakarta Sans', 'Orbitron', sans-serif;
+      --font-mono: 'Fira Code', monospace;
+
+      /* Severity colors */
+      --danger: #ef5b5b;
+      --warn: #f59e0b;
+      --low: #22D3EE;
+      --not-risky: #22d3ee;
+      --part-risky: #f59e0b;
+      --high-risky: #ef5b5b;
+      --ok: #22d3ee;
+      --pending: #f59e0b;
+      --err: #ff6b6b;
+
+      /* Compatibility maps */
+      --bg: var(--bg-base);
+      --panel: var(--bg-panel);
+      --border: var(--border-subtle);
+      --text: var(--text-primary);
+      --muted: var(--text-secondary);
+      --accent: var(--accent-blue);
+      --accent-2: var(--accent-cyan);
+    }
+
+    body {
+      background-color: var(--bg-base);
+      color: var(--text-primary);
+      overflow-x: hidden;
+      font-family: var(--font-sans);
+    }
+
+    .glass-panel {
+      background: var(--bg-panel-glass);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--border-subtle);
+      border-top: 1px solid rgba(255, 255, 255, 0.15);
+      background-image: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0) 100%);
+      position: relative;
+      z-index: 10;
+    }
+
+    .fixed-bg {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100vh;
+      z-index: -1;
+      background-size: cover;
+      background-position: center;
+    }
+
+    .bg-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to bottom, rgba(10, 14, 39, 0.5) 0%, rgba(10, 14, 39, 0.92) 100%);
+      z-index: 0;
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(10, 14, 39, 0.8);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(139, 145, 159, 0.3);
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(139, 145, 159, 0.5);
+    }
+
+    /* Layout & Sidebar */
+    .main-content-wrapper {
+      position: relative;
+      z-index: 10;
+      margin-left: 0;
+    }
+    @media (min-width: 768px) {
+      .main-content-wrapper {
+        margin-left: 16rem;
+      }
+    }
+
+    /* Cards */
+    .stat-card, .chart-card, .table-card {
+      position: relative;
+      overflow: hidden;
+      background: rgba(16, 20, 46, 0.55);
+      backdrop-filter: blur(20px) saturate(140%);
+      -webkit-backdrop-filter: blur(20px) saturate(140%);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-top: 1px solid rgba(255,255,255,0.18);
+      border-radius: 1rem;
+      transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+    }
+    .stat-card::after, .chart-card::after, .table-card::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0) 50%);
+      pointer-events: none;
+      z-index: 1;
+    }
+    .stat-card > *, .chart-card > *, .table-card > * {
+      position: relative;
+      z-index: 2;
+    }
+    .stat-card:hover, .chart-card:hover, .table-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 16px 40px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.1);
+      border-color: rgba(255,255,255,0.2);
+    }
+
+    .stat-card {
+      padding: 22px 24px;
+      min-height: 155px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .stat-label {
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+    }
+    .stat-value {
+      font-size: 2.5rem;
+      line-height: 1.1;
+      font-weight: 800;
+      font-family: var(--font-display);
+    }
+
+    /* Stat Card Individual Background Gradients */
+    .stat-card.not-risky {
+      background: rgba(18, 28, 48, 0.6);
+      background-image: linear-gradient(135deg, rgba(34,211,238,0.18) 0%, rgba(16,20,46,0.6) 70%);
+    }
+    .stat-card.not-risky .stat-value { color: var(--not-risky); text-shadow: 0 0 20px rgba(34,211,238,0.3); }
+
+    .stat-card.high-risky {
+      background: rgba(36, 18, 28, 0.6);
+      background-image: linear-gradient(135deg, rgba(239,91,91,0.25) 0%, rgba(16,20,46,0.6) 70%);
+    }
+    .stat-card.high-risky .stat-value { color: var(--high-risky); text-shadow: 0 0 20px rgba(239,91,91,0.3); }
+
+    .stat-card.part-risky {
+      background: rgba(34, 26, 20, 0.6);
+      background-image: linear-gradient(135deg, rgba(245,158,11,0.22) 0%, rgba(16,20,46,0.6) 70%);
+    }
+    .stat-card.part-risky .stat-value { color: var(--part-risky); text-shadow: 0 0 20px rgba(245,158,11,0.3); }
+
+    .stat-card.avg-time {
+      background: rgba(28, 20, 48, 0.6);
+      background-image: linear-gradient(135deg, rgba(147,51,234,0.22) 0%, rgba(16,20,46,0.6) 70%);
+    }
+    .stat-card.avg-time .stat-value { color: #ffffff; font-size: 2.1rem; }
+
+    /* Buttons */
+    .btn {
+      background: var(--accent-gradient);
+      color: #ffffff;
+      border: none;
+      padding: 9px 18px;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 0.85rem;
+      cursor: pointer;
+      white-space: nowrap;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 14px rgba(59, 91, 255, 0.25);
+    }
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(34, 211, 238, 0.4);
+    }
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .btn.secondary {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-primary);
+      box-shadow: none;
+    }
+    .btn.secondary:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+    .btn.small {
+      padding: 6px 12px;
+      font-size: 0.75rem;
+      border-radius: 6px;
+    }
+    .btn.approve {
+      background: linear-gradient(135deg, #16a34a, #22d3ee);
+      color: #fff;
+    }
+    .btn.deny {
+      background: rgba(239, 91, 91, 0.15);
+      color: #ff8080;
+      border: 1px solid rgba(239, 91, 91, 0.35);
+      box-shadow: none;
+    }
+    .btn.deny:hover {
+      background: var(--high-risky);
+      color: #fff;
+    }
+    .btn.danger-outline {
+      background: transparent;
+      border: 1px solid rgba(239, 91, 91, 0.4);
+      color: #ff8080;
+      box-shadow: none;
+    }
+    .btn.danger-outline:hover {
+      background: rgba(239, 91, 91, 0.15);
+    }
+
+    /* Tables */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.82rem;
+    }
+    th, td {
+      text-align: left;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border-subtle);
+      vertical-align: middle;
+    }
+    th {
+      color: var(--text-secondary);
+      font-weight: 600;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      background: rgba(0, 0, 0, 0.15);
+    }
+    tbody tr {
+      transition: background-color 0.15s ease;
+    }
+    tbody tr:hover {
+      background: rgba(255, 255, 255, 0.03);
+    }
+    td.mono {
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+    }
+
+    /* Badges */
+    .tier-badge {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 20px;
+      text-transform: uppercase;
+      white-space: nowrap;
+      display: inline-block;
+    }
+    .tier-not_risky {
+      background: rgba(34, 211, 238, 0.12);
+      color: var(--not-risky);
+      border: 1px solid rgba(34, 211, 238, 0.3);
+    }
+    .tier-part_risky {
+      background: rgba(245, 158, 11, 0.12);
+      color: var(--part-risky);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+    .tier-high_risky {
+      background: rgba(239, 91, 91, 0.12);
+      color: var(--high-risky);
+      border: 1px solid rgba(239, 91, 91, 0.3);
+    }
+
+    .status-pill {
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--muted);
+      white-space: nowrap;
+      text-transform: capitalize;
+    }
+    .status-pill.completed { color: var(--ok); }
+    .status-pill.pending { color: var(--pending); }
+
+    .action-cell {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    /* Switches */
+    .rule-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      padding: 14px 18px;
+      transition: border-color 0.2s ease;
+    }
+    .rule-row:hover {
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+    .rule-row.locked {
+      opacity: 0.6;
+    }
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 44px;
+      height: 24px;
+    }
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      inset: 0;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid var(--border-subtle);
+      transition: 0.2s;
+      border-radius: 24px;
+    }
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 16px;
+      width: 16px;
+      left: 3px;
+      bottom: 3px;
+      background: var(--accent-2);
+      transition: 0.2s;
+      border-radius: 50%;
+    }
+    input:checked + .slider {
+      background: rgba(59, 91, 255, 0.4);
+    }
+    input:checked + .slider:before {
+      transform: translateX(20px);
+    }
+    input:disabled + .slider {
+      cursor: not-allowed;
+      opacity: 0.4;
+    }
+
+    /* Form Fields */
+    .field label {
+      display: block;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .field input {
+      width: 100%;
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-primary);
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      outline: none;
+      transition: border-color 0.2s ease;
+    }
+    .field input:focus {
+      border-color: var(--accent-cyan);
+    }
+
+    /* Messages & Alerts */
+    .msg {
+      font-size: 0.82rem;
+      padding: 10px 16px;
+      border-radius: 8px;
+      margin-top: 12px;
+      display: none;
+      line-height: 1.4;
+    }
+    .msg.success {
+      background: rgba(34, 211, 238, 0.1);
+      border: 1px solid rgba(34, 211, 238, 0.3);
+      color: var(--ok);
+      display: block;
+    }
+    .msg.error {
+      background: rgba(255, 107, 107, 0.1);
+      border: 1px solid rgba(255, 107, 107, 0.3);
+      color: var(--err);
+      display: block;
+    }
+
+    .empty {
+      text-align: center;
+      color: var(--text-secondary);
+      padding: 36px 16px;
+      font-size: 0.85rem;
+    }
+  </style>
+</head>
+<body class="antialiased min-h-screen selection:bg-primary-container selection:text-on-primary-container">
+
+  <!-- Fixed Background -->
+  <div class="fixed-bg" style="background-image: url('assets/dashboard-hero-city.jpg')"></div>
+  <div class="fixed-bg bg-overlay"></div>
+
+  <!-- SideNavBar (Desktop Persistent) -->
+  <nav class="hidden md:flex flex-col bg-glass-fill fixed left-0 top-0 h-full w-64 backdrop-blur-2xl border-r border-glass-border shadow-2xl z-40 pt-20 pb-6">
+    <div class="px-6 mb-8 flex items-center gap-4">
+      <div class="w-10 h-10 rounded-full bg-surface-container-highest flex items-center justify-center border border-glass-border">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="url(#sidebarLogoGrad)" stroke-width="2">
+          <defs>
+            <linearGradient id="sidebarLogoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#3B5BFF" />
+              <stop offset="100%" stop-color="#22D3EE" />
+            </linearGradient>
+          </defs>
+          <polygon points="12 2 22 6.5 22 17.5 12 22 2 17.5 2 6.5" />
+          <circle cx="12" cy="12" r="3" fill="#22D3EE" fill-opacity="0.2" stroke="#22D3EE" stroke-width="1.5" />
         </svg>
-        <span>SENTRY</span>
-        <span class="tag">CYBER HEAD</span>
       </div>
-      <div class="who">
-        <span id="who-label">—</span>
-          <button class="btn small" onclick="signOut()">Sign out</button>
+      <div>
+        <h2 class="font-headline-md text-headline-md text-on-surface">SENTRY</h2>
+        <span class="text-[10px] font-semibold text-accent-cyan tracking-wider bg-secondary/10 px-2 py-0.5 rounded border border-secondary/20 uppercase">CYBER HEAD</span>
+      </div>
+    </div>
+    <div class="flex-1 overflow-y-auto space-y-2 px-2">
+      <!-- Active Tab -->
+      <a class="flex items-center gap-3 bg-primary-container text-on-primary-container rounded-lg px-4 py-3 mx-2 group transition-transform active:scale-95 cursor-pointer" href="#" onclick="event.preventDefault(); window.scrollTo({top: 0, behavior: 'smooth'});">
+        <span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+        <span class="font-label-md text-label-md">Console Overview</span>
+      </a>
+      <!-- Navigation Links -->
+      <a class="flex items-center gap-3 text-on-surface-variant px-4 py-3 mx-2 hover:bg-surface-container-highest rounded-lg transition-all duration-300 group cursor-pointer" href="#" onclick="event.preventDefault(); document.getElementById('analytics-section')?.scrollIntoView({behavior: 'smooth'});">
+        <span class="material-symbols-outlined" data-icon="analytics">analytics</span>
+        <span class="font-label-md text-label-md group-hover:text-primary transition-colors duration-200">Live Analytics</span>
+      </a>
+      <a class="flex items-center gap-3 text-on-surface-variant px-4 py-3 mx-2 hover:bg-surface-container-highest rounded-lg transition-all duration-300 group cursor-pointer" href="#" onclick="event.preventDefault(); document.getElementById('policy-card')?.scrollIntoView({behavior: 'smooth'});">
+        <span class="material-symbols-outlined" data-icon="verified_user">verified_user</span>
+        <span class="font-label-md text-label-md group-hover:text-primary transition-colors duration-200">Auto-Approval</span>
+      </a>
+      <a class="flex items-center gap-3 text-on-surface-variant px-4 py-3 mx-2 hover:bg-surface-container-highest rounded-lg transition-all duration-300 group cursor-pointer" href="#" onclick="event.preventDefault(); document.getElementById('email-intel-card')?.scrollIntoView({behavior: 'smooth'});">
+        <span class="material-symbols-outlined" data-icon="mail">mail</span>
+        <span class="font-label-md text-label-md group-hover:text-primary transition-colors duration-200">Email Intel</span>
+      </a>
+      <a class="flex items-center gap-3 text-on-surface-variant px-4 py-3 mx-2 hover:bg-surface-container-highest rounded-lg transition-all duration-300 group cursor-pointer" href="#" onclick="event.preventDefault(); document.getElementById('whitelist-card')?.scrollIntoView({behavior: 'smooth'});">
+        <span class="material-symbols-outlined" data-icon="shield">shield</span>
+        <span class="font-label-md text-label-md group-hover:text-primary transition-colors duration-200">Domain Whitelist</span>
+      </a>
+      <a class="flex items-center gap-3 text-on-surface-variant px-4 py-3 mx-2 hover:bg-surface-container-highest rounded-lg transition-all duration-300 group cursor-pointer" href="#" onclick="event.preventDefault(); document.getElementById('scan-card')?.scrollIntoView({behavior: 'smooth'});">
+        <span class="material-symbols-outlined" data-icon="radar">radar</span>
+        <span class="font-label-md text-label-md group-hover:text-primary transition-colors duration-200">SCA Scans</span>
+      </a>
+    </div>
+    <div class="px-4 mt-auto space-y-4">
+      <div class="border-t border-glass-border pt-4 space-y-2">
+        <a class="flex items-center gap-3 text-on-surface-variant px-4 py-2 hover:text-primary transition-colors duration-200 cursor-pointer" href="#" onclick="event.preventDefault(); signOut();">
+          <span class="material-symbols-outlined text-[20px]" data-icon="logout">logout</span>
+          <span class="font-label-md text-label-md">Sign Out</span>
+        </a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main Content Wrapper -->
+  <div class="main-content-wrapper flex flex-col min-h-screen">
+    <!-- TopNavBar (Web) -->
+    <header class="hidden md:flex fixed top-0 w-[calc(100%-16rem)] z-50 justify-between items-center px-margin-desktop h-16 bg-glass-fill backdrop-blur-xl border-b border-glass-border">
+      <div class="flex items-center gap-8">
+        <div class="flex items-center gap-3">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="url(#headerLogoGrad)" stroke-width="2.5">
+            <defs>
+              <linearGradient id="headerLogoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#3B5BFF" />
+                <stop offset="100%" stop-color="#22D3EE" />
+              </linearGradient>
+            </defs>
+            <polygon points="12 2 22 6.5 22 17.5 12 22 2 17.5 2 6.5" />
+            <circle cx="12" cy="12" r="3" fill="#22D3EE" fill-opacity="0.2" stroke="#22D3EE" stroke-width="1.5" />
+          </svg>
+          <div class="font-display-lg text-primary tracking-tighter text-2xl font-bold">SENTRY</div>
+          <span class="text-xs font-semibold text-accent-cyan tracking-wider bg-secondary/10 px-2 py-0.5 rounded border border-secondary/20 uppercase">Cyber Head</span>
+        </div>
+      </div>
+      <div class="flex items-center gap-4">
+        <div class="flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs text-on-surface-variant font-mono">
+          <span class="w-2 h-2 rounded-full bg-accent-cyan animate-pulse"></span>
+          <span id="who-label">—</span>
+        </div>
+        <button id="export-btn" onclick="exportReport()" class="btn secondary small">
+          <span class="material-symbols-outlined text-[15px]">presentation</span>
+          Export to PPT
+        </button>
+        <button id="scan-btn" onclick="runScan()" class="btn small">
+          <span class="material-symbols-outlined text-[15px]">radar</span>
+          Run Fixed Scan
+        </button>
+        <button class="text-on-surface-variant hover:text-primary transition-colors cursor-pointer" onclick="signOut()" title="Sign Out">
+          <span class="material-symbols-outlined text-[20px]">logout</span>
+        </button>
       </div>
     </header>
 
-    <main>
-      <!-- Live analytics -->
-      <div class="stats-row">
-        <div class="stat-box not-risky">
-          <div class="stat-label">Not Risky</div>
+    <!-- TopAppBar (Mobile) -->
+    <header class="md:hidden flex fixed top-0 w-full z-50 justify-between items-center px-margin-mobile h-16 bg-glass-fill backdrop-blur-xl border-b border-glass-border">
+      <div class="flex items-center gap-2">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="url(#headerLogoGradMobile)" stroke-width="2.5">
+          <defs>
+            <linearGradient id="headerLogoGradMobile" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#3B5BFF" />
+              <stop offset="100%" stop-color="#22D3EE" />
+            </linearGradient>
+          </defs>
+          <polygon points="12 2 22 6.5 22 17.5 12 22 2 17.5 2 6.5" />
+          <circle cx="12" cy="12" r="3" fill="#22D3EE" fill-opacity="0.2" stroke="#22D3EE" stroke-width="1.5" />
+        </svg>
+        <div class="font-headline-lg-mobile text-primary tracking-tighter font-bold">SENTRY</div>
+      </div>
+      <div class="flex items-center gap-2">
+        <button onclick="signOut()" class="btn small secondary">Sign out</button>
+      </div>
+    </header>
+
+    <!-- Main Canvas -->
+    <main class="flex-1 pt-24 px-margin-mobile md:px-margin-desktop pb-24 md:pb-12 flex flex-col gap-gutter max-w-7xl w-full mx-auto">
+      
+      <!-- Dashboard Header -->
+      <div class="flex justify-between items-end mb-2 mt-2">
+        <div>
+          <h1 class="font-headline-lg text-on-surface text-2xl md:text-3xl font-bold">Cyber Head Console</h1>
+          <p class="font-body-md text-on-surface-variant text-sm mt-1">Autonomous risk governance, scan telemetry & policy automation</p>
+        </div>
+        <div class="hidden md:flex gap-3">
+          <span class="text-xs font-mono text-on-surface-variant/70 self-center">Live Threat Stream Active</span>
+        </div>
+      </div>
+
+      <!-- Messages Bar -->
+      <div class="msg" id="export-msg"></div>
+      <div class="msg" id="scan-msg"></div>
+      <div class="msg" id="rules-msg"></div>
+
+      <!-- Hero Stats Row (Live Analytics) -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="analytics-section">
+        <!-- Not Risky -->
+        <div class="stat-card not-risky">
+          <div class="flex justify-between items-start">
+            <span class="stat-label">Not Risky</span>
+            <span class="text-xs font-mono text-accent-cyan px-2 py-0.5 rounded bg-accent-cyan/10 border border-accent-cyan/20">live</span>
+          </div>
           <div class="stat-value" id="stat-not-risky">—</div>
         </div>
-        <div class="stat-box part-risky">
-          <div class="stat-label">Part Risky</div>
-          <div class="stat-value" id="stat-part-risky">—</div>
-        </div>
-        <div class="stat-box high-risky">
-          <div class="stat-label">High Risky</div>
+        <!-- High Risky -->
+        <div class="stat-card high-risky">
+          <div class="flex justify-between items-start">
+            <span class="stat-label text-status-critical">High Risky</span>
+            <span class="text-xs font-mono text-status-critical px-2 py-0.5 rounded bg-status-critical/10 border border-status-critical/20">live</span>
+          </div>
           <div class="stat-value" id="stat-high-risky">—</div>
         </div>
-        <div class="stat-box avg-time">
-          <div class="stat-label">Avg. Resolution Time</div>
+        <!-- Part Risky -->
+        <div class="stat-card part-risky">
+          <div class="flex justify-between items-start">
+            <span class="stat-label text-accent-gold">Part Risky</span>
+            <span class="text-xs font-mono text-accent-gold px-2 py-0.5 rounded bg-accent-gold/10 border border-accent-gold/20">live</span>
+          </div>
+          <div class="stat-value" id="stat-part-risky">—</div>
+        </div>
+        <!-- Avg Resolution Time -->
+        <div class="stat-card avg-time">
+          <div class="flex justify-between items-start">
+            <span class="stat-label">Avg. Resolution</span>
+            <span class="text-xs font-mono text-on-surface-variant px-2 py-0.5 rounded bg-white/5 border border-white/10">live</span>
+          </div>
           <div class="stat-value" id="stat-avg-time">—</div>
         </div>
       </div>
 
-        <!-- =================== AUTO‑APPROVAL POLICIES =================== -->
-        <div class="card" id="policy-card">
-          <h2>Auto‑Approval Policies</h2>
-          <div class="rules-list" id="rules-list">
-            <!-- Rule rows will be injected here -->
+      <!-- Main Charts Row -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Bar Chart: Risk Distribution by Tier -->
+        <div class="chart-card p-6 flex flex-col">
+          <div class="flex justify-between items-center mb-4">
+            <div>
+              <h3 class="font-headline-md text-on-surface text-lg font-bold">Risk Distribution by Tier</h3>
+              <p class="font-body-md text-on-surface-variant text-xs">Real-time breakdown of detected risks across tiers</p>
+            </div>
           </div>
-        </div>
-        <div class="card">
-        <h2>
-          Organizational Analytics — Live
-          <button
-            class="btn secondary"
-            onclick="exportReport()"
-            id="export-btn"
-          >
-            Export to PPT
-          </button>
-        </h2>
-        <div class="msg" id="export-msg"></div>
-        <div class="charts-row">
-          <div>
-            <p
-              style="
-                font-size: 0.72rem;
-                color: var(--muted);
-                margin-bottom: 10px;
-              "
-            >
-              Risk Distribution by Tier
-            </p>
+          <div class="w-full relative flex-1" style="min-height: 220px;">
             <canvas id="tier-chart"></canvas>
           </div>
-          <div>
-            <p
-              style="
-                font-size: 0.72rem;
-                color: var(--muted);
-                margin-bottom: 10px;
-              "
-            >
-              Risk Frequency — Last 7 Days
-            </p>
+        </div>
+        <!-- Line Chart: Risk Frequency (Last 7 Days) -->
+        <div class="chart-card p-6 flex flex-col">
+          <div class="flex justify-between items-center mb-4">
+            <div>
+              <h3 class="font-headline-md text-on-surface text-lg font-bold">Risk Frequency</h3>
+              <p class="font-body-md text-on-surface-variant text-xs">Threat trends and detections over the last 7 days</p>
+            </div>
+            <span class="bg-surface-container-highest border border-glass-border text-on-surface-variant font-mono text-xs px-2.5 py-1 rounded">Last 7 Days</span>
+          </div>
+          <div class="w-full relative flex-1" style="min-height: 220px;">
             <canvas id="trend-chart"></canvas>
           </div>
         </div>
       </div>
 
-      <!-- Scan engine + resolution actions -->
-      <div class="card">
-        <h2>
-          SCA Scan Results & Resolution
-          <button class="btn" id="scan-btn" onclick="runScan()">
-            Run Fixed-Payload Scan (OSV.dev, live)
+      <!-- 2-Column Section: Auto-Approval Policies & Domain Whitelist -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        <!-- Auto-Approval Policies Card -->
+        <div class="table-card p-6 flex flex-col" id="policy-card">
+          <div class="flex justify-between items-center mb-4">
+            <div>
+              <h3 class="font-headline-md text-on-surface text-lg font-bold flex items-center gap-2">
+                <span class="material-symbols-outlined text-accent-cyan text-[20px]">verified_user</span>
+                Auto‑Approval Policies
+              </h3>
+              <p class="font-body-md text-on-surface-variant text-xs">Configure automated decision thresholds for risk tiers</p>
+            </div>
+          </div>
+          <div class="flex-1 flex flex-col justify-center space-y-3 mt-2" id="rules-list">
+            <div class="empty">Loading auto-approval policies…</div>
+          </div>
+        </div>
+
+        <!-- Trusted Sender Domains (Whitelist) Card -->
+        <div class="table-card p-6 flex flex-col" id="whitelist-card">
+          <div class="flex justify-between items-center mb-4">
+            <div>
+              <h3 class="font-headline-md text-on-surface text-lg font-bold flex items-center gap-2">
+                <span class="material-symbols-outlined text-accent-cyan text-[20px]">shield</span>
+                Trusted Sender Domains (Whitelist)
+              </h3>
+              <p class="font-body-md text-on-surface-variant text-xs">Manage trusted sender domain whitelist</p>
+            </div>
+          </div>
+          <div class="flex gap-2 items-end mb-4 flex-wrap">
+            <div class="field flex-1 min-w-[200px]">
+              <label for="new-domain">Add Trusted Domain</label>
+              <input type="text" id="new-domain" placeholder="e.g. partner-corp.com" autocomplete="off" />
+            </div>
+            <button class="btn" onclick="addDomain()">Add</button>
+            <button class="btn secondary" onclick="autoAddDomains()" title="Auto-add safe domains from recent emails">Auto-Add Safe</button>
+          </div>
+          <div class="msg" id="whitelist-msg"></div>
+          <div id="whitelist-list" class="flex-1 overflow-y-auto max-h-56 space-y-2 mt-1">
+            <div class="empty">Loading whitelist…</div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Live Email Intelligence Section -->
+      <div class="table-card p-6 flex flex-col" id="email-intel-card">
+        <div class="flex justify-between items-center mb-4">
+          <div>
+            <h3 class="font-headline-md text-on-surface text-lg font-bold flex items-center gap-2">
+              <span class="material-symbols-outlined text-accent-cyan text-[20px]">mail</span>
+              Live Email Intelligence
+            </h3>
+            <p class="font-body-md text-on-surface-variant text-xs">Monitored email streams, sender authenticity & confidence metrics</p>
+          </div>
+          <button class="btn secondary small" onclick="openEmailModal()">
+            <span class="material-symbols-outlined text-[15px]">visibility</span>
+            See More
           </button>
-        </h2>
-        <div class="msg" id="scan-msg"></div>
+        </div>
+        <div id="email-banner" style="display:none;background:rgba(239,91,91,0.12);border:1px solid rgba(239,91,91,0.35);color:#ff8080;padding:12px 16px;border-radius:10px;margin-bottom:16px;font-size:0.85rem;"></div>
+        <div class="overflow-x-auto">
+          <table>
+            <thead>
+              <tr>
+                <th>From</th>
+                <th>Subject</th>
+                <th>Domain</th>
+                <th>Risk Score</th>
+                <th>Time</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="email-table-body">
+              <tr><td colspan="6" class="empty">Loading email data…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- SCA Scan Results & Resolution Section -->
+      <div class="table-card p-6 flex flex-col" id="scan-card">
+        <div class="flex justify-between items-center mb-4 flex-wrap gap-3">
+          <div>
+            <h3 class="font-headline-md text-on-surface text-lg font-bold flex items-center gap-2">
+              <span class="material-symbols-outlined text-accent-cyan text-[20px]">radar</span>
+              SCA Scan Results &amp; Resolution
+            </h3>
+            <p class="font-body-md text-on-surface-variant text-xs">Live vulnerability findings from OSV.dev and active risk resolutions</p>
+          </div>
+          <button class="btn" onclick="runScan()">
+            <span class="material-symbols-outlined text-[16px]">play_circle</span>
+            Run Fixed-Payload Scan (OSV.dev)
+          </button>
+        </div>
+        <div class="overflow-x-auto">
+          <table>
+            <thead>
+              <tr>
+                <th>Source</th>
+                <th>Employee</th>
+                <th>Package / App</th>
+                <th>Vuln ID</th>
+                <th>CVSS/Score</th>
+                <th>Tier</th>
+                <th>Status</th>
+                <th>Summary</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="scan-table-body">
+              <tr>
+                <td colspan="9" class="empty">Loading…</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- Email History Modal -->
+  <div id="email-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(10,14,39,0.85);backdrop-filter:blur(16px);z-index:100;align-items:center;justify-content:center;padding:20px;">
+    <div class="glass-panel p-6 rounded-2xl w-full max-w-4xl max-h-[85vh] flex flex-col border border-glass-border shadow-2xl">
+      <div class="flex justify-between items-center mb-4 pb-3 border-b border-glass-border">
+        <div>
+          <h2 class="font-headline-md text-xl font-bold text-on-surface flex items-center gap-2">
+            <span class="material-symbols-outlined text-accent-cyan">mail</span>
+            Email Intelligence History
+          </h2>
+          <p class="text-xs text-on-surface-variant">Full log of evaluated inbound email telemetry</p>
+        </div>
+        <button class="btn small danger-outline" onclick="closeEmailModal()">Close</button>
+      </div>
+      <div class="overflow-y-auto flex-1">
         <table>
           <thead>
             <tr>
-              <th>Source</th>
-              <th>Employee</th>
-              <th>Package / App</th>
-              <th>Vuln ID</th>
-              <th>CVSS/Score</th>
-              <th>Tier</th>
-              <th>Status</th>
-              <th>Summary</th>
-              <th>Action</th>
+              <th>From</th>
+              <th>Subject</th>
+              <th>Domain</th>
+              <th>Risk Score</th>
+              <th>Time</th>
             </tr>
           </thead>
-          <tbody id="scan-table-body">
-            <tr>
-              <td colspan="9" class="empty">Loading…</td>
-            </tr>
+          <tbody id="email-modal-body">
           </tbody>
         </table>
       </div>
+    </div>
+  </div>
 
-      <script>
-      const token = sessionStorage.getItem("sentry_token");
-      const isAdmin = sessionStorage.getItem("sentry_is_admin") === "true";
-      const employeeId = sessionStorage.getItem("sentry_employee_id");
+  <!-- ── UNTOUCHED JAVASCRIPT LOGIC & API INTEGRATION ─────────── -->
+  <script>
+    const token = sessionStorage.getItem("sentry_token");
+    const isAdmin = sessionStorage.getItem("sentry_is_admin") === "true";
+    const employeeId = sessionStorage.getItem("sentry_employee_id");
 
-      if (!token) {
-        window.location.href = "/login";
-      }
-      if (!isAdmin) {
-        window.location.href = "/employee-dashboard";
-      }
+    if (!token) {
+      window.location.href = "/login";
+    }
+    if (!isAdmin) {
+      window.location.href = "/employee-dashboard";
+    }
 
-      document.getElementById("who-label").textContent = employeeId
-        ? `Admin: ${employeeId}`
-        : "";
+    document.getElementById("who-label").textContent = employeeId
+      ? `Admin: ${employeeId}`
+      : "Admin";
 
-      function signOut() {
+    function signOut() {
+      sessionStorage.clear();
+      window.location.href = "/login";
+    }
+    function authHeaders(extra = {}) {
+      return { Authorization: `Bearer ${token}`, ...extra };
+    }
+
+    function showMsg(elId, text, isError) {
+      const el = document.getElementById(elId);
+      if (!el) return;
+      el.textContent = text;
+      el.className = "msg " + (isError ? "error" : "success");
+      el.style.display = "block";
+      setTimeout(() => {
+        el.className = "msg";
+        el.style.display = "none";
+      }, 5000);
+    }
+
+    async function handle401(res) {
+      if (res.status === 401) {
         sessionStorage.clear();
         window.location.href = "/login";
+        return true;
       }
-      function authHeaders(extra = {}) {
-        return { Authorization: `Bearer ${token}`, ...extra };
+      if (res.status === 403) {
+        window.location.href = "/employee-dashboard";
+        return true;
       }
+      return false;
+    }
 
-      function showMsg(elId, text, isError) {
-        const el = document.getElementById(elId);
-        el.textContent = text;
-        el.className = "msg " + (isError ? "error" : "success");
-        setTimeout(() => {
-          el.className = "msg";
-        }, 5000);
-      }
+    /* ---------------- Live analytics ---------------- */
+    let tierChart = null,
+      trendChart = null;
 
-      async function handle401(res) {
-        if (res.status === 401) {
-          sessionStorage.clear();
-          window.location.href = "/login";
-          return true;
-        }
-        if (res.status === 403) {
-          window.location.href = "/employee-dashboard";
-          return true;
-        }
-        return false;
-      }
-
-      /* ---------------- Live analytics ---------------- */
-      let tierChart = null,
-        trendChart = null;
-
-      function initCharts() {
-        tierChart = new Chart(document.getElementById("tier-chart"), {
+    function initCharts() {
+      const tierCtx = document.getElementById("tier-chart");
+      if (tierCtx) {
+        tierChart = new Chart(tierCtx, {
           type: "bar",
           data: {
             labels: ["Not Risky", "Part Risky", "High Risky"],
@@ -606,19 +941,23 @@
           },
           options: {
             responsive: true,
+            maintainAspectRatio: false,
             plugins: { legend: { display: false } },
             scales: {
-              x: { ticks: { color: "#94A3B8" }, grid: { display: false } },
+              x: { ticks: { color: "#94A3B8", font: { family: 'Inter', size: 11 } }, grid: { display: false } },
               y: {
-                ticks: { color: "#94A3B8", stepSize: 1 },
+                ticks: { color: "#94A3B8", stepSize: 1, font: { family: 'Fira Code', size: 10 } },
                 beginAtZero: true,
                 grid: { color: "rgba(255,255,255,0.05)" },
               },
             },
           },
         });
+      }
 
-        trendChart = new Chart(document.getElementById("trend-chart"), {
+      const trendCtx = document.getElementById("trend-chart");
+      if (trendCtx) {
+        trendChart = new Chart(trendCtx, {
           type: "line",
           data: {
             labels: [],
@@ -627,23 +966,25 @@
                 label: "Risks Detected",
                 data: [],
                 borderColor: "#3B5BFF",
-                backgroundColor: "rgba(59,91,255,0.08)",
+                backgroundColor: "rgba(59,91,255,0.12)",
                 fill: true,
-                tension: 0.3,
-                pointRadius: 3,
+                tension: 0.35,
+                pointRadius: 4,
+                pointHoverRadius: 6,
               },
             ],
           },
           options: {
             responsive: true,
+            maintainAspectRatio: false,
             plugins: { legend: { display: false } },
             scales: {
               x: {
-                ticks: { color: "#94A3B8", font: { size: 9 } },
+                ticks: { color: "#94A3B8", font: { family: 'Fira Code', size: 10 } },
                 grid: { display: false },
               },
               y: {
-                ticks: { color: "#94A3B8", stepSize: 1 },
+                ticks: { color: "#94A3B8", stepSize: 1, font: { family: 'Fira Code', size: 10 } },
                 beginAtZero: true,
                 grid: { color: "rgba(255,255,255,0.05)" },
               },
@@ -651,414 +992,425 @@
           },
         });
       }
+    }
 
-      async function loadAnalytics() {
-        try {
-          const res = await fetch("/analytics", { headers: authHeaders() });
-          if (await handle401(res)) return;
-          if (!res.ok) throw new Error(await res.text());
-          const a = await res.json();
+    async function loadAnalytics() {
+      try {
+        const res = await fetch("/analytics", { headers: authHeaders() });
+        if (await handle401(res)) return;
+        if (!res.ok) throw new Error(await res.text());
+        const a = await res.json();
 
-          document.getElementById("stat-not-risky").textContent =
-            a.tier_counts.not_risky;
-          document.getElementById("stat-part-risky").textContent =
-            a.tier_counts.part_risky;
-          document.getElementById("stat-high-risky").textContent =
-            a.tier_counts.high_risky;
-          document.getElementById("stat-avg-time").textContent =
-            a.avg_resolution_minutes !== null
-              ? `${a.avg_resolution_minutes} min`
-              : "No data yet";
+        document.getElementById("stat-not-risky").textContent =
+          a.tier_counts.not_risky;
+        document.getElementById("stat-part-risky").textContent =
+          a.tier_counts.part_risky;
+        document.getElementById("stat-high-risky").textContent =
+          a.tier_counts.high_risky;
+        document.getElementById("stat-avg-time").textContent =
+          a.avg_resolution_minutes !== null
+            ? `${a.avg_resolution_minutes} min`
+            : "No data yet";
 
-          if (tierChart) {
-            tierChart.data.datasets[0].data = [
-              a.tier_counts.not_risky,
-              a.tier_counts.part_risky,
-              a.tier_counts.high_risky,
-            ];
-            tierChart.update();
-          }
-          if (trendChart) {
-            trendChart.data.labels = a.daily_counts.map((d) => d.date.slice(5)); // MM-DD
-            trendChart.data.datasets[0].data = a.daily_counts.map(
-              (d) => d.count,
-            );
-            trendChart.update();
-          }
-        } catch (e) {
-          console.error("Could not load analytics", e);
+        if (tierChart) {
+          tierChart.data.datasets[0].data = [
+            a.tier_counts.not_risky,
+            a.tier_counts.part_risky,
+            a.tier_counts.high_risky,
+          ];
+          tierChart.update();
         }
-      }
-
-      async function exportReport() {
-        const btn = document.getElementById("export-btn");
-        btn.disabled = true;
-        btn.textContent = "Generating…";
-        try {
-          const res = await fetch("/reports/export", {
-            headers: authHeaders(),
-          });
-          if (await handle401(res)) return;
-          if (!res.ok) throw new Error(await res.text());
-          const blob = await res.blob();
-          const url = window.URL.createObjectURL(blob);
-          const a = document.createElement("a");
-          a.href = url;
-          const disposition = res.headers.get("Content-Disposition") || "";
-          const match = disposition.match(/filename="(.+)"/);
-          a.download = match ? match[1] : "sentry-report.pptx";
-          document.body.appendChild(a);
-          a.click();
-          a.remove();
-          window.URL.revokeObjectURL(url);
-          showMsg("export-msg", "Report downloaded.", false);
-        } catch (e) {
-          showMsg("export-msg", "Export failed: " + e.message, true);
-        } finally {
-          btn.disabled = false;
-          btn.textContent = "Export to PPT";
+        if (trendChart) {
+          trendChart.data.labels = a.daily_counts.map((d) => d.date.slice(5)); // MM-DD
+          trendChart.data.datasets[0].data = a.daily_counts.map(
+            (d) => d.count,
+          );
+          trendChart.update();
         }
+      } catch (e) {
+        console.error("Could not load analytics", e);
       }
+    }
 
-      /* ---------------- Scan results + approve/deny ---------------- */
-      function renderScanTable(results) {
-        const tbody = document.getElementById("scan-table-body");
-        if (!results.length) {
-          tbody.innerHTML = `<tr><td colspan="8" class="empty">No scans yet — click "Run Fixed-Payload Scan" above.</td></tr>`;
+    async function exportReport() {
+      const btn = document.getElementById("export-btn");
+      btn.disabled = true;
+      btn.textContent = "Generating…";
+      try {
+        const res = await fetch("/reports/export", {
+          headers: authHeaders(),
+        });
+        if (await handle401(res)) return;
+        if (!res.ok) throw new Error(await res.text());
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        const disposition = res.headers.get("Content-Disposition") || "";
+        const match = disposition.match(/filename="(.+)"/);
+        a.download = match ? match[1] : "sentry-report.pptx";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+        showMsg("export-msg", "Report downloaded.", false);
+      } catch (e) {
+        showMsg("export-msg", "Export failed: " + e.message, true);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<span class="material-symbols-outlined text-[15px]">presentation</span> Export to PPT`;
+      }
+    }
+
+    /* ---------------- Scan results + approve/deny ---------------- */
+    function renderScanTable(results) {
+      const tbody = document.getElementById("scan-table-body");
+      if (!tbody) return;
+      if (!results.length) {
+        tbody.innerHTML = `<tr><td colspan="9" class="empty">No scans yet — click "Run Fixed-Payload Scan" above.</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = results
+        .map((r) => {
+          const canAct = r.risk_flag_status === "pending" && r.risk_flag_id;
+          const actionCell = canAct
+            ? `<div class="action-cell">
+             <button class="btn small approve" onclick="resolveFlag('${r.risk_flag_id}','approve')">Approve</button>
+             <button class="btn small deny" onclick="resolveFlag('${r.risk_flag_id}','deny')">Deny</button>
+           </div>`
+            : `<span style="color:var(--muted);font-size:0.75rem;">—</span>`;
+          const isNotif = r.source_type === "notification";
+          const sourceBadge = isNotif
+            ? `<span class="tier-badge" style="background:rgba(59,91,255,0.12);color:#93a5ff;border:1px solid rgba(59,91,255,0.3);">Notification</span>`
+            : `<span class="tier-badge" style="background:rgba(255,255,255,0.06);color:var(--muted);border:1px solid var(--border);">SCA Scan</span>`;
+          const nameCol = isNotif
+            ? r.app_name || r.package_name
+            : `${r.package_name}${r.package_version ? "==" + r.package_version : ""}`;
+          const scoreCol =
+            r.cvss_score !== null && r.cvss_score !== undefined
+              ? r.cvss_score
+              : "—";
+          return `
+      <tr>
+        <td>${sourceBadge}</td>
+        <td class="mono" style="font-size:0.75rem;">${r.employee_id || "—"}</td>
+        <td class="mono">${nameCol}</td>
+        <td class="mono">${r.vuln_id || "—"}</td>
+        <td class="mono">${scoreCol}</td>
+        <td><span class="tier-badge tier-${r.tier}">${r.tier.replace("_", " ")}</span></td>
+        <td><span class="status-pill ${r.risk_flag_status}">${r.risk_flag_status}${r.resolution ? " · " + r.resolution.replace("_", " ") : ""}</span></td>
+        <td style="max-width:240px;font-size:0.78rem;color:var(--muted)">${r.summary || ""}</td>
+        <td>${actionCell}</td>
+      </tr>`;
+        })
+        .join("");
+    }
+
+    async function loadAuditLog() {
+      try {
+        const res = await fetch("/audit-log", { headers: authHeaders() });
+        if (await handle401(res)) return;
+        if (!res.ok) throw new Error(await res.text());
+        const entries = await res.json();
+        const tbody = document.getElementById("audit-table-body");
+        if (!tbody) return;
+        if (!entries.length) {
+          tbody.innerHTML = `<tr><td colspan="3" class="empty">No audit entries yet.</td></tr>`;
           return;
         }
-        tbody.innerHTML = results
-          .map((r) => {
-            const canAct = r.risk_flag_status === "pending" && r.risk_flag_id;
-            const actionCell = canAct
-              ? `<div class="action-cell">
-               <button class="btn small approve" onclick="resolveFlag('${r.risk_flag_id}','approve')">Approve</button>
-               <button class="btn small deny" onclick="resolveFlag('${r.risk_flag_id}','deny')">Deny</button>
-             </div>`
-              : `<span style="color:var(--muted);font-size:0.75rem;">—</span>`;
-            const isNotif = r.source_type === "notification";
-            const sourceBadge = isNotif
-              ? `<span class="tier-badge" style="background:rgba(59,91,255,0.12);color:#93a5ff;border:1px solid rgba(59,91,255,0.3);">Notification</span>`
-              : `<span class="tier-badge" style="background:rgba(255,255,255,0.06);color:var(--muted);border:1px solid var(--border);">SCA Scan</span>`;
-            const nameCol = isNotif
-              ? r.app_name || r.package_name
-              : `${r.package_name}${r.package_version ? "==" + r.package_version : ""}`;
-            const scoreCol =
-              r.cvss_score !== null && r.cvss_score !== undefined
-                ? r.cvss_score
-                : "—";
-            return `
+        tbody.innerHTML = entries
+          .map(
+            (e) => `
         <tr>
-          <td>${sourceBadge}</td>
-          <td class="mono" style="font-size:0.75rem;">${r.employee_id || "—"}</td>
-          <td class="mono">${nameCol}</td>
-          <td class="mono">${r.vuln_id || "—"}</td>
-          <td class="mono">${scoreCol}</td>
-          <td><span class="tier-badge tier-${r.tier}">${r.tier.replace("_", " ")}</span></td>
-          <td><span class="status-pill ${r.risk_flag_status}">${r.risk_flag_status}${r.resolution ? " · " + r.resolution.replace("_", " ") : ""}</span></td>
-          <td style="max-width:240px;font-size:0.78rem;color:var(--muted)">${r.summary || ""}</td>
-          <td>${actionCell}</td>
-        </tr>`;
-          })
+          <td class="mono" style="font-size:0.72rem;color:var(--muted);">${new Date(e.created_at).toLocaleString()}</td>
+          <td class="mono">${e.actor || "system"}</td>
+          <td>${e.message}</td>
+        </tr>
+      `,
+          )
           .join("");
+      } catch (e) {
+        const tbody = document.getElementById("audit-table-body");
+        if (tbody) tbody.innerHTML = `<tr><td colspan="3" class="empty">Could not load audit log.</td></tr>`;
       }
+    }
 
-      async function loadAuditLog() {
-        try {
-          const res = await fetch("/audit-log", { headers: authHeaders() });
-          if (await handle401(res)) return;
-          if (!res.ok) throw new Error(await res.text());
-          const entries = await res.json();
-          const tbody = document.getElementById("audit-table-body");
-          if (!entries.length) {
-            tbody.innerHTML = `<tr><td colspan="3" class="empty">No audit entries yet.</td></tr>`;
-            return;
-          }
-          tbody.innerHTML = entries
-            .map(
-              (e) => `
-          <tr>
-            <td class="mono" style="font-size:0.72rem;color:var(--muted);">${new Date(e.created_at).toLocaleString()}</td>
-            <td class="mono">${e.actor || "system"}</td>
-            <td>${e.message}</td>
-          </tr>
-        `,
-            )
-            .join("");
-        } catch (e) {
-          document.getElementById("audit-table-body").innerHTML =
-            `<tr><td colspan="3" class="empty">Could not load audit log.</td></tr>`;
+    async function loadScanResults() {
+      try {
+        const res = await fetch("/scan/results", { headers: authHeaders() });
+        if (await handle401(res)) return;
+        if (!res.ok) throw new Error(await res.text());
+        renderScanTable(await res.json());
+      } catch (e) {
+        const tbody = document.getElementById("scan-table-body");
+        if (tbody) {
+          tbody.innerHTML = `<tr><td colspan="9" class="empty">Could not load scan results — is the backend running?</td></tr>`;
         }
       }
+    }
 
-      async function loadScanResults() {
-        try {
-          const res = await fetch("/scan/results", { headers: authHeaders() });
-          if (await handle401(res)) return;
-          if (!res.ok) throw new Error(await res.text());
-          renderScanTable(await res.json());
-        } catch (e) {
-          document.getElementById("scan-table-body").innerHTML =
-            `<tr><td colspan="8" class="empty">Could not load scan results — is the backend running?</td></tr>`;
-        }
+    async function runScan() {
+      const btn = document.getElementById("scan-btn");
+      btn.disabled = true;
+      btn.textContent = "Scanning via OSV.dev…";
+      try {
+        const res = await fetch("/scan/demo", {
+          method: "POST",
+          headers: authHeaders(),
+        });
+        if (await handle401(res)) return;
+        if (!res.ok) throw new Error(await res.text());
+        const results = await res.json();
+        showMsg(
+          "scan-msg",
+          `Scan complete — ${results.length} package(s) checked against live OSV.dev data.`,
+          false,
+        );
+        await loadScanResults();
+        await loadAnalytics();
+      } catch (e) {
+        showMsg("scan-msg", "Scan failed: " + e.message, true);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<span class="material-symbols-outlined text-[15px]">radar</span> Run Fixed Scan`;
       }
+    }
 
-      async function runScan() {
-        const btn = document.getElementById("scan-btn");
-        btn.disabled = true;
-        btn.textContent = "Scanning via OSV.dev…";
-        try {
-          const res = await fetch("/scan/demo", {
-            method: "POST",
-            headers: authHeaders(),
-          });
-          if (await handle401(res)) return;
-          if (!res.ok) throw new Error(await res.text());
-          const results = await res.json();
-          showMsg(
-            "scan-msg",
-            `Scan complete — ${results.length} package(s) checked against live OSV.dev data.`,
-            false,
-          );
-          await loadScanResults();
-          await loadAnalytics();
-        } catch (e) {
-          showMsg("scan-msg", "Scan failed: " + e.message, true);
-        } finally {
-          btn.disabled = false;
-          btn.textContent = "Run Fixed-Payload Scan (OSV.dev, live)";
+    async function resolveFlag(flagId, action) {
+      try {
+        const res = await fetch(`/risk-flags/${flagId}/${action}`, {
+          method: "POST",
+          headers: authHeaders(),
+        });
+        if (await handle401(res)) return;
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.detail || `Could not ${action} this risk flag`);
         }
+        showMsg(
+          "scan-msg",
+          `Risk flag ${action === "approve" ? "approved" : "denied"}. Employee dashboard updates automatically.`,
+          false,
+        );
+        await loadScanResults();
+        await loadAnalytics();
+      } catch (e) {
+        showMsg("scan-msg", e.message, true);
       }
+    }
 
-      async function resolveFlag(flagId, action) {
-        try {
-          const res = await fetch(`/risk-flags/${flagId}/${action}`, {
-            method: "POST",
-            headers: authHeaders(),
-          });
-          if (await handle401(res)) return;
-          if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            throw new Error(err.detail || `Could not ${action} this risk flag`);
-          }
-          showMsg(
-            "scan-msg",
-            `Risk flag ${action === "approve" ? "approved" : "denied"}. Employee dashboard updates automatically.`,
-            false,
-          );
-          await loadScanResults();
-          await loadAnalytics();
-        } catch (e) {
-          showMsg("scan-msg", e.message, true);
-        }
-      }
-
-      /* ---------------- Auto-approval rules ---------------- */
-      async function loadRules() {
-        try {
-          const res = await fetch("/rules", { headers: authHeaders() });
-          if (await handle401(res)) return;
-          if (!res.ok) throw new Error(await res.text());
-          renderRules(await res.json());
-        } catch (e) {
-          document.getElementById("rules-list").innerHTML =
-            `<div class="empty">Could not load rules.</div>`;
-        }
-      }
-
-      function renderRules(rules) {
+    /* ---------------- Auto-approval rules ---------------- */
+    async function loadRules() {
+      try {
+        const res = await fetch("/rules", { headers: authHeaders() });
+        if (await handle401(res)) return;
+        if (!res.ok) throw new Error(await res.text());
+        renderRules(await res.json());
+      } catch (e) {
         const container = document.getElementById("rules-list");
-        const labels = {
-          not_risky: "Not Risky",
-          part_risky: "Part Risky",
-          high_risky: "High Risky",
-        };
-        container.innerHTML = rules
-          .map((r) => {
-            const locked = r.tier === "high_risky";
-            return `
-        <div class="rule-row ${locked ? "locked" : ""}">
-          <div>
-            <strong>${labels[r.tier]}</strong>
-            ${locked ? '<div style="font-size:0.72rem;color:var(--muted);margin-top:2px;">Always requires manual approval — cannot be changed</div>' : ""}
-          </div>
-          <label class="switch">
-            <input type="checkbox" ${r.can_auto_approve ? "checked" : ""} ${locked ? "disabled" : ""}
-                   onchange="updateRule('${r.tier}', this.checked)" />
-            <span class="slider"></span>
-          </label>
-        </div>`;
-          })
-          .join("");
+        if (container) container.innerHTML = `<div class="empty">Could not load rules.</div>`;
       }
+    }
 
-      async function updateRule(tier, canAutoApprove) {
-        try {
-          const res = await fetch("/rules", {
-            method: "PUT",
-            headers: authHeaders({ "Content-Type": "application/json" }),
-            body: JSON.stringify({ tier, can_auto_approve: canAutoApprove }),
-          });
-          if (await handle401(res)) return;
-          if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            throw new Error(err.detail || "Update failed");
-          }
-          showMsg(
-            "rules-msg",
-            `Updated: ${tier.replace("_", " ")} auto-approve = ${canAutoApprove}`,
-            false,
-          );
-        } catch (e) {
-          showMsg("rules-msg", "Could not update rule: " + e.message, true);
-          loadRules();
+    function renderRules(rules) {
+      const container = document.getElementById("rules-list");
+      if (!container) return;
+      const labels = {
+        not_risky: "Not Risky",
+        part_risky: "Part Risky",
+        high_risky: "High Risky",
+      };
+      container.innerHTML = rules
+        .map((r) => {
+          const locked = r.tier === "high_risky";
+          return `
+      <div class="rule-row ${locked ? "locked" : ""}">
+        <div>
+          <strong class="text-sm font-semibold">${labels[r.tier]}</strong>
+          ${locked ? '<div style="font-size:0.72rem;color:var(--muted);margin-top:2px;">Always requires manual approval — cannot be changed</div>' : ""}
+        </div>
+        <label class="switch">
+          <input type="checkbox" ${r.can_auto_approve ? "checked" : ""} ${locked ? "disabled" : ""}
+                 onchange="updateRule('${r.tier}', this.checked)" />
+          <span class="slider"></span>
+        </label>
+      </div>`;
+        })
+        .join("");
+    }
+
+    async function updateRule(tier, canAutoApprove) {
+      try {
+        const res = await fetch("/rules", {
+          method: "PUT",
+          headers: authHeaders({ "Content-Type": "application/json" }),
+          body: JSON.stringify({ tier, can_auto_approve: canAutoApprove }),
+        });
+        if (await handle401(res)) return;
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.detail || "Update failed");
         }
+        showMsg(
+          "rules-msg",
+          `Updated: ${tier.replace("_", " ")} auto-approve = ${canAutoApprove}`,
+          false,
+        );
+      } catch (e) {
+        showMsg("rules-msg", "Could not update rule: " + e.message, true);
+        loadRules();
       }
+    }
 
-      let fullEmails = [];
-      async function loadEmailIntel() {
-        try {
-          const res = await fetch('/emails/recent?max_results=50', { headers: authHeaders() });
-          if (await handle401(res)) return;
-          if (!res.ok) throw new Error(await res.text());
-          fullEmails = await res.json();
-          const tbody = document.getElementById('email-table-body');
-          if (!fullEmails.length) {
-            tbody.innerHTML = `<tr><td colspan="6" class="empty">No emails fetched.</td></tr>`;
-            return;
-          }
-          tbody.innerHTML = fullEmails.slice(0, 5).map(e => {
-            const domainBadge = e.domain_trusted
-              ? `<span class="tier-badge tier-not_risky">Trusted</span>`
-              : `<span class="tier-badge tier-high_risky">Unknown</span>`;
-            const scoreColor = e.confidence >= 0.7 ? 'var(--err)' : e.confidence >= 0.4 ? 'var(--pending)' : 'var(--ok)';
-            const time = e.date_iso ? new Date(e.date_iso).toLocaleString() : '-';
-            return `<tr>
-              <td class="mono" style="font-size:0.75rem;">${e.sender.slice(0, 30)}</td>
-              <td style="font-size:0.78rem;">${e.subject.slice(0, 40)}</td>
-              <td>${domainBadge}</td>
-              <td><span style="color:${scoreColor};font-weight:700;">${(e.confidence * 100).toFixed(0)}%</span></td>
-              <td style="font-size:0.72rem;color:var(--muted);">${time}</td>
-              <td>
-                ${!e.domain_trusted ? `<button class="btn small" onclick="addDomainQuick('${e.sender.split('@')[1]}')">Trust Domain</button>` : ''}
-              </td>
-            </tr>`;
-          }).join('');
-        } catch (e) {
-          document.getElementById('email-table-body').innerHTML = `<tr><td colspan="6" class="empty">Could not load emails.</td></tr>`;
+    let fullEmails = [];
+    async function loadEmailIntel() {
+      try {
+        const res = await fetch('/emails/recent?max_results=50', { headers: authHeaders() });
+        if (await handle401(res)) return;
+        if (!res.ok) throw new Error(await res.text());
+        fullEmails = await res.json();
+        const tbody = document.getElementById('email-table-body');
+        if (!tbody) return;
+        if (!fullEmails.length) {
+          tbody.innerHTML = `<tr><td colspan="6" class="empty">No emails fetched.</td></tr>`;
+          return;
         }
-      }
-
-      function openEmailModal() {
-        document.getElementById('email-modal').style.display = 'flex';
-        const tbody = document.getElementById('email-modal-body');
-        tbody.innerHTML = fullEmails.map(e => {
-          const domainBadge = e.domain_trusted ? `<span class="tier-badge tier-not_risky">Trusted</span>` : `<span class="tier-badge tier-high_risky">Unknown</span>`;
+        tbody.innerHTML = fullEmails.slice(0, 5).map(e => {
+          const domainBadge = e.domain_trusted
+            ? `<span class="tier-badge tier-not_risky">Trusted</span>`
+            : `<span class="tier-badge tier-high_risky">Unknown</span>`;
           const scoreColor = e.confidence >= 0.7 ? 'var(--err)' : e.confidence >= 0.4 ? 'var(--pending)' : 'var(--ok)';
           const time = e.date_iso ? new Date(e.date_iso).toLocaleString() : '-';
           return `<tr>
-            <td class="mono" style="font-size:0.75rem;">${e.sender}</td>
-            <td style="font-size:0.78rem;">${e.subject}</td>
+            <td class="mono" style="font-size:0.75rem;">${e.sender.slice(0, 30)}</td>
+            <td style="font-size:0.78rem;">${e.subject.slice(0, 40)}</td>
             <td>${domainBadge}</td>
             <td><span style="color:${scoreColor};font-weight:700;">${(e.confidence * 100).toFixed(0)}%</span></td>
             <td style="font-size:0.72rem;color:var(--muted);">${time}</td>
+            <td>
+              ${!e.domain_trusted ? `<button class="btn small" onclick="addDomainQuick('${e.sender.split('@')[1]}')">Trust Domain</button>` : ''}
+            </td>
           </tr>`;
         }).join('');
+      } catch (e) {
+        const tbody = document.getElementById('email-table-body');
+        if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="empty">Could not load emails.</td></tr>`;
       }
-      function closeEmailModal() {
-        document.getElementById('email-modal').style.display = 'none';
-      }
+    }
 
-      async function loadWhitelist() {
-        try {
-          const res = await fetch('/whitelist/domains', { headers: authHeaders() });
-          if (await handle401(res)) return;
-          if (!res.ok) throw new Error(await res.text());
-          const domains = await res.json();
-          const container = document.getElementById('whitelist-list');
-          if (!domains.length) {
-            container.innerHTML = `<div class="empty">No trusted domains yet. Add one above.</div>`;
-            return;
-          }
-          container.innerHTML = domains.map(d => `
-            <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(0,0,0,0.2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;">
-              <span style="font-family:'Fira Code',monospace;font-size:0.85rem;color:var(--ok);">@${d.domain}</span>
-              <button class="btn small danger-outline" onclick="removeDomain('${d.domain}')">Remove</button>
-            </div>`).join('');
-        } catch (e) {
-          document.getElementById('whitelist-list').innerHTML = `<div class="empty">Could not load whitelist.</div>`;
-        }
-      }
+    function openEmailModal() {
+      document.getElementById('email-modal').style.display = 'flex';
+      const tbody = document.getElementById('email-modal-body');
+      if (!tbody) return;
+      tbody.innerHTML = fullEmails.map(e => {
+        const domainBadge = e.domain_trusted ? `<span class="tier-badge tier-not_risky">Trusted</span>` : `<span class="tier-badge tier-high_risky">Unknown</span>`;
+        const scoreColor = e.confidence >= 0.7 ? 'var(--err)' : e.confidence >= 0.4 ? 'var(--pending)' : 'var(--ok)';
+        const time = e.date_iso ? new Date(e.date_iso).toLocaleString() : '-';
+        return `<tr>
+          <td class="mono" style="font-size:0.75rem;">${e.sender}</td>
+          <td style="font-size:0.78rem;">${e.subject}</td>
+          <td>${domainBadge}</td>
+          <td><span style="color:${scoreColor};font-weight:700;">${(e.confidence * 100).toFixed(0)}%</span></td>
+          <td style="font-size:0.72rem;color:var(--muted);">${time}</td>
+        </tr>`;
+      }).join('');
+    }
+    function closeEmailModal() {
+      document.getElementById('email-modal').style.display = 'none';
+    }
 
-      async function addDomainQuick(domain) {
-        document.getElementById('new-domain').value = domain;
-        await addDomain();
-      }
-
-      async function addDomain() {
-        const domain = document.getElementById('new-domain').value.trim();
-        if (!domain) { showMsg('whitelist-msg', 'Enter a domain name.', true); return; }
-        try {
-          const res = await fetch('/whitelist/domains', {
-            method: 'POST',
-            headers: authHeaders({ 'Content-Type': 'application/json' }),
-            body: JSON.stringify({ domain }),
-          });
-          if (await handle401(res)) return;
-          if (!res.ok) throw new Error("Failed to add domain");
-          document.getElementById('new-domain').value = '';
-          showMsg('whitelist-msg', `'${domain}' added to trusted whitelist.`, false);
-          await loadWhitelist();
-          await loadEmailIntel();
-        } catch (e) { showMsg('whitelist-msg', e.message, true); }
-      }
-
-      async function autoAddDomains() {
-        const safeEmails = fullEmails.filter(e => e.confidence < 0.2 && !e.domain_trusted);
-        const domains = [...new Set(safeEmails.map(e => e.sender.split('@')[1]))];
+    async function loadWhitelist() {
+      try {
+        const res = await fetch('/whitelist/domains', { headers: authHeaders() });
+        if (await handle401(res)) return;
+        if (!res.ok) throw new Error(await res.text());
+        const domains = await res.json();
+        const container = document.getElementById('whitelist-list');
+        if (!container) return;
         if (!domains.length) {
-          showMsg('whitelist-msg', 'No new safe domains found to auto-add.', false);
+          container.innerHTML = `<div class="empty">No trusted domains yet. Add one above.</div>`;
           return;
         }
-        let added = 0;
-        for (const d of domains) {
-          try {
-            await fetch('/whitelist/domains', {
-              method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ domain: d })
-            });
-            added++;
-          } catch(e) {}
-        }
-        showMsg('whitelist-msg', `Auto-added ${added} safe domains.`, false);
+        container.innerHTML = domains.map(d => `
+          <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(0,0,0,0.25);border:1px solid var(--border-subtle);border-radius:8px;padding:10px 14px;">
+            <span style="font-family:'Fira Code',monospace;font-size:0.85rem;color:var(--ok);">@${d.domain}</span>
+            <button class="btn small danger-outline" onclick="removeDomain('${d.domain}')">Remove</button>
+          </div>`).join('');
+      } catch (e) {
+        const container = document.getElementById('whitelist-list');
+        if (container) container.innerHTML = `<div class="empty">Could not load whitelist.</div>`;
+      }
+    }
+
+    async function addDomainQuick(domain) {
+      document.getElementById('new-domain').value = domain;
+      await addDomain();
+    }
+
+    async function addDomain() {
+      const domain = document.getElementById('new-domain').value.trim();
+      if (!domain) { showMsg('whitelist-msg', 'Enter a domain name.', true); return; }
+      try {
+        const res = await fetch('/whitelist/domains', {
+          method: 'POST',
+          headers: authHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ domain }),
+        });
+        if (await handle401(res)) return;
+        if (!res.ok) throw new Error("Failed to add domain");
+        document.getElementById('new-domain').value = '';
+        showMsg('whitelist-msg', `'${domain}' added to trusted whitelist.`, false);
         await loadWhitelist();
         await loadEmailIntel();
-      }
+      } catch (e) { showMsg('whitelist-msg', e.message, true); }
+    }
 
-      async function removeDomain(domain) {
-        if (!confirm(`Remove '${domain}' from trusted whitelist?`)) return;
+    async function autoAddDomains() {
+      const safeEmails = fullEmails.filter(e => e.confidence < 0.2 && !e.domain_trusted);
+      const domains = [...new Set(safeEmails.map(e => e.sender.split('@')[1]))];
+      if (!domains.length) {
+        showMsg('whitelist-msg', 'No new safe domains found to auto-add.', false);
+        return;
+      }
+      let added = 0;
+      for (const d of domains) {
         try {
-          const res = await fetch(`/whitelist/domains/${encodeURIComponent(domain)}`, {
-            method: 'DELETE', headers: authHeaders(),
+          await fetch('/whitelist/domains', {
+            method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ domain: d })
           });
-          if (await handle401(res)) return;
-          showMsg('whitelist-msg', `'${domain}' removed.`, false);
-          await loadWhitelist();
-          await loadEmailIntel();
-        } catch (e) { showMsg('whitelist-msg', e.message, true); }
+          added++;
+        } catch(e) {}
       }
+      showMsg('whitelist-msg', `Auto-added ${added} safe domains.`, false);
+      await loadWhitelist();
+      await loadEmailIntel();
+    }
 
-      /* ---------------- Init ---------------- */
-      initCharts();
+    async function removeDomain(domain) {
+      if (!confirm(`Remove '${domain}' from trusted whitelist?`)) return;
+      try {
+        const res = await fetch(`/whitelist/domains/${encodeURIComponent(domain)}`, {
+          method: 'DELETE', headers: authHeaders(),
+        });
+        if (await handle401(res)) return;
+        showMsg('whitelist-msg', `'${domain}' removed.`, false);
+        await loadWhitelist();
+        await loadEmailIntel();
+      } catch (e) { showMsg('whitelist-msg', e.message, true); }
+    }
+
+    /* ---------------- Init ---------------- */
+    initCharts();
+    loadAnalytics();
+    loadScanResults();
+    loadRules();
+    loadEmailIntel();
+    loadWhitelist();
+    setInterval(() => {
       loadAnalytics();
       loadScanResults();
-      loadRules();
       loadEmailIntel();
-      loadWhitelist();
-      setInterval(() => {
-        loadAnalytics();
-        loadScanResults();
-        loadEmailIntel();
-      }, 10000);
-    </script>
-  </body>
+    }, 10000);
+  </script>
+</body>
 </html>
