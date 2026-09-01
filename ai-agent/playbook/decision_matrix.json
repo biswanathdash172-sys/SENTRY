@@ -1,0 +1,8 @@
+[
+    {"source": "email", "severity": null, "actions": ["Quarantine suspicious email", "Block sender domain"]},
+    {"source": "endpoint", "severity": null, "actions": ["Isolate endpoint from network"]},
+    {"source": "media", "severity": null, "actions": ["Flag media as unverified", "Revoke signing credential"]},
+    {"source": "identity", "severity": null, "actions": ["Force password reset (all sessions)"]},
+    {"source": null, "severity": ["high", "critical"], "actions": ["Notify security team"]},
+    {"source": null, "severity": ["critical"], "actions": ["Suspend user account", "Freeze pending wire transfer", "Escalate to legal/compliance"]}
+]
