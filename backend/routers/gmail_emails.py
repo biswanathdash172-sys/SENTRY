@@ -174,41 +174,75 @@ def live_emails(
     return recent_emails(max_results=max_results, admin=admin)
 
 
-def _imap_fallback_recent(org_id: str, max_results: int) -> List[EmailOut]:
+def _read_cached_emails(org_id: str, max_results: int) -> List[EmailOut]:
     """
-    Fallback when Gmail API isn't configured: reads recent scan_results/risk_flags
-    from Supabase and formats them as EmailOut objects.
+    Reads recent emails from the in-process email_cache that email_poller.py
+    (or gmail_poller.py) writes to after each poll cycle.
+
+    This is the correct architecture (Flag 2 fix): the long-lived poller
+    process is the ONLY component that opens IMAP/Gmail connections. The
+    API route reads from the cache instead of opening a new connection per
+    request. At a 3-second poll interval this would otherwise open ~20
+    IMAP logins per minute per dashboard tab — enough to trigger Gmail's
+    "suspicious activity" lockout.
+
+    Returns [] if the cache hasn't been populated yet (i.e. the poller
+    hasn't run since the backend started). The dashboard shows the "No
+    emails fetched" empty state in that case, which is honest.
+
+    Previously named _imap_fallback_recent — renamed per Flag 3 in the
+    review notes because that name falsely implied it was doing IMAP
+    (it was actually reading Supabase scan_results, which was the bug).
     """
     try:
-        from services.supabase_service import _get_client
-        client = _get_client()
-        result = (
-            client.table("scan_results")
-            .select("id, employee_id, created_at, summary, package_name, ecosystem, tier")
-            .eq("org_id", org_id)
-            .order("created_at", desc=True)
-            .limit(max_results)
-            .execute()
-        )
-        rows = result.data or []
+        from services import email_cache
+        from services.domain_verifier import verify_email_sender
+        cached = email_cache.read_emails(max_results=max_results)
+        if not cached:
+            return []
+
         out = []
-        for row in rows:
-            summary = row.get("summary") or ""
-            pkg = row.get("package_name") or "Inbound Signal"
+        for e in cached:
+            sender = e.get("sender", "")
+            # Re-run domain verification here so it's always org-scoped,
+            # since the poller doesn't have org_id at write time.
+            domain_trusted = e.get("domain_trusted", False)
+            domain_status = e.get("domain_status", "Unknown")
+            confidence = e.get("confidence", 0.0)
+            reasons = e.get("risk_reasons", [])
+            try:
+                verify = verify_email_sender(sender, org_id)
+                domain_trusted = verify.trusted
+                if not verify.trusted and not any("whitelist" in r for r in reasons):
+                    confidence = round(min(confidence + 0.2, 0.97), 3)
+                    reasons = list(reasons) + [
+                        f"Sender domain '{verify.domain}' not in org's trusted whitelist (+0.2 boost)."
+                    ]
+                domain_status = "Trusted" if verify.trusted else "Unknown"
+            except Exception:
+                pass  # domain verification is best-effort
+
             out.append(EmailOut(
-                id=row["id"],
-                sender=f"{pkg} ({row.get('employee_id') or 'system'})",
-                subject=summary[:80] if summary else "Security finding",
-                snippet=summary[:200],
-                date_iso=row.get("created_at"),
-                confidence=0.5,
-                domain="",
-                domain_trusted=False,
-                domain_status="Unknown",
-                risk_reasons=[f"Logged finding: {summary[:60]}"],
-                urls=[],
+                id=e.get("id", ""),
+                sender=sender,
+                subject=e.get("subject", ""),
+                snippet=e.get("snippet", ""),
+                date_iso=e.get("date_iso"),
+                confidence=confidence,
+                domain=e.get("domain", ""),
+                domain_trusted=domain_trusted,
+                domain_status=domain_status,
+                risk_reasons=reasons,
+                urls=e.get("urls", []),
             ))
         return out
     except Exception as exc:
-        logger.warning(f"Fallback recent emails query: {exc}")
+        logger.warning(f"_read_cached_emails: {exc}")
         return []
+
+
+# Thin alias kept for any callers that still reference the old name.
+# Remove once all call sites have been updated.
+def _imap_fallback_recent(org_id: str, max_results: int) -> List[EmailOut]:
+    """Deprecated alias for _read_cached_emails. See Flag 3 in review notes."""
+    return _read_cached_emails(org_id, max_results)

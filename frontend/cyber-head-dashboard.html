@@ -1071,6 +1071,7 @@
         return;
       }
       tbody.innerHTML = results
+        .slice(0, 100)
         .map((r) => {
           const canAct = r.risk_flag_status === "pending" && r.risk_flag_id;
           const actionCell = canAct
@@ -1410,7 +1411,7 @@
       loadAnalytics();
       loadScanResults();
       loadEmailIntel();
-    }, 10000);
+    }, 3000);
   </script>
 </body>
 </html>

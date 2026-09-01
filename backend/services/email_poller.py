@@ -211,23 +211,58 @@ def poll_once(imap: imaplib.IMAP4_SSL, token: str) -> None:
         sender = _decode(msg.get("From", ""))
         subject = _decode(msg.get("Subject", ""))
         body = _extract_body(msg)
+        date_str = msg.get("Date", "")
+
+        # Parse date to ISO
+        date_iso = None
+        if date_str:
+            try:
+                import email.utils as _eu
+                date_iso = _eu.parsedate_to_datetime(date_str).isoformat()
+            except Exception:
+                date_iso = date_str
 
         confidence, reasons = score_message(sender, subject, body)
         logger.info(f"Scanned '{subject}' from {sender} — score={confidence}")
 
         # DOMAIN VERIFICATION: boost confidence if sender is not whitelisted
+        domain = sender.split("@")[-1].strip(">").strip() if "@" in sender else ""
+        domain_trusted = False
         if _org_id:
             try:
                 import sys, os as _os
                 sys.path.insert(0, _os.path.join(_os.path.dirname(__file__), ".."))
                 from services.domain_verifier import verify_email_sender
                 verify = verify_email_sender(sender, _org_id)
+                domain_trusted = verify.trusted
                 if not verify.trusted:
                     confidence = round(min(confidence + 0.2, 0.97), 3)
                     reasons.append(f"Sender domain '{verify.domain}' not in org trusted whitelist (+0.2 boost).")
                     logger.info(f"  Domain '{verify.domain}' untrusted — boosted confidence to {confidence}")
             except Exception as exc:
                 logger.warning(f"Domain verification skipped: {exc}")
+
+        # Write to email_cache so /emails/recent can serve this without
+        # opening its own IMAP connection (per-request IMAP is unsafe at
+        # 3s polling frequency — see Flag 2 in review notes).
+        try:
+            from services import email_cache
+            email_cache.write_emails([{
+                "id": msg_id.decode() if isinstance(msg_id, bytes) else str(msg_id),
+                "sender": sender,
+                "subject": subject,
+                "snippet": body[:200] if body else "",
+                "date_iso": date_iso,
+                "body_preview": body[:500] if body else "",
+                "urls": URL_RE.findall(body or "")[:10],
+                "confidence": confidence,
+                "domain": domain,
+                "domain_trusted": domain_trusted,
+                "domain_status": "Trusted" if domain_trusted else "Unknown",
+                "risk_reasons": reasons,
+            }])
+        except Exception as exc:
+            logger.warning(f"email_cache write failed (non-fatal): {exc}")
 
         if confidence >= 0.3:
             description = (

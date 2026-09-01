@@ -664,9 +664,12 @@
         try {
           const res = await fetch("/audit-log", { headers: authHeaders() });
           if (await handle401(res)) return;
-          if (!res.ok) return;
-          fullAuditLogs = await res.json();
           const tbody = document.getElementById("audit-table-body");
+          if (!res.ok) {
+            tbody.innerHTML = `<tr><td colspan="3" class="empty">Could not load audit trail (${res.status}). Is the backend running?</td></tr>`;
+            return;
+          }
+          fullAuditLogs = await res.json();
           if (!fullAuditLogs.length) {
             tbody.innerHTML = `<tr><td colspan="3" class="empty">No audit entries yet.</td></tr>`;
             return;
@@ -679,7 +682,11 @@
               <td style="font-size:0.8rem;">${l.message}</td>
             </tr>`;
           }).join("");
-        } catch (e) { console.error("Audit log error:", e); }
+        } catch (e) {
+          const tbody = document.getElementById("audit-table-body");
+          if (tbody) tbody.innerHTML = `<tr><td colspan="3" class="empty">Could not load audit trail — is the backend running?</td></tr>`;
+          console.error("Audit log error:", e);
+        }
       }
 
       /* ---- Init ---- */

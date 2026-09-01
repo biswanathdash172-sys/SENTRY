@@ -211,6 +211,17 @@
         </div>
       </div>
 
+      <!-- Shown briefly (~8s) after an active freeze is lifted, giving the employee explicit feedback -->
+      <div id="freeze-banner-cleared" style="display:none;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.35);border-radius:12px;padding:16px 22px;margin-bottom:28px;color:#4ade80;">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div style="font-weight:800;font-size:1.1rem;">[✓]</div>
+          <div>
+            <div style="font-weight:700;font-size:0.9rem;">Device access restored</div>
+            <div style="font-size:0.75rem;margin-top:2px;">Your security team has cleared the security review. Your device is no longer locked.</div>
+          </div>
+        </div>
+      </div>
+
       <h1>My Risk Status</h1>
       <p class="sub">
         This shows the status of risk findings associated with your account and workstation.
@@ -305,28 +316,42 @@
           });
           if (!res.ok) return;
           const data = await res.json();
-          const activeBanner = document.getElementById("freeze-banner-active");
+          const activeBanner  = document.getElementById("freeze-banner-active");
           const pendingBanner = document.getElementById("freeze-banner-pending");
-          const reasonEl = document.getElementById("freeze-reason");
+          const clearedBanner = document.getElementById("freeze-banner-cleared");
+          const reasonEl      = document.getElementById("freeze-reason");
 
           if (data.frozen && data.status === "active") {
             reasonEl.textContent = data.reason || "Device flagged for security lockdown.";
-            activeBanner.style.display = "block";
+            activeBanner.style.display  = "block";
             pendingBanner.style.display = "none";
+            if (clearedBanner) clearedBanner.style.display = "none";
           } else if (data.frozen && data.status === "pending") {
-            activeBanner.style.display = "none";
+            activeBanner.style.display  = "none";
             pendingBanner.style.display = "block";
+            if (clearedBanner) clearedBanner.style.display = "none";
           } else {
-            activeBanner.style.display = "none";
+            // frozen === false — show cleared banner briefly if active was showing
+            const wasLocked = activeBanner.style.display === "block";
+            activeBanner.style.display  = "none";
             pendingBanner.style.display = "none";
+            if (clearedBanner) {
+              if (wasLocked) {
+                // Show "access restored" confirmation for 8 seconds then hide
+                clearedBanner.style.display = "block";
+                setTimeout(() => { clearedBanner.style.display = "none"; }, 8000);
+              } else {
+                clearedBanner.style.display = "none";
+              }
+            }
           }
         } catch (e) {}
       }
 
       loadMyFlags();
       checkFreezeStatus();
-      setInterval(loadMyFlags, 8000);
-      setInterval(checkFreezeStatus, 30000);
+      setInterval(loadMyFlags, 5000);       // reduced: 8s → 5s
+      setInterval(checkFreezeStatus, 5000); // reduced: 30s → 5s (revoke now clears within ~5s)
     </script>
   </body>
 </html>

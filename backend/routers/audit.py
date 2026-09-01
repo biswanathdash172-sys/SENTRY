@@ -22,13 +22,8 @@ class AuditEntryOut(BaseModel):
     id: str
     message: str
     actor: Optional[str] = None
+    employee_id: Optional[str] = None
     created_at: str
-    incident_id: Optional[str] = None
-    risk: Optional[str] = None
-    action: Optional[str] = None
-    decision: Optional[str] = None
-    execution_result: Optional[str] = None
-    reference_id: Optional[str] = None
 
 
 @router.get("/audit-log", response_model=List[AuditEntryOut])
@@ -42,7 +37,7 @@ def get_audit_log(admin: AdminUser = Depends(require_admin), limit: int = 100):
 
     rows = (
         client.table("scan_audit_log")
-        .select("id, message, actor, created_at, incident_id, risk, action, decision, execution_result, reference_id")
+        .select("id, message, actor, employee_id, created_at")
         .eq("org_id", admin.org_id)
         .order("created_at", desc=True)
         .limit(min(limit, 500))
@@ -50,6 +45,12 @@ def get_audit_log(admin: AdminUser = Depends(require_admin), limit: int = 100):
     ).data or []
 
     return [
-        AuditEntryOut(id=r["id"], message=r["message"], actor=r.get("actor"), created_at=r["created_at"])
+        AuditEntryOut(
+            id=r["id"],
+            message=r["message"],
+            actor=r.get("actor"),
+            employee_id=r.get("employee_id"),
+            created_at=r["created_at"],
+        )
         for r in rows
-    ]
+    ]
