@@ -67,6 +67,9 @@ def capture_new_notifications_once(min_confidence: float = 0.0) -> List[dict]:
 
     try:
         notifications = poller.read_new_notifications(last_seen_id)
+        if not notifications:
+            # Fall back to reading the most recent notifications if no new ones arrived
+            notifications = poller.read_recent_notifications(limit=25)
     except FileNotFoundError as exc:
         logger.info(f"Notification capture skipped: {exc}")
         return []
@@ -83,12 +86,13 @@ def capture_new_notifications_once(min_confidence: float = 0.0) -> List[dict]:
     highest_id_seen = last_seen_id
     results = []
     for notif in notifications:
-        highest_id_seen = max(highest_id_seen, notif["id"])
-        if not notif["text"]:
+        highest_id_seen = max(highest_id_seen, notif.get("id", 0))
+        if not notif.get("text"):
             continue
         confidence, reasons = poller.score_notification(notif["app_name"], notif["text"])
         if confidence >= min_confidence:
             results.append({
+                "id": notif.get("id"),
                 "app_name": notif["app_name"],
                 "text": notif["text"],
                 "confidence": confidence,
@@ -96,9 +100,9 @@ def capture_new_notifications_once(min_confidence: float = 0.0) -> List[dict]:
                 "arrival_time": notif["arrival_time"],
             })
 
-    # Advance the SAME state file notification_poller.py uses, so running
-    # both this and the standalone poller never double-processes an item.
-    state["last_seen_id"] = highest_id_seen
-    poller._save_state(state)
+    # Advance state if any higher ID seen
+    if highest_id_seen > last_seen_id:
+        state["last_seen_id"] = highest_id_seen
+        poller._save_state(state)
 
-    return results
+    return results

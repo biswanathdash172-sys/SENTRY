@@ -550,10 +550,6 @@
         <span class="material-symbols-outlined" data-icon="verified_user">verified_user</span>
         <span class="font-label-md text-label-md group-hover:text-primary transition-colors duration-200">Auto-Approval</span>
       </a>
-      <a class="flex items-center gap-3 text-on-surface-variant px-4 py-3 mx-2 hover:bg-surface-container-highest rounded-lg transition-all duration-300 group cursor-pointer" href="#" onclick="event.preventDefault(); document.getElementById('email-intel-card')?.scrollIntoView({behavior: 'smooth'});">
-        <span class="material-symbols-outlined" data-icon="mail">mail</span>
-        <span class="font-label-md text-label-md group-hover:text-primary transition-colors duration-200">Email Intel</span>
-      </a>
       <a class="flex items-center gap-3 text-on-surface-variant px-4 py-3 mx-2 hover:bg-surface-container-highest rounded-lg transition-all duration-300 group cursor-pointer" href="#" onclick="event.preventDefault(); document.getElementById('whitelist-card')?.scrollIntoView({behavior: 'smooth'});">
         <span class="material-symbols-outlined" data-icon="shield">shield</span>
         <span class="font-label-md text-label-md group-hover:text-primary transition-colors duration-200">Domain Whitelist</span>
@@ -716,32 +712,50 @@
         </div>
       </div>
 
-      <!-- Scan engine + resolution actions -->
-      <div class="card">
-        <h2>
-          Unified Threat Feed (SCA Scans & Live Notifications)
-          <button class="btn" id="scan-btn" onclick="runScan()">
-            Run Fixed-Payload Scan (OSV.dev, live)
-          </button>
+      <!-- 2-Column Section: Auto-Approval Policies & Domain Whitelist -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        <!-- Auto-Approval Policies Card -->
+        <div class="table-card p-6 flex flex-col" id="policy-card">
+          <div class="flex justify-between items-center mb-4">
+            <div>
+              <h3 class="font-headline-md text-on-surface text-lg font-bold flex items-center gap-2">
+                <span class="material-symbols-outlined text-accent-cyan text-[20px]">verified_user</span>
+                Auto‑Approval Policies
+              </h3>
+              <p class="font-body-md text-on-surface-variant text-xs">Configure automated decision thresholds for risk tiers</p>
+            </div>
+          </div>
+          <div class="flex-1 flex flex-col justify-center space-y-3 mt-2" id="rules-list">
+            <div class="empty">Loading auto-approval policies…</div>
+          </div>
         </div>
-        <div id="email-banner" style="display:none;background:rgba(239,91,91,0.12);border:1px solid rgba(239,91,91,0.35);color:#ff8080;padding:12px 16px;border-radius:10px;margin-bottom:16px;font-size:0.85rem;"></div>
-        <div class="overflow-x-auto">
-          <table>
-            <thead>
-              <tr>
-                <th>From</th>
-                <th>Subject</th>
-                <th>Domain</th>
-                <th>Risk Score</th>
-                <th>Time</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody id="email-table-body">
-              <tr><td colspan="6" class="empty">Loading email data…</td></tr>
-            </tbody>
-          </table>
+
+        <!-- Trusted Sender Domains (Whitelist) Card -->
+        <div class="table-card p-6 flex flex-col" id="whitelist-card">
+          <div class="flex justify-between items-center mb-4 flex-wrap gap-2">
+            <div>
+              <h3 class="font-headline-md text-on-surface text-lg font-bold flex items-center gap-2">
+                <span class="material-symbols-outlined text-accent-cyan text-[20px]">shield</span>
+                Trusted Sender Domains (Whitelist)
+              </h3>
+              <p class="font-body-md text-on-surface-variant text-xs">Manage trusted sender domain whitelist</p>
+            </div>
+          </div>
+          <div class="flex gap-2 items-end mb-4 flex-wrap">
+            <div class="field flex-1 min-w-[180px]">
+              <label for="new-domain" class="text-xs text-on-surface-variant mb-1 block">Add Trusted Domain</label>
+              <input type="text" id="new-domain" placeholder="e.g. partner-corp.com" autocomplete="off" style="width:100%;background:rgba(255,255,255,0.05);border:1px solid var(--border-subtle);border-radius:8px;padding:8px 12px;color:var(--text-primary);font-family:'Fira Code',monospace;font-size:0.85rem;outline:none;" />
+            </div>
+            <button class="btn" onclick="addDomain()">Add</button>
+            <button class="btn secondary" onclick="autoAddDomains()" title="Auto-add safe domains from recent emails">Auto-Add Safe</button>
+          </div>
+          <div class="msg" id="whitelist-msg"></div>
+          <div id="whitelist-list" class="flex-1 overflow-y-auto max-h-56 space-y-2 mt-1">
+            <div class="empty">Loading whitelist…</div>
+          </div>
         </div>
+
       </div>
 
       <!-- SCA Scan Results & Resolution Section -->
@@ -759,13 +773,25 @@
             Run Fixed-Payload Scan (OSV.dev)
           </button>
         </div>
+
+        <!-- Filter Chips Row -->
+        <div class="flex flex-wrap gap-2 items-center mb-4 pb-3 border-b border-glass-border">
+          <span class="text-xs text-on-surface-variant mr-1 font-medium">Filter:</span>
+          <button class="scan-chip px-3 py-1 text-xs font-semibold rounded-md border border-accent-cyan bg-accent-cyan/20 text-white transition-all cursor-pointer shadow-sm" id="filter-chip-all" data-filter="all" onclick="setScanFilter('all')">All</button>
+          <button class="scan-chip px-3 py-1 text-xs font-semibold rounded-md border border-glass-border bg-surface-container-highest text-on-surface-variant hover:text-white transition-all cursor-pointer" id="filter-chip-notification" data-filter="notification" onclick="setScanFilter('notification')">🔔 Notification</button>
+          <button class="scan-chip px-3 py-1 text-xs font-semibold rounded-md border border-glass-border bg-surface-container-highest text-on-surface-variant hover:text-white transition-all cursor-pointer" id="filter-chip-email" data-filter="email" onclick="setScanFilter('email')">📧 Email</button>
+          <button class="scan-chip px-2.5 py-1 text-xs font-semibold rounded-md border border-glass-border bg-surface-container-highest text-accent-cyan hover:brightness-125 transition-all cursor-pointer" id="filter-chip-not_risky" data-filter="not_risky" onclick="setScanFilter('not_risky')">🟢 Not Risky</button>
+          <button class="scan-chip px-2.5 py-1 text-xs font-semibold rounded-md border border-glass-border bg-surface-container-highest text-amber-400 hover:brightness-125 transition-all cursor-pointer" id="filter-chip-part_risky" data-filter="part_risky" onclick="setScanFilter('part_risky')">🟡 Part Risky</button>
+          <button class="scan-chip px-2.5 py-1 text-xs font-semibold rounded-md border border-glass-border bg-surface-container-highest text-red-400 hover:brightness-125 transition-all cursor-pointer" id="filter-chip-high_risky" data-filter="high_risky" onclick="setScanFilter('high_risky')">🔴 High Risky</button>
+        </div>
+
         <div class="overflow-x-auto">
           <table>
             <thead>
               <tr>
                 <th>Source</th>
                 <th>Employee</th>
-                <th>Package / App</th>
+                <th>Package / App / Sender</th>
                 <th>Vuln ID</th>
                 <th>CVSS/Score</th>
                 <th>Tier</th>
@@ -786,38 +812,7 @@
     </main>
   </div>
 
-  <!-- Email History Modal -->
-  <div id="email-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(10,14,39,0.85);backdrop-filter:blur(16px);z-index:100;align-items:center;justify-content:center;padding:20px;">
-    <div class="glass-panel p-6 rounded-2xl w-full max-w-4xl max-h-[85vh] flex flex-col border border-glass-border shadow-2xl">
-      <div class="flex justify-between items-center mb-4 pb-3 border-b border-glass-border">
-        <div>
-          <h2 class="font-headline-md text-xl font-bold text-on-surface flex items-center gap-2">
-            <span class="material-symbols-outlined text-accent-cyan">mail</span>
-            Email Intelligence History
-          </h2>
-          <p class="text-xs text-on-surface-variant">Full log of evaluated inbound email telemetry</p>
-        </div>
-        <button class="btn small danger-outline" onclick="closeEmailModal()">Close</button>
-      </div>
-      <div class="overflow-y-auto flex-1">
-        <table>
-          <thead>
-            <tr>
-              <th>From</th>
-              <th>Subject</th>
-              <th>Domain</th>
-              <th>Risk Score</th>
-              <th>Time</th>
-            </tr>
-          </thead>
-          <tbody id="email-modal-body">
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── UNTOUCHED JAVASCRIPT LOGIC & API INTEGRATION ─────────── -->
+  <!-- ── JAVASCRIPT LOGIC & API INTEGRATION ─────────── -->
   <script>
     const token = sessionStorage.getItem("sentry_token");
     const isAdmin = sessionStorage.getItem("sentry_is_admin") === "true";
@@ -868,12 +863,15 @@
     }
 
     /* ---------------- Live analytics ---------------- */
-    let tierChart = null,
-      trendChart = null;
+    let tierChart = null;
+    let trendChart = null;
 
     function initCharts() {
       const tierCtx = document.getElementById("tier-chart");
       if (tierCtx) {
+        if (tierChart) {
+          try { tierChart.destroy(); } catch(e) {}
+        }
         tierChart = new Chart(tierCtx, {
           type: "bar",
           data: {
@@ -889,6 +887,7 @@
           options: {
             responsive: true,
             maintainAspectRatio: false,
+            animation: { duration: 400 },
             plugins: { legend: { display: false } },
             scales: {
               x: { ticks: { color: "#94A3B8", font: { family: 'Inter', size: 11 } }, grid: { display: false } },
@@ -904,6 +903,9 @@
 
       const trendCtx = document.getElementById("trend-chart");
       if (trendCtx) {
+        if (trendChart) {
+          try { trendChart.destroy(); } catch(e) {}
+        }
         trendChart = new Chart(trendCtx, {
           type: "line",
           data: {
@@ -924,6 +926,7 @@
           options: {
             responsive: true,
             maintainAspectRatio: false,
+            animation: { duration: 400 },
             plugins: { legend: { display: false } },
             scales: {
               x: {
@@ -945,33 +948,48 @@
       try {
         const res = await fetch("/analytics", { headers: authHeaders() });
         if (await handle401(res)) return;
-        if (!res.ok) throw new Error(await res.text());
+        if (!res.ok) {
+          console.error("GET /analytics returned error status:", res.status, await res.text());
+          return;
+        }
         const a = await res.json();
 
-        document.getElementById("stat-not-risky").textContent =
-          a.tier_counts.not_risky;
-        document.getElementById("stat-part-risky").textContent =
-          a.tier_counts.part_risky;
-        document.getElementById("stat-high-risky").textContent =
-          a.tier_counts.high_risky;
-        document.getElementById("stat-avg-time").textContent =
-          a.avg_resolution_minutes !== null
-            ? `${a.avg_resolution_minutes} min`
-            : "No data yet";
+        // 1. Update Hero stats
+        const elNotRisky = document.getElementById("stat-not-risky");
+        if (elNotRisky) elNotRisky.textContent = a.tier_counts?.not_risky ?? 0;
 
-        if (tierChart) {
+        const elHighRisky = document.getElementById("stat-high-risky");
+        if (elHighRisky) elHighRisky.textContent = a.tier_counts?.high_risky ?? 0;
+
+        const elPartRisky = document.getElementById("stat-part-risky");
+        if (elPartRisky) elPartRisky.textContent = a.tier_counts?.part_risky ?? 0;
+
+        const elAvgTime = document.getElementById("stat-avg-time");
+        if (elAvgTime) {
+          elAvgTime.textContent = (a.avg_resolution_minutes !== null && a.avg_resolution_minutes !== undefined)
+            ? `${a.avg_resolution_minutes} min`
+            : "—";
+        }
+
+        // Ensure charts are initialized
+        if (!tierChart || !trendChart) {
+          initCharts();
+        }
+
+        // 2. Update Risk Distribution Bar Chart
+        if (tierChart && a.tier_counts) {
           tierChart.data.datasets[0].data = [
-            a.tier_counts.not_risky,
-            a.tier_counts.part_risky,
-            a.tier_counts.high_risky,
+            Number(a.tier_counts.not_risky) || 0,
+            Number(a.tier_counts.part_risky) || 0,
+            Number(a.tier_counts.high_risky) || 0
           ];
           tierChart.update();
         }
-        if (trendChart) {
-          trendChart.data.labels = a.daily_counts.map((d) => d.date.slice(5)); // MM-DD
-          trendChart.data.datasets[0].data = a.daily_counts.map(
-            (d) => d.count,
-          );
+
+        // 3. Update Risk Frequency Line Chart
+        if (trendChart && Array.isArray(a.daily_counts)) {
+          trendChart.data.labels = a.daily_counts.map((d) => (d.date ? String(d.date).slice(5) : ""));
+          trendChart.data.datasets[0].data = a.daily_counts.map((d) => Number(d.count) || 0);
           trendChart.update();
         }
       } catch (e) {
@@ -1009,12 +1027,163 @@
       }
     }
 
-    /* ---------------- Scan results + approve/deny ---------------- */
+    /* ---------------- HTML escaping helper ---------------- */
+    function escapeHtml(str) {
+      if (str === null || str === undefined) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    /* ---------------- Scan filter state + results ---------------- */
+    let allScanResults = [];
+    let activeScanFilter = 'all';
+    const emailActions = JSON.parse(sessionStorage.getItem('sentry_email_actions') || '{}');
+    function saveEmailActions() {
+      sessionStorage.setItem('sentry_email_actions', JSON.stringify(emailActions));
+    }
+
+    function setScanFilter(filter) {
+      activeScanFilter = filter;
+      const chipIds = ['all', 'notification', 'email', 'not_risky', 'part_risky', 'high_risky'];
+      chipIds.forEach(id => {
+        const chip = document.getElementById(`filter-chip-${id}`);
+        if (!chip) return;
+        if (id === filter) {
+          chip.className = 'scan-chip px-3 py-1 text-xs font-semibold rounded-md border border-accent-cyan bg-accent-cyan/20 text-white transition-all cursor-pointer shadow-sm';
+        } else {
+          const colorClass = id === 'not_risky' ? 'text-accent-cyan' : id === 'part_risky' ? 'text-amber-400' : id === 'high_risky' ? 'text-red-400' : 'text-on-surface-variant hover:text-white';
+          chip.className = `scan-chip px-2.5 py-1 text-xs font-semibold rounded-md border border-glass-border bg-surface-container-highest ${colorClass} hover:brightness-125 transition-all cursor-pointer`;
+        }
+      });
+      applyScanFilter();
+    }
+
+    async function applyScanFilter() {
+      const tbody = document.getElementById("scan-table-body");
+      if (!tbody) return;
+
+      if (activeScanFilter === 'email') {
+        try {
+          const res = await fetch('/emails/recent?max_results=50&_t=' + Date.now(), { headers: authHeaders() });
+          if (await handle401(res)) return;
+          if (!res.ok) {
+            tbody.innerHTML = `<tr><td colspan="9" class="empty">No evaluated email signals found.</td></tr>`;
+            return;
+          }
+          const emails = await res.json();
+          renderEmailScanRows(emails);
+        } catch (e) {
+          tbody.innerHTML = `<tr><td colspan="9" class="empty">No evaluated email signals found.</td></tr>`;
+        }
+        return;
+      }
+
+      let filtered = allScanResults;
+      if (activeScanFilter === 'notification') {
+        filtered = filtered.filter(r => r.source_type === 'notification');
+      } else if (activeScanFilter === 'not_risky') {
+        filtered = filtered.filter(r => r.tier === 'not_risky');
+      } else if (activeScanFilter === 'part_risky') {
+        filtered = filtered.filter(r => r.tier === 'part_risky');
+      } else if (activeScanFilter === 'high_risky') {
+        filtered = filtered.filter(r => r.tier === 'high_risky');
+      }
+      renderScanTable(filtered);
+    }
+
+    function renderEmailScanRows(emails) {
+      const tbody = document.getElementById("scan-table-body");
+      if (!tbody) return;
+      if (!emails || !emails.length) {
+        tbody.innerHTML = `<tr><td colspan="9" class="empty">No evaluated email signals found.</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = emails.slice(0, 100).map(e => {
+        const conf = typeof e.confidence === 'number' ? e.confidence : 0;
+        const tier = conf >= 0.7 ? 'high_risky' : conf >= 0.3 ? 'part_risky' : 'not_risky';
+        const sourceBadge = `<span class="tier-badge" style="background:rgba(34,211,238,0.12);color:#22D3EE;border:1px solid rgba(34,211,238,0.3);">Email</span>`;
+        const rawDomain = (e.domain || (e.sender ? (e.sender.split('@')[1] || '').replace('>', '').trim() : '')).trim();
+        const cleanDomain = rawDomain.replace(/^@/, '');
+        const domainCol = e.domain_trusted
+          ? `<span style="color:#22D3EE;font-size:0.75rem;font-weight:600;">✓ Trusted (@${escapeHtml(cleanDomain)})</span>`
+          : `<span class="mono" style="font-size:0.75rem;color:var(--muted);">@${escapeHtml(cleanDomain || 'unknown')}</span>`;
+        const scoreCol = (conf * 100).toFixed(0) + "%";
+        const sender = e.sender || "—";
+        const summary = e.subject ? (e.snippet ? `${e.subject} — ${e.snippet}` : e.subject) : (e.snippet || "—");
+        
+        const action = emailActions[e.id];
+        let statusBadge = `<span class="status-pill pending">pending · review</span>`;
+        let actionCell = '';
+        if (action === 'approved') {
+          statusBadge = `<span class="status-pill completed">completed · approved</span>`;
+          actionCell = `<span style="color:#22D3EE;font-size:0.75rem;font-weight:600;">✓ Approved</span>`;
+        } else if (action === 'denied') {
+          statusBadge = `<span class="status-pill high_risky">completed · denied</span>`;
+          actionCell = `<span style="color:#ef5b5b;font-size:0.75rem;font-weight:600;">✗ Denied</span>`;
+        } else {
+          actionCell = `
+            <div class="action-cell">
+              <button class="btn small approve" onclick="handleEmailAction('${escapeHtml(e.id)}','approved')">Approve</button>
+              <button class="btn small deny" onclick="handleEmailAction('${escapeHtml(e.id)}','denied')">Deny</button>
+            </div>
+          `;
+        }
+
+        const trustBtn = (!e.domain_trusted && cleanDomain)
+          ? `<button class="btn small" style="background:rgba(59,91,255,0.18);border:1px solid rgba(59,91,255,0.4);color:#818cf8;margin-left:4px;" onclick="addDomainQuick('${escapeHtml(cleanDomain)}')" title="Trust @${escapeHtml(cleanDomain)}">🛡 Trust</button>`
+          : '';
+
+        return `
+      <tr>
+        <td>${sourceBadge}</td>
+        <td class="mono" style="font-size:0.75rem;">—</td>
+        <td class="mono" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(sender)}">${escapeHtml(sender)}</td>
+        <td>${domainCol}</td>
+        <td class="mono">${scoreCol}</td>
+        <td><span class="tier-badge tier-${tier}">${tier.replace("_", " ")}</span></td>
+        <td>${statusBadge}</td>
+        <td style="max-width:260px;font-size:0.78rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(summary)}">${escapeHtml(summary)}</td>
+        <td>
+          <div class="flex items-center gap-1">${actionCell}${trustBtn}</div>
+        </td>
+      </tr>`;
+      }).join("");
+    }
+
+    function handleEmailAction(id, action) {
+      emailActions[id] = action;
+      saveEmailActions();
+      showMsg('scan-msg', `Email marked as ${action}.`, action === 'denied');
+      applyScanFilter();
+    }
+
+    async function addDomainQuick(domain) {
+      if (!domain) return;
+      try {
+        const res = await fetch('/whitelist/domains', {
+          method: 'POST',
+          headers: authHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ domain }),
+        });
+        if (await handle401(res)) return;
+        if (!res.ok) throw new Error(await res.text());
+        showMsg('scan-msg', `🛡️ '@${domain}' added to trusted whitelist.`, false);
+        await loadWhitelist();
+        await applyScanFilter();
+      } catch (e) {
+        showMsg('scan-msg', 'Trust Domain failed: ' + e.message, true);
+      }
+    }
+
     function renderScanTable(results) {
       const tbody = document.getElementById("scan-table-body");
       if (!tbody) return;
       if (!results.length) {
-        tbody.innerHTML = `<tr><td colspan="9" class="empty">No scans yet — click "Run Fixed-Payload Scan" above.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9" class="empty">No scan results found matching filter (${activeScanFilter.replace('_', ' ')}).</td></tr>`;
         return;
       }
       tbody.innerHTML = results
@@ -1027,27 +1196,38 @@
              <button class="btn small deny" onclick="resolveFlag('${r.risk_flag_id}','deny')">Deny</button>
            </div>`
             : `<span style="color:var(--muted);font-size:0.75rem;">—</span>`;
-          const isNotif = r.source_type === "notification";
-          const sourceBadge = isNotif
-            ? `<span class="tier-badge" style="background:rgba(59,91,255,0.12);color:#93a5ff;border:1px solid rgba(59,91,255,0.3);">Notification</span>`
-            : `<span class="tier-badge" style="background:rgba(255,255,255,0.06);color:var(--muted);border:1px solid var(--border);">SCA Scan</span>`;
-          const nameCol = isNotif
-            ? r.app_name || r.package_name
-            : `${r.package_name}${r.package_version ? "==" + r.package_version : ""}`;
-          const scoreCol =
-            r.cvss_score !== null && r.cvss_score !== undefined
-              ? r.cvss_score
-              : "—";
+          
+          let sourceBadge = `<span class="tier-badge" style="background:rgba(255,255,255,0.06);color:var(--muted);border:1px solid var(--border);">SCA Scan</span>`;
+          if (r.source_type === "notification") {
+            sourceBadge = `<span class="tier-badge" style="background:rgba(59,91,255,0.12);color:#93a5ff;border:1px solid rgba(59,91,255,0.3);">Notification</span>`;
+          } else if (r.source_type === "email") {
+            sourceBadge = `<span class="tier-badge" style="background:rgba(34,211,238,0.12);color:#22D3EE;border:1px solid rgba(34,211,238,0.3);">Email</span>`;
+          }
+
+          let nameCol = `${r.package_name || ''}${r.package_version ? "==" + r.package_version : ""}`;
+          if (r.source_type === "notification") {
+            nameCol = r.app_name || r.package_name || 'Notification';
+          } else if (r.source_type === "email") {
+            nameCol = r.app_name || r.package_name || 'Email';
+          }
+
+          let scoreCol = "—";
+          if (r.cvss_score !== null && r.cvss_score !== undefined) {
+            scoreCol = r.cvss_score;
+          } else if (r.confidence !== null && r.confidence !== undefined) {
+            scoreCol = (Number(r.confidence) * 100).toFixed(0) + "%";
+          }
+
           return `
       <tr>
         <td>${sourceBadge}</td>
         <td class="mono" style="font-size:0.75rem;">${r.employee_id || "—"}</td>
-        <td class="mono">${nameCol}</td>
+        <td class="mono" title="${nameCol}">${nameCol}</td>
         <td class="mono">${r.vuln_id || "—"}</td>
         <td class="mono">${scoreCol}</td>
-        <td><span class="tier-badge tier-${r.tier}">${r.tier.replace("_", " ")}</span></td>
+        <td><span class="tier-badge tier-${r.tier}">${(r.tier || '').replace("_", " ")}</span></td>
         <td><span class="status-pill ${r.risk_flag_status}">${r.risk_flag_status}${r.resolution ? " · " + r.resolution.replace("_", " ") : ""}</span></td>
-        <td style="max-width:240px;font-size:0.78rem;color:var(--muted)">${r.summary || ""}</td>
+        <td style="max-width:240px;font-size:0.78rem;color:var(--muted)" title="${(r.summary || '').replace(/"/g, '&quot;')}">${r.summary || ""}</td>
         <td>${actionCell}</td>
       </tr>`;
         })
@@ -1085,10 +1265,15 @@
 
     async function loadScanResults() {
       try {
+        if (activeScanFilter === 'email') {
+          await applyScanFilter();
+          return;
+        }
         const res = await fetch("/scan/results", { headers: authHeaders() });
         if (await handle401(res)) return;
         if (!res.ok) throw new Error(await res.text());
-        renderScanTable(await res.json());
+        allScanResults = await res.json();
+        applyScanFilter();
       } catch (e) {
         const tbody = document.getElementById("scan-table-body");
         if (tbody) {
@@ -1097,32 +1282,32 @@
       }
     }
 
-      async function runScan() {
-        const btn = document.getElementById("scan-btn");
-        btn.disabled = true;
-        btn.textContent = "Scanning via OSV.dev…";
-        try {
-          const res = await fetch("/scan/demo", {
-            method: "POST",
-            headers: authHeaders(),
-          });
-          if (await handle401(res)) return;
-          if (!res.ok) throw new Error(await res.text());
-          const results = await res.json();
-          showMsg(
-            "scan-msg",
-            `Scan complete — ${results.length} package(s) checked against live OSV.dev data.`,
-            false,
-          );
-          await loadScanResults();
-          await loadAnalytics();
-        } catch (e) {
-          showMsg("scan-msg", "Scan failed: " + e.message, true);
-        } finally {
-          btn.disabled = false;
-          btn.textContent = "Run Fixed-Payload Scan (OSV.dev, live)";
-        }
+    async function runScan() {
+      const btn = document.getElementById("scan-btn");
+      btn.disabled = true;
+      btn.textContent = "Scanning via OSV.dev…";
+      try {
+        const res = await fetch("/scan/demo", {
+          method: "POST",
+          headers: authHeaders(),
+        });
+        if (await handle401(res)) return;
+        if (!res.ok) throw new Error(await res.text());
+        const results = await res.json();
+        showMsg(
+          "scan-msg",
+          `Scan complete — ${results.length} package(s) checked against live OSV.dev data.`,
+          false,
+        );
+        await loadScanResults();
+        await loadAnalytics();
+      } catch (e) {
+        showMsg("scan-msg", "Scan failed: " + e.message, true);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Run Fixed-Payload Scan (OSV.dev, live)";
       }
+    }
 
     async function resolveFlag(flagId, action) {
       try {
@@ -1210,63 +1395,7 @@
       }
     }
 
-    let fullEmails = [];
-    async function loadEmailIntel() {
-      try {
-        const res = await fetch('/emails/recent?max_results=50', { headers: authHeaders() });
-        if (await handle401(res)) return;
-        if (!res.ok) throw new Error(await res.text());
-        fullEmails = await res.json();
-        const tbody = document.getElementById('email-table-body');
-        if (!tbody) return;
-        if (!fullEmails.length) {
-          tbody.innerHTML = `<tr><td colspan="6" class="empty">No emails fetched.</td></tr>`;
-          return;
-        }
-        tbody.innerHTML = fullEmails.slice(0, 5).map(e => {
-          const domainBadge = e.domain_trusted
-            ? `<span class="tier-badge tier-not_risky">Trusted</span>`
-            : `<span class="tier-badge tier-high_risky">Unknown</span>`;
-          const scoreColor = e.confidence >= 0.7 ? 'var(--err)' : e.confidence >= 0.4 ? 'var(--pending)' : 'var(--ok)';
-          const time = e.date_iso ? new Date(e.date_iso).toLocaleString() : '-';
-          return `<tr>
-            <td class="mono" style="font-size:0.75rem;">${e.sender.slice(0, 30)}</td>
-            <td style="font-size:0.78rem;">${e.subject.slice(0, 40)}</td>
-            <td>${domainBadge}</td>
-            <td><span style="color:${scoreColor};font-weight:700;">${(e.confidence * 100).toFixed(0)}%</span></td>
-            <td style="font-size:0.72rem;color:var(--muted);">${time}</td>
-            <td>
-              ${!e.domain_trusted ? `<button class="btn small" onclick="addDomainQuick('${e.sender.split('@')[1]}')">Trust Domain</button>` : ''}
-            </td>
-          </tr>`;
-        }).join('');
-      } catch (e) {
-        const tbody = document.getElementById('email-table-body');
-        if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="empty">Could not load emails.</td></tr>`;
-      }
-    }
-
-    function openEmailModal() {
-      document.getElementById('email-modal').style.display = 'flex';
-      const tbody = document.getElementById('email-modal-body');
-      if (!tbody) return;
-      tbody.innerHTML = fullEmails.map(e => {
-        const domainBadge = e.domain_trusted ? `<span class="tier-badge tier-not_risky">Trusted</span>` : `<span class="tier-badge tier-high_risky">Unknown</span>`;
-        const scoreColor = e.confidence >= 0.7 ? 'var(--err)' : e.confidence >= 0.4 ? 'var(--pending)' : 'var(--ok)';
-        const time = e.date_iso ? new Date(e.date_iso).toLocaleString() : '-';
-        return `<tr>
-          <td class="mono" style="font-size:0.75rem;">${e.sender}</td>
-          <td style="font-size:0.78rem;">${e.subject}</td>
-          <td>${domainBadge}</td>
-          <td><span style="color:${scoreColor};font-weight:700;">${(e.confidence * 100).toFixed(0)}%</span></td>
-          <td style="font-size:0.72rem;color:var(--muted);">${time}</td>
-        </tr>`;
-      }).join('');
-    }
-    function closeEmailModal() {
-      document.getElementById('email-modal').style.display = 'none';
-    }
-
+    /* ---------------- Whitelist Management ---------------- */
     async function loadWhitelist() {
       try {
         const res = await fetch('/whitelist/domains', { headers: authHeaders() });
@@ -1280,8 +1409,11 @@
           return;
         }
         container.innerHTML = domains.map(d => `
-          <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(0,0,0,0.25);border:1px solid var(--border-subtle);border-radius:8px;padding:10px 14px;">
-            <span style="font-family:'Fira Code',monospace;font-size:0.85rem;color:var(--ok);">@${d.domain}</span>
+          <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(0,0,0,0.25);border:1px solid var(--border-subtle);border-radius:8px;padding:10px 14px;margin-bottom:6px;">
+            <div>
+              <span style="font-family:'Fira Code',monospace;font-size:0.85rem;color:#22D3EE;">@${d.domain}</span>
+              ${d.added_by ? `<span style="font-size:0.7rem;color:var(--muted);margin-left:10px;">by ${d.added_by}</span>` : ''}
+            </div>
             <button class="btn small danger-outline" onclick="removeDomain('${d.domain}')">Remove</button>
           </div>`).join('');
       } catch (e) {
@@ -1290,13 +1422,9 @@
       }
     }
 
-    async function addDomainQuick(domain) {
-      document.getElementById('new-domain').value = domain;
-      await addDomain();
-    }
-
     async function addDomain() {
-      const domain = document.getElementById('new-domain').value.trim();
+      const input = document.getElementById('new-domain');
+      const domain = input ? input.value.trim() : '';
       if (!domain) { showMsg('whitelist-msg', 'Enter a domain name.', true); return; }
       try {
         const res = await fetch('/whitelist/domains', {
@@ -1305,33 +1433,42 @@
           body: JSON.stringify({ domain }),
         });
         if (await handle401(res)) return;
-        if (!res.ok) throw new Error("Failed to add domain");
-        document.getElementById('new-domain').value = '';
+        if (!res.ok) throw new Error(await res.text());
+        if (input) input.value = '';
         showMsg('whitelist-msg', `'${domain}' added to trusted whitelist.`, false);
         await loadWhitelist();
-        await loadEmailIntel();
       } catch (e) { showMsg('whitelist-msg', e.message, true); }
     }
 
     async function autoAddDomains() {
-      const safeEmails = fullEmails.filter(e => e.confidence < 0.2 && !e.domain_trusted);
-      const domains = [...new Set(safeEmails.map(e => e.sender.split('@')[1]))];
-      if (!domains.length) {
-        showMsg('whitelist-msg', 'No new safe domains found to auto-add.', false);
-        return;
+      try {
+        const res = await fetch('/emails/recent?max_results=50', { headers: authHeaders() });
+        let emails = [];
+        if (res.ok) {
+          emails = await res.json();
+        }
+        const safeEmails = emails.filter(e => e.confidence < 0.2 && !e.domain_trusted);
+        const domains = [...new Set(safeEmails.map(e => (e.sender ? (e.sender.split('@')[1] || '').replace('>', '').trim() : '')).filter(Boolean))];
+        if (!domains.length) {
+          showMsg('whitelist-msg', 'No new safe domains found to auto-add.', false);
+          return;
+        }
+        let added = 0;
+        for (const d of domains) {
+          try {
+            const r = await fetch('/whitelist/domains', {
+              method: 'POST',
+              headers: authHeaders({ 'Content-Type': 'application/json' }),
+              body: JSON.stringify({ domain: d }),
+            });
+            if (r.ok) added++;
+          } catch(e) {}
+        }
+        showMsg('whitelist-msg', `Auto-added ${added} safe domain(s).`, false);
+        await loadWhitelist();
+      } catch (e) {
+        showMsg('whitelist-msg', 'Could not auto-add safe domains: ' + e.message, true);
       }
-      let added = 0;
-      for (const d of domains) {
-        try {
-          await fetch('/whitelist/domains', {
-            method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ domain: d })
-          });
-          added++;
-        } catch(e) {}
-      }
-      showMsg('whitelist-msg', `Auto-added ${added} safe domains.`, false);
-      await loadWhitelist();
-      await loadEmailIntel();
     }
 
     async function removeDomain(domain) {
@@ -1343,7 +1480,6 @@
         if (await handle401(res)) return;
         showMsg('whitelist-msg', `'${domain}' removed.`, false);
         await loadWhitelist();
-        await loadEmailIntel();
       } catch (e) { showMsg('whitelist-msg', e.message, true); }
     }
 
@@ -1352,13 +1488,13 @@
     loadAnalytics();
     loadScanResults();
     loadRules();
-    loadEmailIntel();
     loadWhitelist();
+
     setInterval(() => {
       loadAnalytics();
       loadScanResults();
-      loadEmailIntel();
     }, 3000);
   </script>
 </body>
 </html>
+

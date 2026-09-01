@@ -314,6 +314,68 @@ def read_new_notifications(last_seen_id: int) -> list[dict]:
     return results
 
 
+def read_recent_notifications(limit: int = 25) -> list[dict]:
+    """
+    Reads the most RECENT notifications from wpndatabase.db (ordered by Id DESC).
+    Used for on-demand dashboard scans so fresh notifications are always captured
+    in milliseconds without being blocked by last_seen_id cursor.
+    """
+    snapshot_path = _snapshot_database()
+    results = []
+
+    try:
+        conn = sqlite3.connect(f"file:{snapshot_path}?mode=ro", uri=True)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+
+        cursor.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='Notification'"
+        )
+        if not cursor.fetchone():
+            return []
+
+        cursor.execute(
+            """
+            SELECT n.Id, n.HandlerId, n.Payload, n.ArrivalTime, h.PrimaryId
+            FROM Notification n
+            LEFT JOIN NotificationHandler h ON n.HandlerId = h.RecordId
+            ORDER BY n.Id DESC
+            LIMIT ?
+            """,
+            (limit,),
+        )
+
+        for row in cursor.fetchall():
+            try:
+                notif_id = row["Id"]
+                app_name = row["PrimaryId"] or f"handler_{row['HandlerId']}"
+                payload = row["Payload"]
+                text = _extract_text_from_payload(payload) if payload else ""
+                arrival_dt = _filetime_to_datetime(row["ArrivalTime"])
+
+                results.append({
+                    "id": notif_id,
+                    "app_name": app_name,
+                    "text": text,
+                    "arrival_time": arrival_dt.isoformat() if arrival_dt else None,
+                    "raw_payload_bytes": len(payload) if payload else 0,
+                })
+            except Exception as exc:
+                logger.warning(f"Skipping malformed notification row: {exc}")
+                continue
+
+        conn.close()
+    finally:
+        try:
+            snapshot_path.unlink(missing_ok=True)
+        except Exception:
+            pass
+
+    # Return chronological order (oldest to newest among the recent set)
+    results.reverse()
+    return results
+
+
 def get_admin_token() -> str:
     resp = requests.post(
         f"{API_BASE}/login",

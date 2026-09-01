@@ -40,6 +40,7 @@ Env vars required:
 from __future__ import annotations
 
 import email
+import email.message
 import email.utils
 import imaplib
 import logging
@@ -93,18 +94,23 @@ def _extract_body(msg: email.message.Message) -> str:
         for part in msg.walk():
             if part.get_content_type() == "text/plain":
                 try:
-                    return part.get_payload(decode=True).decode(
-                        part.get_content_charset() or "utf-8", errors="replace"
-                    )
+                    payload = part.get_payload(decode=True)
+                    if isinstance(payload, bytes):
+                        return payload.decode(
+                            part.get_content_charset() or "utf-8", errors="replace"
+                        )
                 except Exception:
                     continue
         return ""
     try:
-        return msg.get_payload(decode=True).decode(
-            msg.get_content_charset() or "utf-8", errors="replace"
-        )
+        payload = msg.get_payload(decode=True)
+        if isinstance(payload, bytes):
+            return payload.decode(
+                msg.get_content_charset() or "utf-8", errors="replace"
+            )
     except Exception:
-        return ""
+        pass
+    return ""
 
 
 def score_message(sender: str, subject: str, body: str) -> tuple[float, list[str]]:
@@ -206,6 +212,8 @@ def poll_once(imap: imaplib.IMAP4_SSL, token: str) -> None:
         if status != "OK" or not msg_data or not msg_data[0]:
             continue
         raw = msg_data[0][1]
+        if isinstance(raw, int):
+            continue
         msg = email.message_from_bytes(raw)
 
         sender = _decode(msg.get("From", ""))
@@ -276,6 +284,8 @@ def poll_once(imap: imaplib.IMAP4_SSL, token: str) -> None:
             )
 
         # Mark seen either way, so we never reprocess it.
+        if isinstance(msg_id, bytes):
+            msg_id = msg_id.decode()
         imap.store(msg_id, "+FLAGS", "\\Seen")
 
 

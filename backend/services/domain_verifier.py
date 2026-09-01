@@ -21,15 +21,17 @@ _LOCAL_WHITELIST: dict[str, list[str]] = {}
 
 def _load_local_whitelist() -> dict[str, list[str]]:
     global _LOCAL_WHITELIST
-    if _LOCAL_WHITELIST:
-        return _LOCAL_WHITELIST
     if _LOCAL_WL_PATH.exists():
         try:
             with open(_LOCAL_WL_PATH, "r", encoding="utf-8") as f:
-                _LOCAL_WHITELIST = json.load(f)
+                data = json.load(f)
+                if isinstance(data, dict):
+                    _LOCAL_WHITELIST = data
+                    return _LOCAL_WHITELIST
         except Exception:
-            _LOCAL_WHITELIST = {}
+            pass
     return _LOCAL_WHITELIST
+
 
 
 def _save_local_whitelist() -> None:

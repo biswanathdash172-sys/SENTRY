@@ -40,6 +40,7 @@ import json
 import logging
 import os
 import re
+import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -48,7 +49,19 @@ from typing import Optional
 import requests
 from dotenv import load_dotenv
 
-load_dotenv(Path(__file__).resolve().parent.parent / ".env")
+_BACKEND_DIR = Path(__file__).resolve().parent.parent
+if str(_BACKEND_DIR) not in sys.path:
+    sys.path.insert(0, str(_BACKEND_DIR))
+
+try:
+    from services import email_cache
+except ImportError:
+    try:
+        import email_cache
+    except ImportError:
+        email_cache = None
+
+load_dotenv(_BACKEND_DIR / ".env")
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [gmail-poller] %(message)s")
 logger = logging.getLogger("sentry.gmail_poller")
@@ -294,6 +307,7 @@ def poll_once(service, token: str) -> None:
         logger.info("No emails fetched (or API unavailable).")
         return
 
+    cached_batch = []
     for email_data in emails:
         sender = email_data["sender"]
         subject = email_data["subject"]
@@ -304,26 +318,20 @@ def poll_once(service, token: str) -> None:
 
         domain = sender.split("@")[-1].strip(">").strip() if "@" in sender else ""
 
-        # Write to email_cache so /emails/recent can serve this without
-        # opening its own Gmail API connection per request (Flag 2 fix).
-        try:
-            from services import email_cache
-            email_cache.write_emails([{
-                "id": email_data["id"],
-                "sender": sender,
-                "subject": subject,
-                "snippet": email_data.get("snippet", ""),
-                "date_iso": email_data.get("date_iso"),
-                "body_preview": body[:500],
-                "urls": email_data.get("urls", []),
-                "confidence": confidence,
-                "domain": domain,
-                "domain_trusted": False,   # domain_verifier is not available here without org_id
-                "domain_status": "Unknown",
-                "risk_reasons": reasons,
-            }])
-        except Exception as exc:
-            logger.warning(f"email_cache write failed (non-fatal): {exc}")
+        cached_batch.append({
+            "id": email_data["id"],
+            "sender": sender,
+            "subject": subject,
+            "snippet": email_data.get("snippet", ""),
+            "date_iso": email_data.get("date_iso"),
+            "body_preview": body[:500],
+            "urls": email_data.get("urls", []),
+            "confidence": confidence,
+            "domain": domain,
+            "domain_trusted": False,   # domain_verifier is org-scoped in /emails/recent
+            "domain_status": "Unknown",
+            "risk_reasons": reasons,
+        })
 
         if confidence >= 0.3:
             description = f"Email from '{sender}' subject '{subject}': " + "; ".join(reasons)
@@ -333,6 +341,20 @@ def poll_once(service, token: str) -> None:
                 confidence=confidence,
                 title_hint=f"Suspicious email: {subject[:80]}",
             )
+
+    # Batch write all scored emails in one atomic disk operation preserving newest-first order
+    if cached_batch:
+        try:
+            target_cache = email_cache
+            if target_cache is None:
+                try:
+                    from services import email_cache as target_cache
+                except ImportError:
+                    import email_cache as target_cache
+            if target_cache:
+                target_cache.write_emails(cached_batch)
+        except Exception as exc:
+            logger.warning(f"email_cache batch write failed (non-fatal): {exc}")
 
 
 
