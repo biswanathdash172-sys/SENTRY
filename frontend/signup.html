@@ -98,37 +98,6 @@
         background-clip: text;
       }
 
-      /* Tab switcher */
-      .tabs {
-        display: flex;
-        background: rgba(0, 0, 0, 0.35);
-        border: 1px solid var(--border);
-        border-radius: 10px;
-        padding: 4px;
-        margin-bottom: 20px;
-        gap: 4px;
-      }
-      .tab-btn {
-        flex: 1;
-        background: transparent;
-        color: var(--muted);
-        border: none;
-        border-radius: 6px;
-        padding: 9px;
-        font-size: 0.85rem;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.2s;
-      }
-      .tab-btn.active {
-        background: linear-gradient(135deg, var(--accent), var(--accent-2));
-        color: #fff;
-      }
-      .tab-btn:hover:not(.active) {
-        color: var(--text);
-        background: rgba(255, 255, 255, 0.05);
-      }
-
       .card h1 {
         font-size: 1.25rem;
         font-weight: 700;
@@ -140,8 +109,7 @@
         margin-bottom: 20px;
       }
 
-      .form-section { display: none; }
-      .form-section.active { display: block; }
+      .form-section { display: block; }
 
       .field { margin-bottom: 15px; }
       .field label {
@@ -164,6 +132,35 @@
       }
       .field input:focus { border-color: var(--accent-2); }
 
+      /* Terms Checkbox Field */
+      .terms-field {
+        margin-top: 16px;
+        margin-bottom: 18px;
+      }
+      .terms-checkbox-label {
+        display: flex !important;
+        align-items: center;
+        gap: 10px;
+        font-size: 0.82rem !important;
+        color: var(--muted) !important;
+        cursor: pointer;
+        user-select: none;
+      }
+      .terms-checkbox-label input[type="checkbox"] {
+        width: 16px;
+        height: 16px;
+        accent-color: var(--accent-2);
+        cursor: pointer;
+      }
+      .terms-checkbox-label a {
+        color: var(--accent-2);
+        text-decoration: none;
+        font-weight: 600;
+      }
+      .terms-checkbox-label a:hover {
+        text-decoration: underline;
+      }
+
       button.submit-btn {
         width: 100%;
         background: linear-gradient(135deg, var(--accent), var(--accent-2));
@@ -174,12 +171,16 @@
         font-size: 0.95rem;
         font-weight: 700;
         cursor: pointer;
-        transition: opacity 0.2s, transform 0.1s;
+        transition: opacity 0.2s, transform 0.1s, box-shadow 0.2s;
         margin-top: 6px;
+        box-shadow: 0 4px 14px rgba(59, 91, 255, 0.3);
       }
-      button.submit-btn:hover { opacity: 0.9; }
-      button.submit-btn:active { transform: translateY(1px); }
-      button.submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+      button.submit-btn:hover:not(:disabled) {
+        opacity: 0.95;
+        box-shadow: 0 6px 20px rgba(34, 211, 238, 0.35);
+      }
+      button.submit-btn:active:not(:disabled) { transform: translateY(1px); }
+      button.submit-btn:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; }
 
       .msg-area {
         min-height: 20px;
@@ -216,6 +217,268 @@
         font-weight: 600;
       }
       .footer a:hover { text-decoration: underline; }
+
+      /* -------------------------------------------------------------
+         TERMS & CONDITIONS MODAL — WHITE / BLUE THEME
+         ------------------------------------------------------------- */
+      .terms-modal-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(10, 14, 39, 0.72);
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
+        z-index: 100;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+      }
+      .terms-modal-card {
+        width: 100%;
+        max-width: 1000px;
+        max-height: 84vh;
+        background: #ffffff;
+        border: 1px solid rgba(59, 91, 255, 0.22);
+        border-radius: 20px;
+        box-shadow: 0 24px 80px rgba(10, 14, 39, 0.45), 0 0 0 1px rgba(59, 91, 255, 0.1);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        position: relative;
+        animation: cardFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      }
+      .terms-modal-header {
+        padding: 24px 30px 18px;
+        border-bottom: 1px solid rgba(59, 91, 255, 0.12);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: #f0f4ff;
+      }
+      .terms-modal-title {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 1.1rem;
+        font-weight: 800;
+        letter-spacing: 0.05em;
+        color: #1e3a8a;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .terms-modal-title span.badge {
+        font-family: 'Inter', sans-serif;
+        font-size: 0.7rem;
+        font-weight: 700;
+        color: var(--accent);
+        background: rgba(59, 91, 255, 0.1);
+        border: 1px solid rgba(59, 91, 255, 0.28);
+        padding: 3px 8px;
+        border-radius: 12px;
+      }
+      .terms-close-btn {
+        background: transparent;
+        border: none;
+        color: #64748b;
+        font-size: 1.4rem;
+        line-height: 1;
+        cursor: pointer;
+        padding: 4px 8px;
+        border-radius: 6px;
+        transition: all 0.2s;
+      }
+      .terms-close-btn:hover {
+        color: #1e3a8a;
+        background: rgba(59, 91, 255, 0.08);
+      }
+      .terms-modal-body {
+        padding: 18px 30px;
+        overflow-y: auto;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        background: #ffffff;
+      }
+      .terms-modal-body::-webkit-scrollbar {
+        width: 6px;
+      }
+      .terms-modal-body::-webkit-scrollbar-track {
+        background: #f0f4ff;
+        border-radius: 4px;
+      }
+      .terms-modal-body::-webkit-scrollbar-thumb {
+        background: rgba(59, 91, 255, 0.35);
+        border-radius: 4px;
+      }
+      .terms-intro {
+        font-size: 0.83rem;
+        color: #475569;
+        line-height: 1.55;
+        margin-bottom: 6px;
+      }
+      .terms-item-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        background: #f8faff;
+        border: 1px solid rgba(59, 91, 255, 0.12);
+        border-radius: 12px;
+        padding: 12px 16px;
+        transition: background 0.2s, border-color 0.2s;
+      }
+      .terms-item-row:hover {
+        background: #eef3ff;
+        border-color: rgba(59, 91, 255, 0.28);
+      }
+      .terms-item-info {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+      }
+      .terms-item-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .terms-item-name {
+        font-size: 0.86rem;
+        font-weight: 700;
+        color: #1e3a8a;
+      }
+      .terms-tag {
+        font-size: 0.65rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        padding: 2px 8px;
+        border-radius: 10px;
+      }
+      .terms-tag.required {
+        background: rgba(59, 91, 255, 0.1);
+        color: #3b5bff;
+        border: 1px solid rgba(59, 91, 255, 0.3);
+      }
+      .terms-tag.optional {
+        background: rgba(6, 182, 212, 0.1);
+        color: #0891b2;
+        border: 1px solid rgba(6, 182, 212, 0.3);
+      }
+      .terms-item-desc {
+        font-size: 0.76rem;
+        color: #64748b;
+        line-height: 1.4;
+      }
+
+      /* Custom CSS Toggle Switch */
+      .switch {
+        position: relative;
+        display: inline-block;
+        width: 44px;
+        height: 24px;
+        flex-shrink: 0;
+      }
+      .switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+      }
+      .slider {
+        position: absolute;
+        cursor: pointer;
+        inset: 0;
+        background-color: #cbd5e1;
+        border: 1px solid #94a3b8;
+        transition: 0.3s;
+        border-radius: 24px;
+      }
+      .slider:before {
+        position: absolute;
+        content: "";
+        height: 16px;
+        width: 16px;
+        left: 3px;
+        bottom: 3px;
+        background-color: #ffffff;
+        transition: 0.3s;
+        border-radius: 50%;
+      }
+      input:checked + .slider {
+        background: linear-gradient(135deg, var(--accent), var(--accent-2));
+        border-color: var(--accent-2);
+        box-shadow: 0 0 10px rgba(34, 211, 238, 0.3);
+      }
+      input:checked + .slider:before {
+        transform: translateX(20px);
+      }
+      input:disabled + .slider {
+        opacity: 0.55;
+        cursor: not-allowed;
+      }
+
+      .terms-modal-footer {
+        padding: 16px 30px;
+        border-top: 1px solid rgba(59, 91, 255, 0.12);
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 12px;
+        background: #f0f4ff;
+      }
+      .btn-secondary {
+        background: #ffffff;
+        border: 1px solid rgba(59, 91, 255, 0.3);
+        color: #3b5bff;
+        padding: 10px 18px;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .btn-secondary:hover {
+        background: #eef3ff;
+        border-color: var(--accent);
+      }
+      .btn-primary {
+        background: linear-gradient(135deg, var(--accent), var(--accent-2));
+        border: none;
+        color: #ffffff;
+        padding: 10px 22px;
+        border-radius: 8px;
+        font-size: 0.88rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: opacity 0.2s, transform 0.1s, box-shadow 0.2s;
+        box-shadow: 0 4px 14px rgba(59, 91, 255, 0.3);
+      }
+      .btn-primary:hover {
+        opacity: 0.92;
+        box-shadow: 0 6px 20px rgba(34, 211, 238, 0.4);
+      }
+
+      /* Inline validation error banner inside modal */
+      .terms-error-banner {
+        display: none;
+        background: #fef2f2;
+        border: 1px solid #fca5a5;
+        border-radius: 10px;
+        padding: 10px 14px;
+        color: #b91c1c;
+        font-size: 0.82rem;
+        font-weight: 600;
+        line-height: 1.4;
+        margin-bottom: 4px;
+        align-items: center;
+        gap: 8px;
+      }
+      .terms-error-banner.visible {
+        display: flex;
+      }
+      .terms-error-banner svg {
+        flex-shrink: 0;
+      }
     </style>
   </head>
   <body>
@@ -232,12 +495,6 @@
             <circle cx="12" cy="12" r="3.5" fill="#22D3EE" fill-opacity="0.25" stroke="#22D3EE" stroke-width="1.5" />
           </svg>
           <span>SENTRY</span>
-        </div>
-
-        <!-- Tab switcher — NO role dropdown -->
-        <div class="tabs">
-          <button class="tab-btn active" onclick="switchTab('org')">Register Organisation</button>
-          <button class="tab-btn" onclick="switchTab('emp')">Add Employee</button>
         </div>
 
         <!-- === ORGANISATION FORM === -->
@@ -257,34 +514,17 @@
               <label for="org-password">Password</label>
               <input type="password" id="org-password" required />
             </div>
-            <button type="submit" class="submit-btn" id="org-btn">Create Organisation</button>
-            <div class="msg-area" id="org-msg"></div>
-          </form>
-        </div>
 
-        <!-- === EMPLOYEE FORM === -->
-        <div class="form-section" id="section-emp">
-          <h1>Add Employee</h1>
-          <p class="subtitle">Register an employee under an existing organisation</p>
-          <form id="emp-form" onsubmit="submitEmp(event)">
-            <div class="field">
-              <label for="emp-org-id">Organisation ID</label>
-              <input type="text" id="emp-org-id" placeholder="e.g. ACME-01" required />
+            <!-- Terms & Conditions Checkbox -->
+            <div class="field terms-field">
+              <label class="terms-checkbox-label">
+                <input type="checkbox" id="terms-checkbox" onclick="openTermsModal(event)" />
+                <span>I agree to the <a href="#" id="terms-link" onclick="openTermsModal(event)">Terms and Conditions</a></span>
+              </label>
             </div>
-            <div class="field">
-              <label for="emp-user-id">Employee ID</label>
-              <input type="text" id="emp-user-id" placeholder="e.g. EMP-0231" required />
-            </div>
-            <div class="field">
-              <label for="emp-name">Full Name</label>
-              <input type="text" id="emp-name" placeholder="e.g. Jane Doe" required />
-            </div>
-            <div class="field">
-              <label for="emp-password">Password</label>
-              <input type="password" id="emp-password" required />
-            </div>
-            <button type="submit" class="submit-btn" id="emp-btn">Add Employee</button>
-            <div class="msg-area" id="emp-msg"></div>
+
+            <button type="submit" class="submit-btn" id="org-btn" disabled>Create Organisation</button>
+            <div class="msg-area" id="org-msg"></div>
           </form>
         </div>
 
@@ -294,13 +534,270 @@
       </div><!-- /.card -->
     </div>
 
+    <!-- === TERMS & CONDITIONS MODAL === -->
+    <div id="terms-modal" class="terms-modal-overlay">
+      <div class="terms-modal-card">
+        <div class="terms-modal-header">
+          <div class="terms-modal-title">
+            <span>Data Access &amp; Terms of Service</span>
+            <span class="badge">SENTRY SOC</span>
+          </div>
+          <button type="button" class="terms-close-btn" onclick="closeTermsModal()">&times;</button>
+        </div>
+
+        <div class="terms-modal-body">
+          <p class="terms-intro">
+            Please review the data access categories and permissions utilized by the SENTRY platform for autonomous threat detection, incident remediation, and governance.
+          </p>
+
+          <!-- Validation error banner (shown when required toggles are off) -->
+          <div class="terms-error-banner" id="terms-error-banner">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            <span>Please turn on all required access toggles to continue.</span>
+          </div>
+
+          <!-- 1. Device Security Telemetry Access (Required) -->
+          <div class="terms-item-row">
+            <div class="terms-item-info">
+              <div class="terms-item-header">
+                <span class="terms-item-name">Device Security Telemetry Access</span>
+                <span class="terms-tag required">Required</span>
+              </div>
+              <span class="terms-item-desc">Monitors workstation health signals used for risk scoring.</span>
+            </div>
+            <label class="switch">
+              <input type="checkbox" class="req-toggle" onchange="clearTermsError()" />
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <!-- 2. Risk Flag & Incident Data Monitoring (Required) -->
+          <div class="terms-item-row">
+            <div class="terms-item-info">
+              <div class="terms-item-header">
+                <span class="terms-item-name">Risk Flag &amp; Incident Data Monitoring</span>
+                <span class="terms-tag required">Required</span>
+              </div>
+              <span class="terms-item-desc">Reads and displays security findings tied to your account.</span>
+            </div>
+            <label class="switch">
+              <input type="checkbox" class="req-toggle" onchange="clearTermsError()" />
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <!-- 3. Remote Device Lock/Freeze Control (Required) -->
+          <div class="terms-item-row">
+            <div class="terms-item-info">
+              <div class="terms-item-header">
+                <span class="terms-item-name">Remote Device Lock/Freeze Control</span>
+                <span class="terms-tag required">Required</span>
+              </div>
+              <span class="terms-item-desc">Allows organisation admins to lock/unlock your device during a review.</span>
+            </div>
+            <label class="switch">
+              <input type="checkbox" class="req-toggle" onchange="clearTermsError()" />
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <!-- 4. Audit Log Recording & Retention (Required) -->
+          <div class="terms-item-row">
+            <div class="terms-item-info">
+              <div class="terms-item-header">
+                <span class="terms-item-name">Audit Log Recording &amp; Retention</span>
+                <span class="terms-tag required">Required</span>
+              </div>
+              <span class="terms-item-desc">Records administrative actions for compliance purposes.</span>
+            </div>
+            <label class="switch">
+              <input type="checkbox" class="req-toggle" onchange="clearTermsError()" />
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <!-- 5. Employee Directory & Role Information (Required) -->
+          <div class="terms-item-row">
+            <div class="terms-item-info">
+              <div class="terms-item-header">
+                <span class="terms-item-name">Employee Directory &amp; Role Information</span>
+                <span class="terms-tag required">Required</span>
+              </div>
+              <span class="terms-item-desc">Stores your name, ID, and role within the organisation.</span>
+            </div>
+            <label class="switch">
+              <input type="checkbox" class="req-toggle" onchange="clearTermsError()" />
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <!-- 6. Login Session & Authentication Activity (Required) -->
+          <div class="terms-item-row">
+            <div class="terms-item-info">
+              <div class="terms-item-header">
+                <span class="terms-item-name">Login Session &amp; Authentication Activity</span>
+                <span class="terms-tag required">Required</span>
+              </div>
+              <span class="terms-item-desc">Tracks sign-in events to detect unauthorized access.</span>
+            </div>
+            <label class="switch">
+              <input type="checkbox" class="req-toggle" onchange="clearTermsError()" />
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <!-- 7. Automated Threat Detection Scanning (Required) -->
+          <div class="terms-item-row">
+            <div class="terms-item-info">
+              <div class="terms-item-header">
+                <span class="terms-item-name">Automated Threat Detection Scanning</span>
+                <span class="terms-tag required">Required</span>
+              </div>
+              <span class="terms-item-desc">Runs automated heuristic checks against your account activity.</span>
+            </div>
+            <label class="switch">
+              <input type="checkbox" class="req-toggle" onchange="clearTermsError()" />
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <!-- 8. Compliance & Policy Enforcement Metadata (Required) -->
+          <div class="terms-item-row">
+            <div class="terms-item-info">
+              <div class="terms-item-header">
+                <span class="terms-item-name">Compliance &amp; Policy Enforcement Metadata</span>
+                <span class="terms-tag required">Required</span>
+              </div>
+              <span class="terms-item-desc">Applies organisation security policies to your account.</span>
+            </div>
+            <label class="switch">
+              <input type="checkbox" class="req-toggle" onchange="clearTermsError()" />
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <!-- 9. System Health & Uptime Metrics (Optional) -->
+          <div class="terms-item-row">
+            <div class="terms-item-info">
+              <div class="terms-item-header">
+                <span class="terms-item-name">System Health &amp; Uptime Metrics</span>
+                <span class="terms-tag optional">Optional</span>
+              </div>
+              <span class="terms-item-desc">Aggregated, non-identifying system performance data.</span>
+            </div>
+            <label class="switch">
+              <input type="checkbox" />
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <!-- 10. Organization-Level Security Reporting (Optional) -->
+          <div class="terms-item-row">
+            <div class="terms-item-info">
+              <div class="terms-item-header">
+                <span class="terms-item-name">Organization-Level Security Reporting</span>
+                <span class="terms-tag optional">Optional</span>
+              </div>
+              <span class="terms-item-desc">Includes your account in anonymised org-wide security summaries.</span>
+            </div>
+            <label class="switch">
+              <input type="checkbox" />
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <!-- 11. Network Activity Pattern Monitoring (Optional) -->
+          <div class="terms-item-row">
+            <div class="terms-item-info">
+              <div class="terms-item-header">
+                <span class="terms-item-name">Network Activity Pattern Monitoring</span>
+                <span class="terms-tag optional">Optional</span>
+              </div>
+              <span class="terms-item-desc">Observes network usage patterns for anomaly detection.</span>
+            </div>
+            <label class="switch">
+              <input type="checkbox" />
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <!-- 12. Extended Data Retention for Historical Audits (Optional) -->
+          <div class="terms-item-row">
+            <div class="terms-item-info">
+              <div class="terms-item-header">
+                <span class="terms-item-name">Extended Data Retention for Historical Audits</span>
+                <span class="terms-tag optional">Optional</span>
+              </div>
+              <span class="terms-item-desc">Keeps audit records beyond the standard retention window.</span>
+            </div>
+            <label class="switch">
+              <input type="checkbox" />
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="terms-modal-footer">
+          <button type="button" class="btn-secondary" onclick="closeTermsModal()">Close</button>
+          <button type="button" class="btn-primary" onclick="acceptTerms()">I Understand &amp; Accept</button>
+        </div>
+      </div>
+    </div>
+
     <script>
-      function switchTab(tab) {
-        document.querySelectorAll('.tab-btn').forEach((b, i) => {
-          b.classList.toggle('active', (i === 0 && tab === 'org') || (i === 1 && tab === 'emp'));
-        });
-        document.getElementById('section-org').classList.toggle('active', tab === 'org');
-        document.getElementById('section-emp').classList.toggle('active', tab === 'emp');
+      function toggleSubmitBtn() {
+        const checkbox = document.getElementById('terms-checkbox');
+        const btn = document.getElementById('org-btn');
+        btn.disabled = !checkbox.checked;
+      }
+
+      function openTermsModal(e) {
+        if (e) {
+          e.preventDefault();
+          // Prevent checkbox from toggling directly — must only be checked via acceptTerms()
+          if (e.target && e.target.type === 'checkbox') {
+            e.target.checked = false;
+          }
+        }
+        // Always hide error banner on fresh open
+        const banner = document.getElementById('terms-error-banner');
+        if (banner) banner.classList.remove('visible');
+        document.getElementById('terms-modal').style.display = 'flex';
+      }
+
+      function closeTermsModal() {
+        document.getElementById('terms-modal').style.display = 'none';
+      }
+
+      function clearTermsError() {
+        // Called by each req-toggle onchange — hide banner only when all required are now on
+        const reqToggles = document.querySelectorAll('.req-toggle');
+        const allOn = Array.from(reqToggles).every(function(t) { return t.checked; });
+        if (allOn) {
+          const banner = document.getElementById('terms-error-banner');
+          if (banner) banner.classList.remove('visible');
+        }
+      }
+
+      function acceptTerms() {
+        const reqToggles = document.querySelectorAll('.req-toggle');
+        const allRequired = Array.from(reqToggles).every(function(t) { return t.checked; });
+        const banner = document.getElementById('terms-error-banner');
+        if (!allRequired) {
+          // Show error — keep modal open, do not check checkbox, do not enable button
+          if (banner) banner.classList.add('visible');
+          return;
+        }
+        // All 8 required toggles are ON — accept
+        if (banner) banner.classList.remove('visible');
+        const checkbox = document.getElementById('terms-checkbox');
+        if (checkbox) {
+          checkbox.checked = true;
+          toggleSubmitBtn();
+        }
+        closeTermsModal();
       }
 
       function showMsg(id, text, isError) {
@@ -314,6 +811,11 @@
 
       async function submitOrg(e) {
         e.preventDefault();
+        const checkbox = document.getElementById('terms-checkbox');
+        if (!checkbox.checked) {
+          showMsg('org-msg', 'Please agree to the Terms and Conditions to proceed.', true);
+          return;
+        }
         const btn = document.getElementById('org-btn');
         btn.disabled = true;
         btn.textContent = 'Creating...';
@@ -333,42 +835,13 @@
           if (!res.ok) throw new Error(data.detail || 'Registration failed');
           showMsg('org-msg', data.message, false);
           document.getElementById('org-form').reset();
+          toggleSubmitBtn();
           setTimeout(() => { window.location.href = '/login'; }, 2000);
         } catch (err) {
           showMsg('org-msg', err.message, true);
         } finally {
-          btn.disabled = false;
+          btn.disabled = !document.getElementById('terms-checkbox').checked;
           btn.textContent = 'Create Organisation';
-        }
-      }
-
-      async function submitEmp(e) {
-        e.preventDefault();
-        const btn = document.getElementById('emp-btn');
-        btn.disabled = true;
-        btn.textContent = 'Adding...';
-        try {
-          const res = await fetch('/signup', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              role: 'employee',
-              user_id: document.getElementById('emp-user-id').value.trim(),
-              name: document.getElementById('emp-name').value.trim(),
-              password: document.getElementById('emp-password').value,
-              org_id: document.getElementById('emp-org-id').value.trim(),
-            }),
-          });
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.detail || 'Registration failed');
-          showMsg('emp-msg', data.message, false);
-          document.getElementById('emp-form').reset();
-          setTimeout(() => { window.location.href = '/login'; }, 2000);
-        } catch (err) {
-          showMsg('emp-msg', err.message, true);
-        } finally {
-          btn.disabled = false;
-          btn.textContent = 'Add Employee';
         }
       }
     </script>
