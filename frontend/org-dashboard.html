@@ -7,14 +7,19 @@
     <title>SENTRY | Organization Portal</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-      @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fira+Code:wght@400;500&family=Orbitron:wght@700;800&display=swap");
+      @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fira+Code:wght@400;500;600&family=Orbitron:wght@700;800&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap");
 
       :root {
         --bg: #0a0e27;
         --panel: #10142e;
         --accent: #3b5bff;
         --accent-2: #22d3ee;
+        --accent-amber: #f59e0b;
+        --accent-purple: #a855f7;
         --border: rgba(255, 255, 255, 0.08);
+        --border-glow-cyan: rgba(34, 211, 238, 0.35);
+        --border-glow-amber: rgba(245, 158, 11, 0.35);
+        --border-glow-purple: rgba(168, 85, 247, 0.35);
         --text: #ffffff;
         --muted: #94a3b8;
         --ok: #22d3ee;
@@ -31,22 +36,57 @@
         font-family: "Inter", sans-serif;
       }
       body {
-        background: var(--bg);
+        background: url('assets/org-dashboard-bg.png') center top / cover no-repeat fixed, var(--bg);
         color: var(--text);
         min-height: 100vh;
+        position: relative;
+      }
+
+      body::before {
+        content: '';
+        position: fixed;
+        inset: 0;
+        background: rgba(10, 14, 39, 0.45);
+        z-index: 0;
+        pointer-events: none;
+      }
+
+      /* -------------------------------------------------------------
+         TOP BANNER (TRANSPARENT CONTAINER BLENDING INTO FULL-PAGE BG)
+         ------------------------------------------------------------- */
+      .top-banner {
+        position: relative;
+        width: 100%;
+        min-height: 240px;
+        background: transparent;
+        overflow: hidden;
+        z-index: 1;
+      }
+
+      .top-banner::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(180deg, rgba(10, 14, 39, 0.3) 0%, rgba(10, 14, 39, 0.05) 100%);
+        pointer-events: none;
+        z-index: 1;
+      }
+
+      .top-banner header,
+      .top-banner .hero-header-content {
+        position: relative;
+        z-index: 2;
       }
 
       header {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 16px 32px;
-        border-bottom: 1px solid var(--border);
-        background: rgba(16, 20, 46, 0.75);
-        backdrop-filter: blur(12px);
-        position: sticky;
-        top: 0;
-        z-index: 10;
+        padding: 18px 36px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        background: rgba(16, 20, 46, 0.55);
+        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
       }
       .brand {
         display: flex;
@@ -80,6 +120,10 @@
         align-items: center;
         gap: 16px;
       }
+      .who #who-label {
+        color: var(--text);
+        font-weight: 500;
+      }
       .signout {
         color: var(--accent-2);
         text-decoration: none;
@@ -87,15 +131,77 @@
         cursor: pointer;
       }
 
-      main {
-        max-width: 1200px;
+      .hero-header-content {
+        max-width: 1240px;
         margin: 0 auto;
-        padding: 32px 24px 80px;
+        padding: 32px 36px 40px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .hero-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        align-self: flex-start;
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.14em;
+        color: var(--accent-2);
+        background: rgba(34, 211, 238, 0.08);
+        border: 1px solid rgba(34, 211, 238, 0.25);
+        padding: 4px 14px;
+        border-radius: 20px;
+      }
+      .pulse-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--accent-2);
+        box-shadow: 0 0 8px var(--accent-2);
+        animation: pulse 2s infinite;
+      }
+      @keyframes pulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.4; transform: scale(0.85); }
+      }
+      .hero-title {
+        font-family: "Plus Jakarta Sans", sans-serif;
+        font-size: 1.75rem;
+        font-weight: 800;
+        color: #ffffff;
+        letter-spacing: -0.01em;
+      }
+      .hero-subtitle {
+        color: var(--muted);
+        font-size: 0.92rem;
+        max-width: 680px;
+        line-height: 1.5;
+      }
+
+      /* -------------------------------------------------------------
+         MAIN CONTENT LAYOUT (SOLID DARK BG — NO SIDEBAR)
+         ------------------------------------------------------------- */
+      main {
+        max-width: 1240px;
+        margin: -10px auto 0;
+        padding: 0 24px 80px;
         display: flex;
         flex-direction: column;
         gap: 28px;
+        position: relative;
+        z-index: 3;
       }
 
+      /* Row 1: 2-Card Side-by-Side Split on Desktop */
+      .cards-grid-row {
+        display: grid;
+        grid-template-columns: 1.08fr 0.92fr;
+        gap: 56px;
+        align-items: stretch;
+      }
+
+      /* Unused stats/charts styles preserved untouched */
       .stats-row {
         display: grid;
         grid-template-columns: repeat(4, 1fr);
@@ -144,31 +250,134 @@
         margin-bottom: 14px;
       }
 
+      /* -------------------------------------------------------------
+         GLASSY CARD REDESIGN (CYBER-HEAD STYLE WITH DISTINCT ACCENTS)
+         ------------------------------------------------------------- */
       .card {
-        background: var(--panel);
+        background: linear-gradient(180deg, rgba(16, 20, 46, 0.58) 0%, rgba(12, 16, 40, 0.62) 100%);
         border: 1px solid var(--border);
-        border-radius: 16px;
-        padding: 24px;
+        border-radius: 20px;
+        padding: 28px 26px;
+        box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.04);
+        backdrop-filter: blur(18px);
+        -webkit-backdrop-filter: blur(18px);
+        transition: border-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
+        position: relative;
+        overflow: hidden;
       }
+
+      /* Distinct Card Accent Colors */
+      .card-cyan {
+        border-color: rgba(34, 211, 238, 0.18);
+      }
+      .card-cyan::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: linear-gradient(90deg, transparent, rgba(34, 211, 238, 0.5), transparent);
+      }
+      .card-cyan:hover {
+        border-color: var(--border-glow-cyan);
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), 0 0 30px rgba(34, 211, 238, 0.12);
+        transform: translateY(-2px);
+      }
+
+      .card-amber {
+        border-color: rgba(245, 158, 11, 0.18);
+      }
+      .card-amber::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: linear-gradient(90deg, transparent, rgba(245, 158, 11, 0.5), transparent);
+      }
+      .card-amber:hover {
+        border-color: var(--border-glow-amber);
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), 0 0 30px rgba(245, 158, 11, 0.12);
+        transform: translateY(-2px);
+      }
+
+      .card-purple {
+        border-color: rgba(168, 85, 247, 0.18);
+      }
+      .card-purple::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: linear-gradient(90deg, transparent, rgba(168, 85, 247, 0.5), transparent);
+      }
+      .card-purple:hover {
+        border-color: var(--border-glow-purple);
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), 0 0 30px rgba(168, 85, 247, 0.12);
+        transform: translateY(-2px);
+      }
+
       .card h2 {
-        font-size: 0.8rem;
+        font-family: "Plus Jakarta Sans", sans-serif;
+        font-size: 0.95rem;
         font-weight: 800;
-        letter-spacing: 0.1em;
+        letter-spacing: 0.08em;
         text-transform: uppercase;
-        color: var(--accent-2);
-        margin-bottom: 18px;
+        color: #ffffff;
+        margin-bottom: 20px;
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: 12px;
         flex-wrap: wrap;
       }
+      .card-title-wrap {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .card-cyan .card-title-wrap svg { color: var(--accent-2); }
+      .card-amber .card-title-wrap svg { color: var(--accent-amber); }
+      .card-purple .card-title-wrap svg { color: var(--accent-purple); }
 
+      .card-chip {
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        padding: 4px 10px;
+        border-radius: 12px;
+        text-transform: uppercase;
+      }
+      .chip-cyan {
+        color: var(--accent-2);
+        background: rgba(34, 211, 238, 0.1);
+        border: 1px solid rgba(34, 211, 238, 0.25);
+      }
+      .chip-amber {
+        color: var(--accent-amber);
+        background: rgba(245, 158, 11, 0.1);
+        border: 1px solid rgba(245, 158, 11, 0.25);
+      }
+      .chip-purple {
+        color: var(--accent-purple);
+        background: rgba(168, 85, 247, 0.1);
+        border: 1px solid rgba(168, 85, 247, 0.25);
+      }
+
+      /* Form Row Styling */
       .form-row {
         display: grid;
-        grid-template-columns: repeat(3, 1fr) auto;
-        gap: 12px;
+        grid-template-columns: 1fr 1.2fr auto;
+        gap: 14px;
         align-items: flex-end;
+        background: rgba(255, 255, 255, 0.02);
+        padding: 16px;
+        border-radius: 14px;
+        border: 1px solid rgba(255, 255, 255, 0.04);
       }
       .field {
         display: flex;
@@ -183,84 +392,116 @@
         letter-spacing: 0.05em;
       }
       .field input, .field select {
-        background: rgba(0, 0, 0, 0.35);
+        background: rgba(0, 0, 0, 0.4);
         border: 1px solid var(--border);
         color: var(--text);
         padding: 10px 14px;
-        border-radius: 8px;
+        border-radius: 10px;
         font-size: 0.88rem;
         outline: none;
-        transition: border-color 0.2s;
+        transition: border-color 0.25s, box-shadow 0.25s;
       }
       .field input:focus, .field select:focus {
         border-color: var(--accent-2);
+        box-shadow: 0 0 12px rgba(34, 211, 238, 0.2);
       }
 
+      /* Button Styles */
       .btn {
         background: linear-gradient(135deg, var(--accent), var(--accent-2));
         color: #fff;
         border: none;
-        padding: 10px 20px;
-        border-radius: 8px;
+        padding: 11px 22px;
+        border-radius: 10px;
         font-weight: 700;
         font-size: 0.85rem;
         cursor: pointer;
         white-space: nowrap;
-        transition: opacity 0.2s;
+        transition: all 0.25s ease;
+        box-shadow: 0 4px 14px rgba(59, 91, 255, 0.3);
+      }
+      .btn:hover:not(:disabled) {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 20px rgba(34, 211, 238, 0.4);
       }
       .btn:disabled {
         opacity: 0.5;
         cursor: not-allowed;
       }
       .btn.small {
-        padding: 5px 12px;
-        font-size: 0.72rem;
+        padding: 6px 14px;
+        font-size: 0.74rem;
+        border-radius: 8px;
       }
       .btn.approve {
-        background: linear-gradient(135deg, #16a34a, var(--accent-2));
+        background: linear-gradient(135deg, #16a34a, #22d3ee);
+        box-shadow: 0 4px 12px rgba(34, 197, 94, 0.25);
       }
       .btn.deny {
         background: rgba(239, 91, 91, 0.15);
         color: #ff8080;
         border: 1px solid rgba(239, 91, 91, 0.35);
+        box-shadow: none;
+      }
+      .btn.deny:hover {
+        background: rgba(239, 91, 91, 0.25);
       }
       .btn.danger-outline {
         background: transparent;
         border: 1px solid rgba(239, 91, 91, 0.4);
         color: #ff8080;
+        box-shadow: none;
+      }
+      .btn.danger-outline:hover {
+        background: rgba(239, 91, 91, 0.15);
       }
 
+      /* Table Container & Table Polish */
+      .table-container {
+        width: 100%;
+        overflow-x: auto;
+      }
       table {
         width: 100%;
         border-collapse: collapse;
-        font-size: 0.82rem;
+        font-size: 0.84rem;
       }
       th, td {
         text-align: left;
-        padding: 10px 12px;
+        padding: 12px 14px;
         border-bottom: 1px solid var(--border);
         vertical-align: middle;
       }
       th {
         color: var(--muted);
-        font-weight: 600;
+        font-weight: 700;
         font-size: 0.72rem;
         text-transform: uppercase;
-        letter-spacing: 0.05em;
+        letter-spacing: 0.06em;
+        background: rgba(255, 255, 255, 0.02);
+      }
+      tbody tr {
+        transition: background 0.2s ease;
+      }
+      tbody tr:hover {
+        background: rgba(255, 255, 255, 0.035);
       }
       td.mono {
         font-family: "Fira Code", monospace;
-        font-size: 0.78rem;
+        font-size: 0.8rem;
+        font-weight: 500;
       }
 
+      /* Badges & Chips */
       .tier-badge {
         font-family: "Fira Code", monospace;
         font-size: 0.7rem;
         font-weight: 700;
-        padding: 3px 10px;
+        padding: 4px 12px;
         border-radius: 20px;
         text-transform: uppercase;
         white-space: nowrap;
+        display: inline-block;
       }
       .tier-not_risky {
         background: rgba(34, 211, 238, 0.12);
@@ -282,10 +523,11 @@
         font-family: "Fira Code", monospace;
         font-size: 0.7rem;
         font-weight: 700;
-        padding: 3px 10px;
+        padding: 4px 12px;
         border-radius: 20px;
         text-transform: uppercase;
         white-space: nowrap;
+        display: inline-block;
       }
       .role-chip.admin {
         background: rgba(59, 91, 255, 0.15);
@@ -298,11 +540,12 @@
         border: 1px solid var(--border);
       }
 
+      /* Status Messages */
       .msg {
-        font-size: 0.8rem;
-        padding: 10px 14px;
-        border-radius: 8px;
-        margin-top: 12px;
+        font-size: 0.82rem;
+        padding: 12px 16px;
+        border-radius: 10px;
+        margin-top: 14px;
         display: none;
       }
       .msg.success {
@@ -320,123 +563,180 @@
       .empty {
         text-align: center;
         color: var(--muted);
-        padding: 30px;
+        padding: 36px;
         font-size: 0.85rem;
       }
 
-      @media (max-width: 900px) {
-        .stats-row { grid-template-columns: repeat(2, 1fr); }
-        .charts-row { grid-template-columns: 1fr; }
-        .form-row { grid-template-columns: 1fr; }
-      }
-        .card h2,
-        .stat-label,
-        .stat-value,
-        th,
-        td {
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
+      /* Responsive Rules */
+      @media (max-width: 960px) {
+        .cards-grid-row {
+          grid-template-columns: 1fr;
         }
+        .form-row {
+          grid-template-columns: 1fr;
+        }
+        .stats-row {
+          grid-template-columns: repeat(2, 1fr);
+        }
+        .charts-row {
+          grid-template-columns: 1fr;
+        }
+        header {
+          padding: 16px 20px;
+        }
+        .hero-header-content {
+          padding: 24px 20px 32px;
+        }
+        main {
+          padding: 0 16px 60px;
+        }
+      }
     </style>
   </head>
   <body>
-    <header>
-      <div class="brand">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#22D3EE" stroke-width="2">
-          <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5" />
-          <circle cx="12" cy="12" r="3.5" fill="#22D3EE" fill-opacity="0.25" stroke="#22D3EE" stroke-width="1.5" />
-        </svg>
-        <span class="title">SENTRY</span>
-        <span class="tag">ORGANIZATION PORTAL</span>
-      </div>
-      <div class="who">
-        <span id="who-label">-</span>
-        <button class="btn small" onclick="signOut()">Sign out</button>
-      </div>
-    </header>
+    <!-- TOP BANNER (CONTAINER DIV WITH TOP-ONLY BACKGROUND IMAGE & FADE-OUT GRADIENT) -->
+    <div class="top-banner">
+      <header>
+        <div class="brand">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#22D3EE" stroke-width="2">
+            <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5" />
+            <circle cx="12" cy="12" r="3.5" fill="#22D3EE" fill-opacity="0.25" stroke="#22D3EE" stroke-width="1.5" />
+          </svg>
+          <span class="title">SENTRY</span>
+          <span class="tag">ORGANIZATION PORTAL</span>
+        </div>
+        <div class="who">
+          <span id="who-label">-</span>
+          <button class="btn small" onclick="signOut()">Sign out</button>
+        </div>
+      </header>
 
+      <div class="hero-header-content">
+        <div class="hero-badge">
+          <span class="pulse-dot"></span>
+          <span>GLOBAL THREAT MATRIX &bull; ORG LEVEL</span>
+        </div>
+        <h1 class="hero-title">Organization Governance &amp; Controls</h1>
+        <p class="hero-subtitle">Manage workforce credentials, enforce remote hardware isolation, and review compliance audit trails.</p>
+      </div>
+    </div>
+
+    <!-- MAIN DASHBOARD CONTENT (SOLID DARK BG — NO SIDEBAR) -->
     <main>
-      <!-- Employee Management (Organization Core) -->
-      <div class="card">
-        <h2>Organization Employee Management</h2>
-        <div class="form-row">
-          <div class="field">
-            <label for="emp-id">Employee ID</label>
-            <input type="text" id="emp-id" placeholder="EMP-0231" />
+      <!-- ROW 1: 2-CARD SIDE-BY-SIDE SPLIT -->
+      <div class="cards-grid-row">
+        <!-- CARD 1: Employee Management (Cyan Accent) -->
+        <div class="card card-cyan">
+          <h2>
+            <span class="card-title-wrap">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                <circle cx="9" cy="7" r="4"></circle>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+              </svg>
+              Organization Employee Management
+            </span>
+            <span class="card-chip chip-cyan">Directory</span>
+          </h2>
+          <div class="form-row">
+            <div class="field">
+              <label for="emp-id">Employee ID</label>
+              <input type="text" id="emp-id" placeholder="EMP-0231" />
+            </div>
+            <div class="field">
+              <label for="emp-name">Full Name</label>
+              <input type="text" id="emp-name" placeholder="Jane Doe" />
+            </div>
+            <button class="btn" onclick="createEmployee()">Create Employee</button>
           </div>
-          <div class="field">
-            <label for="emp-name">Full Name</label>
-            <input type="text" id="emp-name" placeholder="Jane Doe" />
+          <div class="msg" id="employee-msg"></div>
+
+          <div class="table-container">
+            <table style="margin-top: 20px">
+              <thead>
+                <tr>
+                  <th>Employee ID</th>
+                  <th>Name</th>
+                  <th>Role</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="employee-table-body">
+                <tr><td colspan="4" class="empty">Loading employee directory...</td></tr>
+              </tbody>
+            </table>
           </div>
-          <div class="field">
-            <label for="emp-password">Password</label>
-            <input type="password" id="emp-password" placeholder="Password" />
-          </div>
-          <button class="btn" onclick="createEmployee()">Create Employee</button>
         </div>
-        <div class="msg" id="employee-msg"></div>
 
-        <table style="margin-top: 20px">
-          <thead>
-            <tr>
-              <th>Employee ID</th>
-              <th>Name</th>
-              <th>Role</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody id="employee-table-body">
-            <tr><td colspan="4" class="empty">Loading employee directory...</td></tr>
-          </tbody>
-        </table>
+        <!-- CARD 2: Remote Device Controls (Amber Accent) -->
+        <div class="card card-amber">
+          <h2>
+            <span class="card-title-wrap">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+              </svg>
+              Remote Device Controls
+            </span>
+            <span class="card-chip chip-amber">Isolation</span>
+          </h2>
+          <div class="msg" id="device-msg"></div>
+          <div class="table-container">
+            <table style="margin-top:8px;">
+              <thead>
+                <tr>
+                  <th>Employee ID</th>
+                  <th>Device Status</th>
+                  <th>Lock Reason</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="device-table-body">
+                <tr><td colspan="4" class="empty">Loading device controls...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
-      <!-- Remote Device Controls (Organization Scope) -->
-      <div class="card">
-        <h2>Remote Device Controls</h2>
-        <div class="msg" id="device-msg"></div>
-        <table style="margin-top:8px;">
-          <thead>
-            <tr>
-              <th>Employee ID</th>
-              <th>Device Status</th>
-              <th>Lock Reason</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody id="device-table-body">
-            <tr><td colspan="4" class="empty">Loading device controls...</td></tr>
-          </tbody>
-        </table>
-      </div>
-
-      <!-- Audit Log -->
-      <div class="card">
-        <div style="display:flex;justify-content:space-between;align-items:center;">
-          <h2>Organization Audit Trail</h2>
+      <!-- ROW 2: FULL-WIDTH CARD — Organization Audit Trail (Purple Accent) -->
+      <div class="card card-purple">
+        <h2>
+          <span class="card-title-wrap">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
+              <polyline points="10 9 9 9 8 9"></polyline>
+            </svg>
+            Organization Audit Trail
+          </span>
           <button class="btn small" onclick="openAuditModal()">See More</button>
+        </h2>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Timestamp</th>
+                <th>Actor</th>
+                <th>Message</th>
+              </tr>
+            </thead>
+            <tbody id="audit-table-body">
+              <tr><td colspan="3" class="empty">Loading audit log...</td></tr>
+            </tbody>
+          </table>
         </div>
-        <table>
-          <thead>
-            <tr>
-              <th>Timestamp</th>
-              <th>Actor</th>
-              <th>Message</th>
-            </tr>
-          </thead>
-          <tbody id="audit-table-body">
-            <tr><td colspan="3" class="empty">Loading audit log...</td></tr>
-          </tbody>
-        </table>
       </div>
     </main>
 
     <!-- Audit Modal -->
-    <div id="audit-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:100;align-items:center;justify-content:center;padding:20px;">
-      <div class="card" style="width:100%;max-width:800px;max-height:80vh;display:flex;flex-direction:column;">
+    <div id="audit-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:100;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(10px);">
+      <div class="card card-purple" style="width:100%;max-width:860px;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,0.7);">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-          <h2>Full Audit Trail</h2>
+          <h2 style="margin:0;">Full Audit Trail</h2>
           <button class="btn small danger-outline" onclick="closeAuditModal()">Close</button>
         </div>
         <div style="overflow-y:auto;flex:1;">
@@ -524,8 +824,8 @@
       async function createEmployee() {
         const empId = document.getElementById("emp-id").value.trim();
         const name = document.getElementById("emp-name").value.trim();
-        const password = document.getElementById("emp-password").value;
-        if (!empId || !name || !password) {
+        const password = crypto.randomUUID().slice(0, 12);
+        if (!empId || !name) {
           showMsg("employee-msg", "All fields are required.", true); return;
         }
         try {
@@ -538,7 +838,6 @@
           if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.detail || "Failed to create employee."); }
           document.getElementById("emp-id").value = "";
           document.getElementById("emp-name").value = "";
-          document.getElementById("emp-password").value = "";
           showMsg("employee-msg", `Employee ${empId} created successfully.`, false);
           await loadEmployees();
           await loadDeviceControls();
