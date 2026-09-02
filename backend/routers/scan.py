@@ -224,14 +224,15 @@ def list_scan_results(admin: AdminUser = Depends(require_admin)):
         .execute()
     ).data or []
 
-    flags = (
-        client.table("risk_flags")
-        .select("id,scan_result_id,status,resolution")
-        .eq("org_id", admin.org_id)
-        .order("created_at", desc=True)
-        .limit(100)
-        .execute()
-    ).data or []
+    scan_ids = [s["id"] for s in scans if s.get("id")]
+    flags = []
+    if scan_ids:
+        flags = (
+            client.table("risk_flags")
+            .select("id,scan_result_id,status,resolution")
+            .in_("scan_result_id", scan_ids)
+            .execute()
+        ).data or []
     flags_by_scan = {f["scan_result_id"]: f for f in flags}
 
     out: List[ScanResultOut] = []

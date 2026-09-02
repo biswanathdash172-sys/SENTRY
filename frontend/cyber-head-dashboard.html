@@ -1341,6 +1341,9 @@
       }
     }
 
+    let lastKnownScans = [];
+    let lastKnownEmails = [];
+
     async function loadScanResults() {
       try {
         const [scanRes, emailRes] = await Promise.allSettled([
@@ -1348,23 +1351,21 @@
           fetch("/emails/recent?max_results=50&_t=" + Date.now(), { headers: authHeaders() })
         ]);
 
-        let scaAndNotifData = [];
         if (scanRes.status === 'fulfilled' && scanRes.value.ok) {
           try {
             const json = await scanRes.value.json();
-            if (Array.isArray(json)) scaAndNotifData = json;
+            if (Array.isArray(json)) lastKnownScans = json;
           } catch(e) {}
         }
 
-        let emailData = [];
         if (emailRes.status === 'fulfilled' && emailRes.value.ok) {
           try {
             const json = await emailRes.value.json();
-            if (Array.isArray(json)) emailData = json;
+            if (Array.isArray(json)) lastKnownEmails = json;
           } catch(e) {}
         }
 
-        const emailRows = emailData.map(e => {
+        const emailRows = lastKnownEmails.map(e => {
           const conf = typeof e.confidence === 'number' ? e.confidence : 0;
           const tier = conf >= 0.7 ? 'high_risky' : conf >= 0.3 ? 'part_risky' : 'not_risky';
           const action = emailActions[e.id];
@@ -1389,14 +1390,10 @@
         });
 
         // Merge email signals and scan results (emails and notifications together)
-        allScanResults = [...emailRows, ...scaAndNotifData];
+        allScanResults = [...emailRows, ...lastKnownScans];
         await applyScanFilter();
       } catch (e) {
         console.error("Error loading scan results:", e);
-        const tbody = document.getElementById("scan-table-body");
-        if (tbody && (!allScanResults || !allScanResults.length)) {
-          tbody.innerHTML = `<tr><td colspan="9" class="empty">Could not load scan results — is the backend running?</td></tr>`;
-        }
       }
     }
 
@@ -1419,6 +1416,9 @@
           `Scan complete — ${count} notification / finding(s) captured.`,
           false,
         );
+        if (Array.isArray(results) && results.length) {
+          lastKnownScans = [...results, ...lastKnownScans.filter(s => !results.some(r => r.risk_flag_id === s.risk_flag_id))];
+        }
         await loadScanResults();
         await loadAnalytics();
       } catch (e) {

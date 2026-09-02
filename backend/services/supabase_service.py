@@ -160,29 +160,34 @@ def verify_employee_login(employee_id: str, password: str) -> EmployeeRecord:
         "employee_id, org_id, password, display_name, is_admin, is_cyber_head",
         "employee_id, org_id, password, display_name, is_admin",
     ):
-        try:
-            result = (
-                client.table("employees")
-                .select(select_cols)
-                .eq("employee_id", employee_id)
-                .limit(1)
-                .execute()
-            )
-            break  # Succeeded — exit the retry loop
-        except Exception as exc:
-            err_str = str(exc)
-            if "is_cyber_head" in err_str and "does not exist" in err_str:
-                # Migration not yet applied — retry without the new column
-                import logging as _log
-                _log.getLogger("sentry.supabase").warning(
-                    "is_cyber_head column not found — migration_v0.6.0.sql not yet applied. "
-                    "Falling back to login without Cyber Head role. "
-                    "Apply the migration from backend/db/migration_v0.6.0.sql."
+        last_exc = None
+        result = None
+        for attempt in range(3):
+            try:
+                result = (
+                    client.table("employees")
+                    .select(select_cols)
+                    .eq("employee_id", employee_id)
+                    .limit(1)
+                    .execute()
                 )
-                continue
-            raise SupabaseAuthError(f"Could not reach Supabase: {exc}")
+                break  # Succeeded
+            except Exception as exc:
+                last_exc = exc
+                err_str = str(exc)
+                if "is_cyber_head" in err_str and "does not exist" in err_str:
+                    import logging as _log
+                    _log.getLogger("sentry.supabase").warning(
+                        "is_cyber_head column not found — migration_v0.6.0.sql not yet applied. "
+                        "Falling back to login without Cyber Head role."
+                    )
+                    break
+                import time
+                time.sleep(0.05 * (attempt + 1))
+        if result is not None:
+            break
     else:
-        raise SupabaseAuthError("Could not reach Supabase.")
+        raise SupabaseAuthError(f"Could not reach Supabase: {last_exc}")
 
     rows = result.data or []
     if not rows:
