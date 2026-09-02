@@ -220,6 +220,7 @@ def list_scan_results(admin: AdminUser = Depends(require_admin)):
         .select("*")
         .eq("org_id", admin.org_id)
         .order("created_at", desc=True)
+        .limit(100)
         .execute()
     ).data or []
 
@@ -227,6 +228,8 @@ def list_scan_results(admin: AdminUser = Depends(require_admin)):
         client.table("risk_flags")
         .select("id,scan_result_id,status,resolution")
         .eq("org_id", admin.org_id)
+        .order("created_at", desc=True)
+        .limit(100)
         .execute()
     ).data or []
     flags_by_scan = {f["scan_result_id"]: f for f in flags}

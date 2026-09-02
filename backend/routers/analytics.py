@@ -30,6 +30,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
+import time
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from typing import Dict, List, Optional
@@ -38,6 +39,9 @@ from models import AdminUser
 from routers.org_auth import require_admin
 
 router = APIRouter(tags=["analytics"])
+
+_ANALYTICS_CACHE: Dict[str, tuple[float, AnalyticsOut]] = {}
+_CACHE_TTL_SECONDS = 3.0
 
 
 class AnalyticsOut(BaseModel):
@@ -57,22 +61,41 @@ def _parse_ts(ts: str) -> datetime:
 
 @router.get("/analytics", response_model=AnalyticsOut)
 def get_analytics(admin: AdminUser = Depends(require_admin)):
+    now_ts = time.time()
+    cached = _ANALYTICS_CACHE.get(admin.org_id)
+    if cached is not None:
+        cached_time, cached_data = cached
+        if now_ts - cached_time < _CACHE_TTL_SECONDS:
+            return cached_data
+
     from services.supabase_service import _get_client
 
     try:
         client = _get_client()
     except Exception as exc:
+        if cached is not None:
+            return cached[1]
         raise HTTPException(status_code=503, detail=f"Supabase not available: {exc}")
 
-    try:
-        flags = (
-            client.table("risk_flags")
-            .select("id, tier, status, resolution, created_at, approved_at")
-            .eq("org_id", admin.org_id)
-            .execute()
-        ).data or []
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Could not read risk_flags: {exc}")
+    flags = None
+    last_err = None
+    for attempt in range(3):
+        try:
+            flags = (
+                client.table("risk_flags")
+                .select("id, tier, status, resolution, created_at, approved_at")
+                .eq("org_id", admin.org_id)
+                .execute()
+            ).data or []
+            break
+        except Exception as exc:
+            last_err = exc
+            time.sleep(0.05 * (attempt + 1))
+
+    if flags is None:
+        if cached is not None:
+            return cached[1]
+        raise HTTPException(status_code=500, detail=f"Could not read risk_flags: {last_err}")
 
     # --- tier_counts: real, from every flag ever created for this org ---
     tier_counts = {"not_risky": 0, "part_risky": 0, "high_risky": 0}
@@ -139,7 +162,7 @@ def get_analytics(admin: AdminUser = Depends(require_admin)):
         for date, count in sorted(day_buckets.items())
     ]
 
-    return AnalyticsOut(
+    out = AnalyticsOut(
         tier_counts=tier_counts,
         status_counts=status_counts,
         resolution_breakdown=resolution_breakdown,
@@ -147,3 +170,5 @@ def get_analytics(admin: AdminUser = Depends(require_admin)):
         daily_counts=daily_counts,
         total_scanned=len(flags),
     )
+    _ANALYTICS_CACHE[admin.org_id] = (time.time(), out)
+    return out

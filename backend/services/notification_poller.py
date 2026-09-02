@@ -151,35 +151,34 @@ def _snapshot_database() -> Path:
 
 def _extract_text_from_payload(payload: bytes) -> str:
     """
-    Best-effort plain-text extraction from a notification's raw Payload
-    blob. The payload is typically the toast notification's XML,
-    UTF-16LE encoded, sometimes with binary framing bytes around it.
-
-    STRATEGY (deliberately layered, cheapest/most-reliable first):
-      1. Try decoding the whole blob as UTF-16LE, then strip XML tags —
-         this is correct for the common case.
-      2. If that yields nothing readable, fall back to extracting any
-         printable ASCII runs of 4+ characters — degraded but still real
-         text pulled from the actual blob, never a fabricated string.
-      3. If neither yields anything, return "" (empty) rather than
-         inventing placeholder text — an unreadable notification is
-         reported as such, not silently skipped as if it never existed
-         (the caller still logs its existence with a raw byte count).
+    Best-effort plain-text extraction from a notification's raw Payload blob.
+    Tries UTF-8 first (standard for Windows toast XML), then UTF-16LE/UTF-16,
+    strips XML tags, and cleans non-printable characters.
     """
     if not payload:
         return ""
 
-    try:
-        decoded = payload.decode("utf-16-le", errors="ignore")
-        stripped = re.sub(r"<[^>]+>", " ", decoded)
-        stripped = re.sub(r"\s+", " ", stripped).strip()
-        # Filter out control characters / non-printable junk that can
-        # survive a UTF-16 decode of binary framing bytes.
-        cleaned = "".join(ch for ch in stripped if ch.isprintable())
-        if len(cleaned) >= 4:
-            return cleaned
-    except Exception:
-        pass
+    import xml.etree.ElementTree as ET
+
+    for enc in ("utf-8", "utf-16-le", "utf-16", "cp1252"):
+        try:
+            decoded = payload.decode(enc)
+            try:
+                root = ET.fromstring(decoded)
+                texts = [elem.text.strip() for elem in root.iter() if elem.text and elem.text.strip()]
+                if texts:
+                    return " ".join(texts)
+                return ""
+            except Exception:
+                pass
+
+            stripped = re.sub(r"<[^>]*>", " ", decoded)
+            stripped = re.sub(r"\s+", " ", stripped).strip()
+            cleaned = "".join(ch for ch in stripped if ch.isprintable())
+            if len(cleaned) >= 3 and not any(ord(c) > 0x2E80 for c in cleaned):
+                return cleaned
+        except Exception:
+            continue
 
     try:
         ascii_runs = re.findall(rb"[\x20-\x7e]{4,}", payload)
@@ -240,12 +239,11 @@ def _load_state() -> dict:
     if STATE_FILE.exists():
         try:
             data = json.loads(STATE_FILE.read_text())
-            if isinstance(data, dict) and data.get("last_seen_id", 0) > 0:
+            if isinstance(data, dict) and "last_seen_id" in data:
                 return data
         except (json.JSONDecodeError, OSError):
             logger.warning(f"Could not read state file '{STATE_FILE}' — starting from scratch.")
-    current_max = _get_current_max_id()
-    state = {"last_seen_id": current_max}
+    state = {"last_seen_id": 0}
     _save_state(state)
     return state
 
@@ -257,7 +255,7 @@ def _save_state(state: dict) -> None:
         logger.warning(f"Could not save poller state ({exc}) — next run may reprocess some notifications.")
 
 
-def read_new_notifications(last_seen_id: int, max_age_hours: float = 4.0) -> list[dict]:
+def read_new_notifications(last_seen_id: int, max_age_hours: float = 24.0) -> list[dict]:
     """
     Reads real, new notifications from a fresh snapshot of wpndatabase.db.
     Returns a list of dicts: {id, app_name, text, arrival_time}.

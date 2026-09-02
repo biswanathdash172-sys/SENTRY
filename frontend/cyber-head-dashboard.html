@@ -600,7 +600,7 @@
         </button>
         <button id="scan-btn" onclick="runScan()" class="btn small">
           <span class="material-symbols-outlined text-[15px]">radar</span>
-          Run Fixed Scan
+          Run Scan
         </button>
         <button class="text-on-surface-variant hover:text-primary transition-colors cursor-pointer" onclick="signOut()" title="Sign Out">
           <span class="material-symbols-outlined text-[20px]">logout</span>
@@ -764,22 +764,22 @@
           <div>
             <h3 class="font-headline-md text-on-surface text-lg font-bold flex items-center gap-2">
               <span class="material-symbols-outlined text-accent-cyan text-[20px]">radar</span>
-              SCA Scan Results &amp; Resolution
+              Real-Time Security Evidence &amp; Risk Resolutions
             </h3>
-            <p class="font-body-md text-on-surface-variant text-xs">Live vulnerability findings from OSV.dev and active risk resolutions</p>
+            <p class="font-body-md text-on-surface-variant text-xs">Live findings from Scanned Emails (Gmail), OS Notifications, and SCA Scan</p>
           </div>
-          <button class="btn" onclick="runScan()">
+          <button id="scan-table-run-btn" class="btn" onclick="runScan()">
             <span class="material-symbols-outlined text-[16px]">play_circle</span>
-            Run Fixed-Payload Scan (OSV.dev)
+            Run Notification &amp; SCA Scan (Live)
           </button>
         </div>
 
         <!-- Filter Chips Row -->
         <div class="flex flex-wrap gap-2 items-center mb-4 pb-3 border-b border-glass-border">
           <span class="text-xs text-on-surface-variant mr-1 font-medium">Filter:</span>
-          <button class="scan-chip px-3 py-1 text-xs font-semibold rounded-md border border-accent-cyan bg-accent-cyan/20 text-white transition-all cursor-pointer shadow-sm" id="filter-chip-all" data-filter="all" onclick="setScanFilter('all')">All</button>
-          <button class="scan-chip px-3 py-1 text-xs font-semibold rounded-md border border-glass-border bg-surface-container-highest text-on-surface-variant hover:text-white transition-all cursor-pointer" id="filter-chip-notification" data-filter="notification" onclick="setScanFilter('notification')">🔔 Notification</button>
-          <button class="scan-chip px-3 py-1 text-xs font-semibold rounded-md border border-glass-border bg-surface-container-highest text-on-surface-variant hover:text-white transition-all cursor-pointer" id="filter-chip-email" data-filter="email" onclick="setScanFilter('email')">📧 Email</button>
+          <button class="scan-chip px-3 py-1 text-xs font-semibold rounded-md border border-accent-cyan bg-accent-cyan/20 text-white transition-all cursor-pointer shadow-sm" id="filter-chip-all" data-filter="all" onclick="setScanFilter('all')">All Signals</button>
+          <button class="scan-chip px-3 py-1 text-xs font-semibold rounded-md border border-glass-border bg-surface-container-highest text-on-surface-variant hover:text-white transition-all cursor-pointer" id="filter-chip-notification" data-filter="notification" onclick="setScanFilter('notification')">🔔 Notifications</button>
+          <button class="scan-chip px-3 py-1 text-xs font-semibold rounded-md border border-glass-border bg-surface-container-highest text-on-surface-variant hover:text-white transition-all cursor-pointer" id="filter-chip-email" data-filter="email" onclick="setScanFilter('email')">📧 Emails (Gmail)</button>
           <button class="scan-chip px-2.5 py-1 text-xs font-semibold rounded-md border border-glass-border bg-surface-container-highest text-accent-cyan hover:brightness-125 transition-all cursor-pointer" id="filter-chip-not_risky" data-filter="not_risky" onclick="setScanFilter('not_risky')">🟢 Not Risky</button>
           <button class="scan-chip px-2.5 py-1 text-xs font-semibold rounded-md border border-glass-border bg-surface-container-highest text-amber-400 hover:brightness-125 transition-all cursor-pointer" id="filter-chip-part_risky" data-filter="part_risky" onclick="setScanFilter('part_risky')">🟡 Part Risky</button>
           <button class="scan-chip px-2.5 py-1 text-xs font-semibold rounded-md border border-glass-border bg-surface-container-highest text-red-400 hover:brightness-125 transition-all cursor-pointer" id="filter-chip-high_risky" data-filter="high_risky" onclick="setScanFilter('high_risky')">🔴 High Risky</button>
@@ -833,8 +833,11 @@
       sessionStorage.clear();
       window.location.href = "/login";
     }
+    function getToken() {
+      return sessionStorage.getItem("sentry_token") || token || "";
+    }
     function authHeaders(extra = {}) {
-      return { Authorization: `Bearer ${token}`, ...extra };
+      return { Authorization: `Bearer ${getToken()}`, ...extra };
     }
 
     function showMsg(elId, text, isError) {
@@ -1059,106 +1062,101 @@
           chip.className = `scan-chip px-2.5 py-1 text-xs font-semibold rounded-md border border-glass-border bg-surface-container-highest ${colorClass} hover:brightness-125 transition-all cursor-pointer`;
         }
       });
-      applyScanFilter();
+      return applyScanFilter();
     }
 
     async function applyScanFilter() {
       const tbody = document.getElementById("scan-table-body");
       if (!tbody) return;
 
-      if (activeScanFilter === 'email') {
-        try {
-          const res = await fetch('/emails/recent?max_results=50&_t=' + Date.now(), { headers: authHeaders() });
-          if (await handle401(res)) return;
-          if (!res.ok) {
-            tbody.innerHTML = `<tr><td colspan="9" class="empty">No evaluated email signals found.</td></tr>`;
-            return;
-          }
-          const emails = await res.json();
-          renderEmailScanRows(emails);
-        } catch (e) {
-          tbody.innerHTML = `<tr><td colspan="9" class="empty">No evaluated email signals found.</td></tr>`;
+      try {
+        let filtered = Array.isArray(allScanResults) ? allScanResults : [];
+        if (activeScanFilter === 'notification') {
+          filtered = filtered.filter(r => r && r.source_type === 'notification');
+        } else if (activeScanFilter === 'email') {
+          filtered = filtered.filter(r => r && (r.source_type === 'email' || r.is_email));
+        } else if (activeScanFilter === 'not_risky') {
+          filtered = filtered.filter(r => r && r.tier === 'not_risky');
+        } else if (activeScanFilter === 'part_risky') {
+          filtered = filtered.filter(r => r && r.tier === 'part_risky');
+        } else if (activeScanFilter === 'high_risky') {
+          filtered = filtered.filter(r => r && r.tier === 'high_risky');
         }
-        return;
+        renderScanTable(filtered);
+      } catch (e) {
+        console.error("Error in applyScanFilter:", e);
       }
-
-      let filtered = allScanResults;
-      if (activeScanFilter === 'notification') {
-        filtered = filtered.filter(r => r.source_type === 'notification');
-      } else if (activeScanFilter === 'not_risky') {
-        filtered = filtered.filter(r => r.tier === 'not_risky');
-      } else if (activeScanFilter === 'part_risky') {
-        filtered = filtered.filter(r => r.tier === 'part_risky');
-      } else if (activeScanFilter === 'high_risky') {
-        filtered = filtered.filter(r => r.tier === 'high_risky');
-      }
-      renderScanTable(filtered);
     }
 
     function renderEmailScanRows(emails) {
       const tbody = document.getElementById("scan-table-body");
       if (!tbody) return;
-      if (!emails || !emails.length) {
+      if (!emails || !Array.isArray(emails) || !emails.length) {
         tbody.innerHTML = `<tr><td colspan="9" class="empty">No evaluated email signals found.</td></tr>`;
         return;
       }
-      tbody.innerHTML = emails.slice(0, 100).map(e => {
-        const conf = typeof e.confidence === 'number' ? e.confidence : 0;
-        const tier = conf >= 0.7 ? 'high_risky' : conf >= 0.3 ? 'part_risky' : 'not_risky';
-        const sourceBadge = `<span class="tier-badge" style="background:rgba(34,211,238,0.12);color:#22D3EE;border:1px solid rgba(34,211,238,0.3);">Email</span>`;
-        const rawDomain = (e.domain || (e.sender ? (e.sender.split('@')[1] || '').replace('>', '').trim() : '')).trim();
-        const cleanDomain = rawDomain.replace(/^@/, '');
-        const domainCol = e.domain_trusted
-          ? `<span style="color:#22D3EE;font-size:0.75rem;font-weight:600;">✓ Trusted (@${escapeHtml(cleanDomain)})</span>`
-          : `<span class="mono" style="font-size:0.75rem;color:var(--muted);">@${escapeHtml(cleanDomain || 'unknown')}</span>`;
-        const scoreCol = (conf * 100).toFixed(0) + "%";
-        const sender = e.sender || "—";
-        const summary = e.subject ? (e.snippet ? `${e.subject} — ${e.snippet}` : e.subject) : (e.snippet || "—");
-        
-        const action = emailActions[e.id];
-        let statusBadge = `<span class="status-pill pending">pending · review</span>`;
-        let actionCell = '';
-        if (action === 'approved') {
-          statusBadge = `<span class="status-pill completed">completed · approved</span>`;
-          actionCell = `<span style="color:#22D3EE;font-size:0.75rem;font-weight:600;">✓ Approved</span>`;
-        } else if (action === 'denied') {
-          statusBadge = `<span class="status-pill high_risky">completed · denied</span>`;
-          actionCell = `<span style="color:#ef5b5b;font-size:0.75rem;font-weight:600;">✗ Denied</span>`;
-        } else {
-          actionCell = `
-            <div class="action-cell">
-              <button class="btn small approve" onclick="handleEmailAction('${escapeHtml(e.id)}','approved')">Approve</button>
-              <button class="btn small deny" onclick="handleEmailAction('${escapeHtml(e.id)}','denied')">Deny</button>
-            </div>
-          `;
-        }
+      try {
+        tbody.innerHTML = emails.slice(0, 100).map(e => {
+          if (!e) return '';
+          const conf = typeof e.confidence === 'number' ? e.confidence : 0;
+          const tier = conf >= 0.7 ? 'high_risky' : conf >= 0.3 ? 'part_risky' : 'not_risky';
+          const sourceBadge = `<span class="tier-badge" style="background:rgba(34,211,238,0.12);color:#22D3EE;border:1px solid rgba(34,211,238,0.3);">Email</span>`;
+          const rawDomain = (e.domain || (e.sender ? (e.sender.split('@')[1] || '').replace('>', '').trim() : '')).trim();
+          const cleanDomain = rawDomain.replace(/^@/, '');
+          const domainCol = e.domain_trusted
+            ? `<span style="color:#22D3EE;font-size:0.75rem;font-weight:600;">✓ Trusted (@${escapeHtml(cleanDomain)})</span>`
+            : `<span class="mono" style="font-size:0.75rem;color:var(--muted);">@${escapeHtml(cleanDomain || 'unknown')}</span>`;
+          const scoreCol = (conf * 100).toFixed(0) + "%";
+          const sender = e.sender || "—";
+          const summary = e.subject ? (e.snippet ? `${e.subject} — ${e.snippet}` : e.subject) : (e.snippet || "—");
+          
+          const action = emailActions[e.id];
+          let statusBadge = `<span class="status-pill pending">pending · review</span>`;
+          let actionCell = '';
+          if (action === 'approved') {
+            statusBadge = `<span class="status-pill completed">completed · allowed</span>`;
+            actionCell = `<span style="color:#22D3EE;font-size:0.75rem;font-weight:600;">✓ Allowed</span>`;
+          } else if (action === 'denied') {
+            statusBadge = `<span class="status-pill high_risky">completed · denied</span>`;
+            actionCell = `<span style="color:#ef5b5b;font-size:0.75rem;font-weight:600;">✗ Denied</span>`;
+          } else {
+            actionCell = `
+              <div class="action-cell">
+                <button class="btn small approve" onclick="handleEmailAction('${escapeHtml(e.id)}','approved')">Allow</button>
+                <button class="btn small deny" onclick="handleEmailAction('${escapeHtml(e.id)}','denied')">Deny</button>
+              </div>
+            `;
+          }
 
-        const trustBtn = (!e.domain_trusted && cleanDomain)
-          ? `<button class="btn small" style="background:rgba(59,91,255,0.18);border:1px solid rgba(59,91,255,0.4);color:#818cf8;margin-left:4px;" onclick="addDomainQuick('${escapeHtml(cleanDomain)}')" title="Trust @${escapeHtml(cleanDomain)}">🛡 Trust</button>`
-          : '';
+          const trustBtn = (!e.domain_trusted && cleanDomain)
+            ? `<button class="btn small" style="background:rgba(59,91,255,0.18);border:1px solid rgba(59,91,255,0.4);color:#818cf8;margin-left:4px;" onclick="addDomainQuick('${escapeHtml(cleanDomain)}')" title="Trust @${escapeHtml(cleanDomain)}">🛡 Trust</button>`
+            : '';
 
-        return `
-      <tr>
-        <td>${sourceBadge}</td>
-        <td class="mono" style="font-size:0.75rem;">—</td>
-        <td class="mono" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(sender)}">${escapeHtml(sender)}</td>
-        <td>${domainCol}</td>
-        <td class="mono">${scoreCol}</td>
-        <td><span class="tier-badge tier-${tier}">${tier.replace("_", " ")}</span></td>
-        <td>${statusBadge}</td>
-        <td style="max-width:260px;font-size:0.78rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(summary)}">${escapeHtml(summary)}</td>
-        <td>
-          <div class="flex items-center gap-1">${actionCell}${trustBtn}</div>
-        </td>
-      </tr>`;
-      }).join("");
+          return `
+        <tr>
+          <td>${sourceBadge}</td>
+          <td class="mono" style="font-size:0.75rem;">—</td>
+          <td class="mono" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(sender)}">${escapeHtml(sender)}</td>
+          <td>${domainCol}</td>
+          <td class="mono">${scoreCol}</td>
+          <td><span class="tier-badge tier-${tier}">${tier.replace("_", " ")}</span></td>
+          <td>${statusBadge}</td>
+          <td style="max-width:260px;font-size:0.78rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(summary)}">${escapeHtml(summary)}</td>
+          <td>
+            <div class="flex items-center gap-1">${actionCell}${trustBtn}</div>
+          </td>
+        </tr>`;
+        }).join("");
+      } catch (e) {
+        console.error("Error rendering email rows:", e);
+      }
     }
 
     function handleEmailAction(id, action) {
       emailActions[id] = action;
       saveEmailActions();
-      showMsg('scan-msg', `Email marked as ${action}.`, action === 'denied');
-      applyScanFilter();
+      showMsg('scan-msg', `Email marked as ${action === 'approved' ? 'allowed' : 'denied'}.`, action === 'denied');
+      loadScanResults().catch(e => console.error("Error reloading after email action:", e));
     }
 
     async function addDomainQuick(domain) {
@@ -1173,7 +1171,7 @@
         if (!res.ok) throw new Error(await res.text());
         showMsg('scan-msg', `🛡️ '@${domain}' added to trusted whitelist.`, false);
         await loadWhitelist();
-        await applyScanFilter();
+        await loadScanResults();
       } catch (e) {
         showMsg('scan-msg', 'Trust Domain failed: ' + e.message, true);
       }
@@ -1182,56 +1180,136 @@
     function renderScanTable(results) {
       const tbody = document.getElementById("scan-table-body");
       if (!tbody) return;
-      if (!results.length) {
+      if (!results || !Array.isArray(results) || !results.length) {
         tbody.innerHTML = `<tr><td colspan="9" class="empty">No scan results found matching filter (${activeScanFilter.replace('_', ' ')}).</td></tr>`;
         return;
       }
-      tbody.innerHTML = results
-        .slice(0, 100)
-        .map((r) => {
-          const canAct = r.risk_flag_status === "pending" && r.risk_flag_id;
-          const actionCell = canAct
-            ? `<div class="action-cell">
-             <button class="btn small approve" onclick="resolveFlag('${r.risk_flag_id}','approve')">Approve</button>
-             <button class="btn small deny" onclick="resolveFlag('${r.risk_flag_id}','deny')">Deny</button>
-           </div>`
-            : `<span style="color:var(--muted);font-size:0.75rem;">—</span>`;
-          
-          let sourceBadge = `<span class="tier-badge" style="background:rgba(255,255,255,0.06);color:var(--muted);border:1px solid var(--border);">SCA Scan</span>`;
-          if (r.source_type === "notification") {
-            sourceBadge = `<span class="tier-badge" style="background:rgba(59,91,255,0.12);color:#93a5ff;border:1px solid rgba(59,91,255,0.3);">Notification</span>`;
-          } else if (r.source_type === "email") {
-            sourceBadge = `<span class="tier-badge" style="background:rgba(34,211,238,0.12);color:#22D3EE;border:1px solid rgba(34,211,238,0.3);">Email</span>`;
-          }
+      try {
+        tbody.innerHTML = results
+          .slice(0, 100)
+          .map((r) => {
+            if (!r) return '';
+            
+            // Email rows
+            if (r.is_email || r.source_type === "email") {
+              const action = emailActions[r.id];
+              let statusBadge = `<span class="status-pill pending">pending · review</span>`;
+              let actionCell = '';
+              if (action === 'approved') {
+                statusBadge = `<span class="status-pill completed">completed · allowed</span>`;
+                actionCell = `<span style="color:#22D3EE;font-size:0.75rem;font-weight:600;">✓ Allowed</span>`;
+              } else if (action === 'denied') {
+                statusBadge = `<span class="status-pill high_risky">completed · denied</span>`;
+                actionCell = `<span style="color:#ef5b5b;font-size:0.75rem;font-weight:600;">✗ Denied</span>`;
+              } else {
+                actionCell = `
+                  <div class="action-cell">
+                    <button class="btn small approve" onclick="handleEmailAction('${escapeHtml(r.id)}','approved')">Allow</button>
+                    <button class="btn small deny" onclick="handleEmailAction('${escapeHtml(r.id)}','denied')">Deny</button>
+                  </div>
+                `;
+              }
 
-          let nameCol = `${r.package_name || ''}${r.package_version ? "==" + r.package_version : ""}`;
-          if (r.source_type === "notification") {
-            nameCol = r.app_name || r.package_name || 'Notification';
-          } else if (r.source_type === "email") {
-            nameCol = r.app_name || r.package_name || 'Email';
-          }
+              const cleanDomain = (r.domain || (r.sender ? (r.sender.split('@')[1] || '').replace('>', '').trim() : '')).trim().replace(/^@/, '');
+              const domainCol = r.domain_trusted
+                ? `<span style="color:#22D3EE;font-size:0.75rem;font-weight:600;">✓ Trusted (@${escapeHtml(cleanDomain)})</span>`
+                : `<span class="mono" style="font-size:0.75rem;color:var(--muted);">@${escapeHtml(cleanDomain || 'unknown')}</span>`;
+              const scoreCol = (typeof r.confidence === 'number' ? (r.confidence * 100).toFixed(0) : 0) + "%";
+              const sender = r.sender || r.package_name || "—";
+              const summary = r.summary || "—";
+              const sourceBadge = `<span class="tier-badge" style="background:rgba(34,211,238,0.12);color:#22D3EE;border:1px solid rgba(34,211,238,0.3);">Email</span>`;
 
-          let scoreCol = "—";
-          if (r.cvss_score !== null && r.cvss_score !== undefined) {
-            scoreCol = r.cvss_score;
-          } else if (r.confidence !== null && r.confidence !== undefined) {
-            scoreCol = (Number(r.confidence) * 100).toFixed(0) + "%";
-          }
+              const trustBtn = (!r.domain_trusted && cleanDomain)
+                ? `<button class="btn small" style="background:rgba(59,91,255,0.18);border:1px solid rgba(59,91,255,0.4);color:#818cf8;margin-left:4px;" onclick="addDomainQuick('${escapeHtml(cleanDomain)}')" title="Trust @${escapeHtml(cleanDomain)}">🛡 Trust</button>`
+                : '';
 
-          return `
-      <tr>
-        <td>${sourceBadge}</td>
-        <td class="mono" style="font-size:0.75rem;">${r.employee_id || "—"}</td>
-        <td class="mono" title="${nameCol}">${nameCol}</td>
-        <td class="mono">${r.vuln_id || "—"}</td>
-        <td class="mono">${scoreCol}</td>
-        <td><span class="tier-badge tier-${r.tier}">${(r.tier || '').replace("_", " ")}</span></td>
-        <td><span class="status-pill ${r.risk_flag_status}">${r.risk_flag_status}${r.resolution ? " · " + r.resolution.replace("_", " ") : ""}</span></td>
-        <td style="max-width:240px;font-size:0.78rem;color:var(--muted)" title="${(r.summary || '').replace(/"/g, '&quot;')}">${r.summary || ""}</td>
-        <td>${actionCell}</td>
-      </tr>`;
-        })
-        .join("");
+              return `
+            <tr>
+              <td>${sourceBadge}</td>
+              <td class="mono" style="font-size:0.75rem;">—</td>
+              <td class="mono" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(sender)}">${escapeHtml(sender)}</td>
+              <td>${domainCol}</td>
+              <td class="mono">${scoreCol}</td>
+              <td><span class="tier-badge tier-${escapeHtml(r.tier || '')}">${escapeHtml((r.tier || '').replace("_", " "))}</span></td>
+              <td>${statusBadge}</td>
+              <td style="max-width:260px;font-size:0.78rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(summary)}">${escapeHtml(summary)}</td>
+              <td>
+                <div class="flex items-center gap-1">${actionCell}${trustBtn}</div>
+              </td>
+            </tr>`;
+            }
+
+            // Notification / SCA Scan rows
+            const canAct = (r.risk_flag_status === "pending" || !r.risk_flag_status) && r.risk_flag_id;
+            let actionCell = `<span style="color:var(--muted);font-size:0.75rem;">—</span>`;
+            if (canAct) {
+              actionCell = `<div class="action-cell">
+               <button class="btn small approve" onclick="resolveFlag('${escapeHtml(r.risk_flag_id)}','approve')">Allow</button>
+               <button class="btn small deny" onclick="resolveFlag('${escapeHtml(r.risk_flag_id)}','deny')">Deny</button>
+             </div>`;
+            } else if (r.risk_flag_status === "completed") {
+              if (r.resolution === "admin_approved" || r.resolution === "auto_approved") {
+                actionCell = `<span style="color:#22D3EE;font-size:0.75rem;font-weight:600;">✓ Allowed</span>`;
+              } else if (r.resolution === "admin_denied") {
+                actionCell = `<span style="color:#ef5b5b;font-size:0.75rem;font-weight:600;">✗ Denied</span>`;
+              }
+            }
+            
+            let sourceBadge = `<span class="tier-badge" style="background:rgba(255,255,255,0.06);color:var(--muted);border:1px solid var(--border);">SCA Scan</span>`;
+            if (r.source_type === "notification") {
+              sourceBadge = `<span class="tier-badge" style="background:rgba(59,91,255,0.12);color:#93a5ff;border:1px solid rgba(59,91,255,0.3);">Notification</span>`;
+            }
+
+            let nameCol = `${r.package_name || ''}${r.package_version ? "==" + r.package_version : ""}`;
+            if (r.source_type === "notification") {
+              nameCol = r.app_name || r.package_name || 'Notification';
+            }
+
+            let scoreCol = "—";
+            if (r.cvss_score !== null && r.cvss_score !== undefined) {
+              scoreCol = r.cvss_score;
+            } else if (r.confidence !== null && r.confidence !== undefined) {
+              scoreCol = (Number(r.confidence) * 100).toFixed(0) + "%";
+            }
+
+            let trustBtn = '';
+            if (r.source_type === "notification" && r.app_name) {
+              let domainCandidate = '';
+              if (r.app_name.includes('@')) {
+                domainCandidate = r.app_name.split('@')[1].trim();
+              } else if (/^https?:\/\//i.test(r.app_name) || /^www\./i.test(r.app_name)) {
+                try {
+                  const url = new URL(r.app_name.startsWith('http') ? r.app_name : 'http://' + r.app_name);
+                  domainCandidate = url.hostname;
+                } catch(e) {}
+              }
+              if (domainCandidate && /^[a-zA-Z0-9]([a-zA-Z0-9\-]*\.)+[a-zA-Z]{2,}$/.test(domainCandidate) && !/[!_\s]/.test(domainCandidate)) {
+                const notifDomain = domainCandidate.toLowerCase().replace(/^www\./, '');
+                trustBtn = `<button class="btn small" style="background:rgba(59,91,255,0.18);border:1px solid rgba(59,91,255,0.4);color:#818cf8;margin-left:4px;" onclick="addDomainQuick('${escapeHtml(notifDomain)}')" title="Trust @${escapeHtml(notifDomain)}">🛡 Trust</button>`;
+              }
+            }
+
+            const statusText = (r.risk_flag_status || 'pending') + (r.resolution ? " · " + (r.resolution === 'admin_approved' ? 'allowed' : r.resolution.replace("_", " ")) : "");
+
+            return `
+        <tr>
+          <td>${sourceBadge}</td>
+          <td class="mono" style="font-size:0.75rem;">${escapeHtml(r.employee_id || "—")}</td>
+          <td class="mono" title="${escapeHtml(nameCol)}">${escapeHtml(nameCol)}</td>
+          <td class="mono">${escapeHtml(r.vuln_id || "—")}</td>
+          <td class="mono">${escapeHtml(scoreCol)}</td>
+          <td><span class="tier-badge tier-${escapeHtml(r.tier || '')}">${escapeHtml((r.tier || '').replace("_", " "))}</span></td>
+          <td><span class="status-pill ${escapeHtml(r.risk_flag_status || 'pending')}">${escapeHtml(statusText)}</span></td>
+          <td style="max-width:240px;font-size:0.78rem;color:var(--muted)" title="${escapeHtml(r.summary || "")}">${escapeHtml(r.summary || "")}</td>
+          <td>
+            <div class="flex items-center gap-1">${actionCell}${trustBtn}</div>
+          </td>
+        </tr>`;
+          })
+          .join("");
+      } catch (e) {
+        console.error("Error rendering scan table:", e);
+      }
     }
 
     async function loadAuditLog() {
@@ -1242,7 +1320,7 @@
         const entries = await res.json();
         const tbody = document.getElementById("audit-table-body");
         if (!tbody) return;
-        if (!entries.length) {
+        if (!entries || !Array.isArray(entries) || !entries.length) {
           tbody.innerHTML = `<tr><td colspan="3" class="empty">No audit entries yet.</td></tr>`;
           return;
         }
@@ -1251,8 +1329,8 @@
             (e) => `
         <tr>
           <td class="mono" style="font-size:0.72rem;color:var(--muted);">${new Date(e.created_at).toLocaleString()}</td>
-          <td class="mono">${e.actor || "system"}</td>
-          <td>${e.message}</td>
+          <td class="mono">${escapeHtml(e.actor || "system")}</td>
+          <td>${escapeHtml(e.message)}</td>
         </tr>
       `,
           )
@@ -1265,18 +1343,58 @@
 
     async function loadScanResults() {
       try {
-        if (activeScanFilter === 'email') {
-          await applyScanFilter();
-          return;
+        const [scanRes, emailRes] = await Promise.allSettled([
+          fetch("/scan/results", { headers: authHeaders() }),
+          fetch("/emails/recent?max_results=50&_t=" + Date.now(), { headers: authHeaders() })
+        ]);
+
+        let scaAndNotifData = [];
+        if (scanRes.status === 'fulfilled' && scanRes.value.ok) {
+          try {
+            const json = await scanRes.value.json();
+            if (Array.isArray(json)) scaAndNotifData = json;
+          } catch(e) {}
         }
-        const res = await fetch("/scan/results", { headers: authHeaders() });
-        if (await handle401(res)) return;
-        if (!res.ok) throw new Error(await res.text());
-        allScanResults = await res.json();
-        applyScanFilter();
+
+        let emailData = [];
+        if (emailRes.status === 'fulfilled' && emailRes.value.ok) {
+          try {
+            const json = await emailRes.value.json();
+            if (Array.isArray(json)) emailData = json;
+          } catch(e) {}
+        }
+
+        const emailRows = emailData.map(e => {
+          const conf = typeof e.confidence === 'number' ? e.confidence : 0;
+          const tier = conf >= 0.7 ? 'high_risky' : conf >= 0.3 ? 'part_risky' : 'not_risky';
+          const action = emailActions[e.id];
+          return {
+            id: e.id,
+            source_type: 'email',
+            employee_id: '—',
+            app_name: e.sender || 'Email',
+            package_name: e.sender || 'Email',
+            sender: e.sender || '—',
+            domain: (e.domain || (e.sender ? (e.sender.split('@')[1] || '').replace('>', '').trim() : '')).trim(),
+            domain_trusted: !!e.domain_trusted,
+            vuln_id: e.domain || '',
+            confidence: conf,
+            cvss_score: null,
+            tier: tier,
+            risk_flag_status: action ? 'completed' : 'pending',
+            resolution: action === 'approved' ? 'admin_approved' : action === 'denied' ? 'admin_denied' : null,
+            summary: e.subject ? (e.snippet ? `${e.subject} — ${e.snippet}` : e.subject) : (e.snippet || '—'),
+            is_email: true,
+          };
+        });
+
+        // Merge email signals and scan results (emails and notifications together)
+        allScanResults = [...emailRows, ...scaAndNotifData];
+        await applyScanFilter();
       } catch (e) {
+        console.error("Error loading scan results:", e);
         const tbody = document.getElementById("scan-table-body");
-        if (tbody) {
+        if (tbody && (!allScanResults || !allScanResults.length)) {
           tbody.innerHTML = `<tr><td colspan="9" class="empty">Could not load scan results — is the backend running?</td></tr>`;
         }
       }
@@ -1284,8 +1402,9 @@
 
     async function runScan() {
       const btn = document.getElementById("scan-btn");
-      btn.disabled = true;
-      btn.textContent = "Scanning via OSV.dev…";
+      const tableBtn = document.getElementById("scan-table-run-btn");
+      if (btn) { btn.disabled = true; btn.textContent = "Scanning…"; }
+      if (tableBtn) { tableBtn.disabled = true; tableBtn.textContent = "Scanning notifications & OSV.dev…"; }
       try {
         const res = await fetch("/scan/demo", {
           method: "POST",
@@ -1294,9 +1413,10 @@
         if (await handle401(res)) return;
         if (!res.ok) throw new Error(await res.text());
         const results = await res.json();
+        const count = Array.isArray(results) ? results.length : 0;
         showMsg(
           "scan-msg",
-          `Scan complete — ${results.length} package(s) checked against live OSV.dev data.`,
+          `Scan complete — ${count} notification / finding(s) captured.`,
           false,
         );
         await loadScanResults();
@@ -1304,8 +1424,14 @@
       } catch (e) {
         showMsg("scan-msg", "Scan failed: " + e.message, true);
       } finally {
-        btn.disabled = false;
-        btn.textContent = "Run Fixed-Payload Scan (OSV.dev, live)";
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = `<span class="material-symbols-outlined text-[15px]">radar</span> Run Scan`;
+        }
+        if (tableBtn) {
+          tableBtn.disabled = false;
+          tableBtn.innerHTML = `<span class="material-symbols-outlined text-[16px]">play_circle</span> Run Notification &amp; SCA Scan (Live)`;
+        }
       }
     }
 
@@ -1484,15 +1610,27 @@
     }
 
     /* ---------------- Init ---------------- */
-    initCharts();
-    loadAnalytics();
-    loadScanResults();
-    loadRules();
-    loadWhitelist();
+    try {
+      initCharts();
+      loadAnalytics().catch(e => console.error("Init analytics error:", e));
+      loadScanResults().catch(e => console.error("Init scan results error:", e));
+      loadRules().catch(e => console.error("Init rules error:", e));
+      loadWhitelist().catch(e => console.error("Init whitelist error:", e));
+    } catch (e) {
+      console.error("Init error:", e);
+    }
 
-    setInterval(() => {
-      loadAnalytics();
-      loadScanResults();
+    setInterval(async () => {
+      try {
+        await loadAnalytics();
+      } catch (e) {
+        console.error("Poll cycle error (analytics):", e);
+      }
+      try {
+        await loadScanResults();
+      } catch (e) {
+        console.error("Poll cycle error (scan results):", e);
+      }
     }, 3000);
   </script>
 </body>

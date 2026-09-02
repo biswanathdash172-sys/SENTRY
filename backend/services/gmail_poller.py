@@ -44,7 +44,7 @@ import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple, List, Dict, Any
 
 import requests
 from dotenv import load_dotenv
@@ -88,6 +88,11 @@ URGENCY_WORDS = {
 LOOKALIKE_BRANDS = {"paypal", "microsoft", "google", "apple", "bank", "irs", "amazon"}
 
 
+class GmailServiceError(Exception):
+    """Raised when Gmail API service encounters an authentication or operational error."""
+    pass
+
+
 # ---------------------------------------------------------------------------
 # Gmail API credential management
 # ---------------------------------------------------------------------------
@@ -96,7 +101,7 @@ def _get_gmail_service():
     """
     Returns an authenticated Gmail API service object.
     Handles credential loading + refresh. Returns None if credentials.json
-    doesn't exist (fallback to IMAP path in callers).
+    doesn't exist or if re-authorization is needed.
     """
     if not CREDENTIALS_FILE.exists():
         logger.warning(
@@ -119,13 +124,18 @@ def _get_gmail_service():
 
     creds = None
     if TOKEN_FILE.exists():
-        creds = Credentials.from_authorized_user_file(str(TOKEN_FILE), GMAIL_SCOPES)
+        try:
+            creds = Credentials.from_authorized_user_file(str(TOKEN_FILE), GMAIL_SCOPES)
+        except Exception as exc:
+            logger.warning(f"Failed to load existing token.json: {exc}")
+            creds = None
 
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             try:
                 creds.refresh(Request())
                 TOKEN_FILE.write_text(creds.to_json())
+                logger.info("Gmail OAuth token successfully refreshed and saved to disk.")
             except Exception as exc:
                 logger.error(f"Token refresh failed: {exc}. Re-run --authorize.")
                 return None
@@ -181,61 +191,64 @@ def fetch_recent_emails(service, max_results: int = 50) -> list[dict]:
     Fetches the most recent emails from Gmail (all mail, not just unread).
     Returns a list of structured dicts: {id, sender, subject, snippet,
     date_iso, body_preview, urls}.
-    Never raises — returns [] on any API error.
+    Raises GmailServiceError on API/auth failures so caller can re-auth.
     """
+    if service is None:
+        raise GmailServiceError("Gmail service is not initialized.")
+
     try:
         result = service.users().messages().list(
             userId="me",
             maxResults=max_results,
             labelIds=["INBOX"],
         ).execute()
-
-        messages = result.get("messages", [])
-        emails = []
-        for msg_meta in messages:
-            try:
-                msg = service.users().messages().get(
-                    userId="me",
-                    id=msg_meta["id"],
-                    format="full",
-                ).execute()
-
-                headers = {h["name"]: h["value"] for h in msg.get("payload", {}).get("headers", [])}
-                sender = _decode_header_value(headers.get("From", ""))
-                subject = _decode_header_value(headers.get("Subject", "(no subject)"))
-                date_str = _decode_header_value(headers.get("Date", ""))
-                snippet = msg.get("snippet", "")
-                body = _extract_body_from_part(msg.get("payload", {}))
-
-                # Parse date to ISO
-                date_iso = None
-                if date_str:
-                    try:
-                        from email.utils import parsedate_to_datetime
-                        date_iso = parsedate_to_datetime(date_str).isoformat()
-                    except Exception:
-                        date_iso = date_str
-
-                urls = URL_RE.findall(body or snippet)
-
-                emails.append({
-                    "id": msg_meta["id"],
-                    "sender": sender,
-                    "subject": subject,
-                    "snippet": snippet[:200],
-                    "date_iso": date_iso,
-                    "body_preview": (body or snippet)[:500],
-                    "urls": urls[:10],
-                    "thread_id": msg.get("threadId"),
-                })
-            except Exception as exc:
-                logger.warning(f"Skipping message {msg_meta.get('id')}: {exc}")
-                continue
-
-        return emails
     except Exception as exc:
         logger.error(f"Gmail API list failed: {exc}")
-        return []
+        raise GmailServiceError(f"Gmail API list failed: {exc}") from exc
+
+    messages = result.get("messages", [])
+    emails = []
+    for msg_meta in messages:
+        try:
+            msg = service.users().messages().get(
+                userId="me",
+                id=msg_meta["id"],
+                format="full",
+            ).execute()
+
+            headers = {h["name"]: h["value"] for h in msg.get("payload", {}).get("headers", [])}
+            sender = _decode_header_value(headers.get("From", ""))
+            subject = _decode_header_value(headers.get("Subject", "(no subject)"))
+            date_str = _decode_header_value(headers.get("Date", ""))
+            snippet = msg.get("snippet", "")
+            body = _extract_body_from_part(msg.get("payload", {}))
+
+            # Parse date to ISO
+            date_iso = None
+            if date_str:
+                try:
+                    from email.utils import parsedate_to_datetime
+                    date_iso = parsedate_to_datetime(date_str).isoformat()
+                except Exception:
+                    date_iso = date_str
+
+            urls = URL_RE.findall(body or snippet)
+
+            emails.append({
+                "id": msg_meta["id"],
+                "sender": sender,
+                "subject": subject,
+                "snippet": snippet[:200],
+                "date_iso": date_iso,
+                "body_preview": (body or snippet)[:500],
+                "urls": urls[:10],
+                "thread_id": msg.get("threadId"),
+            })
+        except Exception as exc:
+            logger.warning(f"Skipping message {msg_meta.get('id')}: {exc}")
+            continue
+
+    return emails
 
 
 def score_email(sender: str, subject: str, body: str) -> tuple[float, list[str]]:
@@ -284,28 +297,42 @@ def get_sentry_token() -> str:
     return body["token"]
 
 
-def post_ingest_email(token: str, description: str, confidence: float, title_hint: str) -> None:
-    resp = requests.post(
-        f"{API_BASE}/ingest/email",
-        headers={"Authorization": f"Bearer {token}"},
-        json={"description": description, "confidence": confidence, "title_hint": title_hint},
-        timeout=10,
-    )
-    if resp.status_code >= 400:
-        logger.warning(f"Ingest failed ({resp.status_code}): {resp.text}")
-    else:
-        logger.info(f"Alert created — {title_hint}")
+def post_ingest_email(token: str, description: str, confidence: float, title_hint: str) -> str:
+    """
+    Posts an email finding to Sentry /ingest/email.
+    If Sentry token expired (401), automatically re-authenticates and retries.
+    Returns the valid token (either the original or newly refreshed).
+    """
+    headers = {"Authorization": f"Bearer {token}"}
+    payload = {"description": description, "confidence": confidence, "title_hint": title_hint}
+    
+    try:
+        resp = requests.post(f"{API_BASE}/ingest/email", headers=headers, json=payload, timeout=10)
+        if resp.status_code == 401:
+            logger.warning("Sentry API returned 401 (token expired). Re-authenticating...")
+            token = get_sentry_token()
+            headers = {"Authorization": f"Bearer {token}"}
+            resp = requests.post(f"{API_BASE}/ingest/email", headers=headers, json=payload, timeout=10)
+        
+        if resp.status_code >= 400:
+            logger.warning(f"Ingest failed ({resp.status_code}): {resp.text}")
+        else:
+            logger.info(f"Alert created — {title_hint}")
+    except requests.RequestException as exc:
+        logger.warning(f"Failed to post email ingest to Sentry API: {exc}")
+        raise
+    return token
 
 
 # ---------------------------------------------------------------------------
 # Main poll loop
 # ---------------------------------------------------------------------------
 
-def poll_once(service, token: str) -> None:
+def poll_once(service, token: Optional[str]) -> Tuple[Optional[str], Any]:
     emails = fetch_recent_emails(service, max_results=20)
     if not emails:
-        logger.info("No emails fetched (or API unavailable).")
-        return
+        logger.info("No emails fetched (or inbox empty).")
+        return token, service
 
     cached_batch = []
     for email_data in emails:
@@ -335,12 +362,17 @@ def poll_once(service, token: str) -> None:
 
         if confidence >= 0.3:
             description = f"Email from '{sender}' subject '{subject}': " + "; ".join(reasons)
-            post_ingest_email(
-                token,
-                description=description,
-                confidence=confidence,
-                title_hint=f"Suspicious email: {subject[:80]}",
-            )
+            try:
+                if not token:
+                    token = get_sentry_token()
+                token = post_ingest_email(
+                    token,
+                    description=description,
+                    confidence=confidence,
+                    title_hint=f"Suspicious email: {subject[:80]}",
+                )
+            except Exception as exc:
+                logger.warning(f"Could not ingest email '{subject[:40]}': {exc}")
 
     # Batch write all scored emails in one atomic disk operation preserving newest-first order
     if cached_batch:
@@ -356,6 +388,7 @@ def poll_once(service, token: str) -> None:
         except Exception as exc:
             logger.warning(f"email_cache batch write failed (non-fatal): {exc}")
 
+    return token, service
 
 
 def main() -> None:
@@ -369,31 +402,67 @@ def main() -> None:
         ("SENTRY_EMPLOYEE_PASSWORD", ADMIN_PASSWORD),
     ] if not val]
     if missing:
-        logger.error(f"Missing env vars: {', '.join(missing)}")
+        logger.error(f"Missing required env vars: {', '.join(missing)}. Check backend/.env.")
         return
 
+    logger.info("Starting Gmail Poller service...")
     service = _get_gmail_service()
     if service is None:
-        logger.error("Gmail API not available. See module docstring for setup instructions.")
-        return
+        logger.warning("Gmail API service not immediately ready. Poller will attempt re-connect in loop.")
 
-    logger.info(f"Gmail API connected. Logging into Sentry as {ADMIN_USERNAME}...")
-    token = get_sentry_token()
-    logger.info("Got token. Starting Gmail poll loop...")
+    token = None
+    try:
+        logger.info(f"Logging into Sentry as {ADMIN_USERNAME}...")
+        token = get_sentry_token()
+        logger.info("Obtained Sentry API token.")
+    except Exception as exc:
+        logger.warning(f"Initial Sentry API login failed ({exc}). Will retry during poll loop.")
 
+    logger.info(f"Gmail poll loop active (interval: {POLL_INTERVAL}s). Polling indefinitely...")
+
+    consecutive_errors = 0
     while True:
         try:
-            poll_once(service, token)
+            # Reconnect Gmail service if needed
+            if service is None:
+                try:
+                    service = _get_gmail_service()
+                    if service is not None:
+                        logger.info("Connected to Gmail API service.")
+                except Exception as exc:
+                    logger.warning(f"Failed to initialize Gmail API service: {exc}")
+
+            # Re-acquire Sentry token if needed
+            if token is None:
+                try:
+                    token = get_sentry_token()
+                    logger.info("Refreshed Sentry API token.")
+                except Exception as exc:
+                    logger.warning(f"Failed to get Sentry API token: {exc}")
+
+            if service is not None:
+                token, service = poll_once(service, token)
+                consecutive_errors = 0
+            else:
+                logger.info("Gmail service unavailable. Waiting for next cycle...")
+
+        except GmailServiceError as exc:
+            consecutive_errors += 1
+            logger.error(f"Gmail API error ({exc}) — resetting service to re-authenticate next cycle.")
+            service = None
         except requests.RequestException as exc:
-            logger.error(f"API request failed ({exc}) — refreshing token.")
-            try:
-                token = get_sentry_token()
-            except Exception:
-                pass
+            consecutive_errors += 1
+            logger.error(f"Sentry backend API request failed ({exc}) — will re-login next cycle.")
+            token = None
         except Exception as exc:
-            logger.error(f"Unexpected error: {exc}")
-        time.sleep(POLL_INTERVAL)
+            consecutive_errors += 1
+            logger.error(f"Unexpected error in Gmail poll loop: {exc}", exc_info=True)
+        finally:
+            # Guaranteed sleep execution, backing off slightly on persistent errors (max 60s)
+            sleep_duration = min(POLL_INTERVAL * (2 ** min(consecutive_errors, 2)), 60) if consecutive_errors > 2 else POLL_INTERVAL
+            time.sleep(sleep_duration)
 
 
 if __name__ == "__main__":
     main()
+

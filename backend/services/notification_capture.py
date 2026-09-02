@@ -66,7 +66,7 @@ def capture_new_notifications_once(min_confidence: float = 0.0) -> List[dict]:
     last_seen_id = state.get("last_seen_id", 0)
 
     try:
-        notifications = poller.read_new_notifications(last_seen_id, max_age_hours=4.0)
+        notifications = poller.read_new_notifications(last_seen_id, max_age_hours=24.0)
     except FileNotFoundError as exc:
         logger.info(f"Notification capture skipped: {exc}")
         return []
