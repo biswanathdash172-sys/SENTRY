@@ -63,6 +63,42 @@ def ingest_notification(
     — so one employee's poller can never attribute a finding to a
     different employee.
     """
+    # Deduplicate recent identical notification findings for this employee/org
+    try:
+        from services.supabase_service import _get_client
+        client = _get_client()
+        recent_check = (
+            client.table("scan_results")
+            .select("id, tier")
+            .eq("org_id", caller.org_id)
+            .eq("employee_id", caller.employee_id)
+            .eq("app_name", req.app_name)
+            .eq("notification_text", req.text)
+            .order("created_at", desc=True)
+            .limit(1)
+            .execute()
+        )
+        if recent_check.data:
+            scan_id = recent_check.data[0]["id"]
+            flag_check = (
+                client.table("risk_flags")
+                .select("id, status, resolution")
+                .eq("scan_result_id", scan_id)
+                .limit(1)
+                .execute()
+            )
+            if flag_check.data:
+                rf = flag_check.data[0]
+                return NotificationIngestResponse(
+                    risk_flag_id=rf["id"],
+                    app_name=req.app_name,
+                    tier=recent_check.data[0]["tier"],
+                    risk_flag_status=rf.get("status", "pending"),
+                    resolution=rf.get("resolution"),
+                )
+    except Exception:
+        pass
+
     classification = classify_confidence(req.confidence)
 
     reasons_text = "; ".join(req.reasons) if req.reasons else "No specific heuristic reasons recorded."

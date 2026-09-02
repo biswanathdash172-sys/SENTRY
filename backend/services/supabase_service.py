@@ -68,6 +68,18 @@ def _get_client():
     SUPABASE_KEY = os.environ.get("SUPABASE_KEY", SUPABASE_KEY)
 
     if not SUPABASE_URL or not SUPABASE_KEY:
+        try:
+            import pathlib
+            from dotenv import load_dotenv
+            env_path = pathlib.Path(__file__).resolve().parent.parent / ".env"
+            if env_path.exists():
+                load_dotenv(env_path)
+                SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
+                SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
+        except Exception:
+            pass
+
+    if not SUPABASE_URL or not SUPABASE_KEY:
         raise SupabaseNotConfigured(
             "SUPABASE_URL and SUPABASE_KEY must both be set (see backend/.env.example)."
         )

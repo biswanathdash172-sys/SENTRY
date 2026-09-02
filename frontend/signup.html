@@ -890,10 +890,12 @@
         });
       }
 
-      function showSuccessCard(orgName) {
+      function showSuccessCard(orgName, orgId) {
         const msgEl = document.getElementById('success-org-msg');
         if (msgEl) {
-          msgEl.innerHTML = `<span class="highlight-org">${escapeHtml(orgName)}</span> has been registered. You can now sign in to access your dashboard.`;
+          const nameSafe = escapeHtml(orgName || orgId);
+          const idSafe = escapeHtml(orgId || '');
+          msgEl.innerHTML = `<span class="highlight-org">${nameSafe}</span> ${idSafe ? `(<code>${idSafe}</code>)` : ''} has been registered and connected to the SENTRY SOC database. You can now sign in to access your dashboard.`;
         }
         const modal = document.getElementById('success-modal');
         if (modal) modal.style.display = 'flex';
@@ -908,26 +910,57 @@
         window.location.href = '/login';
       }
 
-      function submitOrg(e) {
+      async function submitOrg(e) {
         e.preventDefault();
         const checkbox = document.getElementById('terms-checkbox');
         if (!checkbox || !checkbox.checked) {
-          showMsg('org-msg', 'Please agree to the Terms and Conditions to proceed.', true);
+          showMsg('org-msg', 'Please review and accept the Terms and Conditions to proceed.', true);
           return;
         }
-        const btn = document.getElementById('org-btn');
-        btn.disabled = true;
-        btn.textContent = 'Creating...';
+
         const userId = document.getElementById('org-user-id').value.trim();
         const orgName = document.getElementById('org-name').value.trim();
+        const password = document.getElementById('org-password').value;
 
-        // Brief natural UI transition before presenting success card (demo/UI mode - no network call)
-        setTimeout(() => {
+        if (!userId || !orgName || !password) {
+          showMsg('org-msg', 'Please fill in all required fields.', true);
+          return;
+        }
+
+        const btn = document.getElementById('org-btn');
+        btn.disabled = true;
+        btn.textContent = 'Creating Organisation...';
+
+        try {
+          const res = await fetch('/signup/organization', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              role: 'organization',
+              user_id: userId,
+              name: orgName,
+              password: password,
+            }),
+          });
+
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.detail || 'Failed to register organisation.');
+          }
+
+          const data = await res.json();
           document.getElementById('org-form').reset();
+          checkbox.checked = false;
           toggleSubmitBtn();
           btn.textContent = 'Create Organisation';
-          showSuccessCard(orgName || userId);
-        }, 500);
+
+          // Show confirmation modal after successful DB creation
+          showSuccessCard(data.org_name || orgName, data.org_id || userId);
+        } catch (err) {
+          showMsg('org-msg', err.message || 'An error occurred while creating the organisation.', true);
+          btn.disabled = false;
+          btn.textContent = 'Create Organisation';
+        }
       }
     </script>
   </body>

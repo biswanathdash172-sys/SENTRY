@@ -221,13 +221,33 @@ def score_notification(app_name: str, text: str) -> tuple[float, list[str]]:
     return round(min(score, 0.95), 3), reasons
 
 
+def _get_current_max_id() -> int:
+    try:
+        snapshot_path = _snapshot_database()
+        conn = sqlite3.connect(f"file:{snapshot_path}?mode=ro", uri=True)
+        cursor = conn.cursor()
+        cursor.execute("SELECT MAX(Id) FROM Notification")
+        row = cursor.fetchone()
+        max_id = row[0] if row and row[0] is not None else 0
+        conn.close()
+        snapshot_path.unlink(missing_ok=True)
+        return max_id
+    except Exception:
+        return 0
+
+
 def _load_state() -> dict:
     if STATE_FILE.exists():
         try:
-            return json.loads(STATE_FILE.read_text())
+            data = json.loads(STATE_FILE.read_text())
+            if isinstance(data, dict) and data.get("last_seen_id", 0) > 0:
+                return data
         except (json.JSONDecodeError, OSError):
             logger.warning(f"Could not read state file '{STATE_FILE}' — starting from scratch.")
-    return {"last_seen_id": 0}
+    current_max = _get_current_max_id()
+    state = {"last_seen_id": current_max}
+    _save_state(state)
+    return state
 
 
 def _save_state(state: dict) -> None:
@@ -237,43 +257,32 @@ def _save_state(state: dict) -> None:
         logger.warning(f"Could not save poller state ({exc}) — next run may reprocess some notifications.")
 
 
-def read_new_notifications(last_seen_id: int) -> list[dict]:
+def read_new_notifications(last_seen_id: int, max_age_hours: float = 4.0) -> list[dict]:
     """
     Reads real, new notifications from a fresh snapshot of wpndatabase.db.
-    Returns a list of dicts: {id, app_name, text, arrival_time}. NEVER
-    raises on a per-row problem — a single malformed row is logged and
-    skipped, the rest of the batch still gets processed. Raises only on
-    a whole-database-level failure (file not found, can't open as SQLite
-    at all), since that's a real condition the caller must know about.
+    Returns a list of dicts: {id, app_name, text, arrival_time}.
+    Only includes notifications newer than last_seen_id AND arrived within
+    the recent time window (max_age_hours) to prevent ingesting stale history.
     """
     snapshot_path = _snapshot_database()
     results = []
+    now_utc = datetime.now(timezone.utc)
+    cutoff_dt = now_utc - timedelta(hours=max_age_hours)
 
     try:
         conn = sqlite3.connect(f"file:{snapshot_path}?mode=ro", uri=True)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
 
-        # Schema per public reverse-engineering of wpndatabase.db (Windows
-        # 10/11). See module docstring: unofficial, may not match every
-        # build. We check for the table's existence first so an
-        # unexpected schema fails with a clear message, not a cryptic
-        # sqlite3.OperationalError deep in a loop.
         cursor.execute(
             "SELECT name FROM sqlite_master WHERE type='table' AND name='Notification'"
         )
         if not cursor.fetchone():
             raise RuntimeError(
                 "wpndatabase.db does not contain the expected 'Notification' "
-                "table — the schema may have changed on this Windows version. "
-                "See this module's docstring."
+                "table — the schema may have changed on this Windows version."
             )
 
-        # Schema CONFIRMED against a real Windows 11 wpndatabase.db (user-
-        # verified, 2026-08-24): NotificationHandler's primary key is
-        # RecordId, not Id — Notification.HandlerId joins against that.
-        # (Original guess used h.Id, which doesn't exist on this build —
-        # fixed here based on the real PRAGMA table_info() output.)
         cursor.execute(
             """
             SELECT n.Id, n.HandlerId, n.Payload, n.ArrivalTime, h.PrimaryId
@@ -293,11 +302,19 @@ def read_new_notifications(last_seen_id: int) -> list[dict]:
                 text = _extract_text_from_payload(payload) if payload else ""
                 arrival_dt = _filetime_to_datetime(row["ArrivalTime"])
 
+                # Ignore stale notifications older than cutoff
+                if arrival_dt and arrival_dt < cutoff_dt:
+                    continue
+
+                # Ignore empty text
+                if not text or len(text.strip()) < 3:
+                    continue
+
                 results.append({
                     "id": notif_id,
                     "app_name": app_name,
                     "text": text,
-                    "arrival_time": arrival_dt.isoformat() if arrival_dt else None,
+                    "arrival_time": arrival_dt.isoformat() if arrival_dt else now_utc.isoformat(),
                     "raw_payload_bytes": len(payload) if payload else 0,
                 })
             except Exception as exc:
@@ -309,7 +326,7 @@ def read_new_notifications(last_seen_id: int) -> list[dict]:
         try:
             snapshot_path.unlink(missing_ok=True)
         except Exception:
-            pass  # best-effort cleanup only, never fails the poll itself
+            pass
 
     return results
 

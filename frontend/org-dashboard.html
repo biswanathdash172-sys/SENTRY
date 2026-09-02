@@ -764,9 +764,13 @@
       if (!token) { window.location.href = "/login"; }
       if (!isAdmin) { window.location.href = "/employee-dashboard"; }
 
-      document.getElementById("who-label").textContent = employeeId
-        ? `Org Admin: ${employeeId}${orgId ? " (" + orgId + ")" : ""}`
-        : "";
+      let labelText = "Org Admin";
+      if (employeeId && employeeId !== "__ORG_ACCOUNT__") {
+        labelText = employeeId === orgId ? `Org Admin: ${orgId}` : `Org Admin: ${employeeId} (${orgId})`;
+      } else if (orgId) {
+        labelText = `Org Admin: ${orgId}`;
+      }
+      document.getElementById("who-label").textContent = labelText;
 
       function signOut() {
         sessionStorage.clear();

@@ -214,38 +214,69 @@ def org_login(req: OrgLoginRequest):
 
 
 # ---------------------------------------------------------------------------
-# Step 2 - Employee login
+# Step 2 - Employee & Organization unified login
 # ---------------------------------------------------------------------------
 @router.post("/login")
 def employee_login(employee_id: str = Form(...), password: str = Form(...)):
+    user_id = employee_id.strip()
+    employee = None
+    emp_exc = None
+
+    # 1. Try employee login first
     try:
-        employee = verify_employee_login(employee_id, password)
+        employee = verify_employee_login(user_id, password)
     except SupabaseNotConfigured as exc:
         raise HTTPException(status_code=503, detail=str(exc))
     except SupabaseAuthError as exc:
-        raise HTTPException(status_code=401, detail=str(exc))
+        emp_exc = exc
 
-    # RBAC (Option A): is_admin is baked into the JWT at login time, sourced
-    # directly from Supabase's employees.is_admin column — never trust a
-    # client-supplied role, always re-derive it server-side from the DB.
-    # is_cyber_head follows the same pattern.
-    token = create_access_token(
-        subject=employee.employee_id,
-        extra_claims={
-            "org_id": employee.org_id,
+    if employee is not None:
+        token = create_access_token(
+            subject=employee.employee_id,
+            extra_claims={
+                "org_id": employee.org_id,
+                "employee_id": employee.employee_id,
+                "is_admin": employee.is_admin,
+                "is_cyber_head": getattr(employee, "is_cyber_head", False),
+            },
+        )
+        return {
+            "status": "ok",
             "employee_id": employee.employee_id,
+            "org_id": employee.org_id,
             "is_admin": employee.is_admin,
             "is_cyber_head": getattr(employee, "is_cyber_head", False),
-        },
-    )
-    return {
-        "status": "ok",
-        "employee_id": employee.employee_id,
-        "org_id": employee.org_id,
-        "is_admin": employee.is_admin,
-        "is_cyber_head": getattr(employee, "is_cyber_head", False),
-        "token": token,
-    }
+            "token": token,
+        }
+
+    # 2. Fall back to organization lookup (for users logging in with Org ID + password)
+    try:
+        org = verify_org_access(user_id, password)
+        try:
+            ensure_default_rules(org.org_id)
+        except Exception:
+            pass
+        token = create_access_token(
+            subject=org.org_id,
+            extra_claims={
+                "org_id": org.org_id,
+                "employee_id": org.org_id,
+                "is_admin": True,
+                "is_org": True,
+            },
+        )
+        return {
+            "status": "ok",
+            "employee_id": org.org_id,
+            "org_id": org.org_id,
+            "is_admin": True,
+            "is_cyber_head": False,
+            "is_org": True,
+            "token": token,
+        }
+    except SupabaseAuthError:
+        # Both failed: raise descriptive error
+        raise HTTPException(status_code=401, detail=str(emp_exc or "Invalid User ID or password."))
 
 
 # ---------------------------------------------------------------------------
