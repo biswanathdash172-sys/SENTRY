@@ -5,7 +5,12 @@
 # they're tunable in one place without touching code — useful when a judge
 # asks "how did you pick these numbers?" (answer: they're config, not
 # hardcoded magic numbers, and here's exactly where they live).
-
+- name: Run AI Agent test suite
+  working-directory: ai-agent
+  run: |
+    pip install pytest  # Add this line
+    pip install -r requirements.txt
+    pytest tests/ -v
 correlation:
   # Rule-based correlation (rules_engine.py) — the primary, demo-safe path.
   rules_engine:
